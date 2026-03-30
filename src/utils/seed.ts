@@ -23,6 +23,16 @@ export function getPuzzleDay(): number {
 }
 
 /**
+ * Day-of-week difficulty: 1 (Monday/easy) to 5 (Friday/hard).
+ * Weekend days are medium (3).
+ */
+export function getDayDifficulty(): number {
+  const day = new Date().getDay(); // 0=Sun, 1=Mon, ... 6=Sat
+  if (day === 0 || day === 6) return 3; // weekend = medium
+  return day; // Mon=1, Tue=2, Wed=3, Thu=4, Fri=5
+}
+
+/**
  * Simple seeded PRNG (mulberry32).
  * Returns a function that produces deterministic floats in [0, 1).
  */

@@ -9,7 +9,7 @@ import {
   Animated,
 } from 'react-native';
 import ShareButton from '../components/ShareButton';
-import { getDailySeed, seededRandom, getPuzzleDay } from '../utils/seed';
+import { getDailySeed, seededRandom, getPuzzleDay, getDayDifficulty } from '../utils/seed';
 import { loadStats, recordGame, type Stats } from '../utils/stats';
 import StatsModal from '../components/StatsModal';
 
@@ -23,13 +23,20 @@ const PALETTE = [
 ];
 
 const GRID_SIZE = 8;
-const NUM_COLORS = 6;
-const PAR = 20; // par moves — good target for 8x8 with 6 colors
 
-function generateGrid(seed: number): number[][] {
+/** Difficulty-scaled parameters: Monday easy, Friday hard */
+function getDifficultyParams() {
+  const d = getDayDifficulty(); // 1-5
+  const numColors = d <= 2 ? 5 : 6;
+  // Mon=24, Tue=22, Wed=20, Thu=18, Fri=16
+  const par = 24 - (d - 1) * 2;
+  return { numColors, par };
+}
+
+function generateGrid(seed: number, numColors: number): number[][] {
   const rng = seededRandom(seed);
   return Array.from({ length: GRID_SIZE }, () =>
-    Array.from({ length: GRID_SIZE }, () => Math.floor(rng() * NUM_COLORS))
+    Array.from({ length: GRID_SIZE }, () => Math.floor(rng() * numColors))
   );
 }
 
@@ -75,7 +82,8 @@ function isSolved(grid: number[][]): boolean {
 export default function FloodFill() {
   const seed = useMemo(() => getDailySeed(), []);
   const puzzleDay = useMemo(() => getPuzzleDay(), []);
-  const initialGrid = useMemo(() => generateGrid(seed), [seed]);
+  const { numColors, par } = useMemo(() => getDifficultyParams(), []);
+  const initialGrid = useMemo(() => generateGrid(seed, numColors), [seed, numColors]);
   const { width: screenWidth } = useWindowDimensions();
 
   const [grid, setGrid] = useState(() => cloneGrid(initialGrid));
@@ -86,7 +94,7 @@ export default function FloodFill() {
   const [stats, setStats] = useState<Stats | null>(null);
 
   const won = isSolved(grid);
-  const underPar = moves <= PAR;
+  const underPar = moves <= par;
 
   // Bounce animations for picker buttons
   const pickerScales = useRef(
@@ -137,7 +145,7 @@ export default function FloodFill() {
           { iterations: 3 }
         ).start();
         // Record stats
-        recordGame('floodfill', nextMoves, PAR).then((s) => {
+        recordGame('floodfill', nextMoves, par).then((s) => {
           setStats(s);
           setShowStats(true);
         });
@@ -164,7 +172,7 @@ export default function FloodFill() {
     for (let i = 0; i < sequence.length; i += 6) {
       rows.push(sequence.slice(i, i + 6));
     }
-    return `FloodFill Day #${puzzleDay} ${moves}/${PAR} ${underPar ? '\ud83c\udf1f' : '\ud83c\udfaf'}\n${rows.join('\n')}`;
+    return `FloodFill Day #${puzzleDay} ${moves}/${par}${underPar ? '\ud83c\udf1f' : '\ud83c\udfaf'}\n${rows.join('\n')}`;
   }
 
   return (
@@ -178,6 +186,7 @@ export default function FloodFill() {
       </View>
       <Text style={styles.subtitle}>
         Flood the board with one color from the top-left corner
+        {numColors < 6 ? ' \u2022 Easy day' : getDayDifficulty() >= 4 ? ' \u2022 Hard day' : ''}
       </Text>
 
       {/* Move counter */}
@@ -192,7 +201,7 @@ export default function FloodFill() {
         >
           {moves}
         </Text>
-        <Text style={styles.movePar}>Par: {PAR}</Text>
+        <Text style={styles.movePar}>Par: {par}</Text>
       </View>
 
       {/* Grid */}
@@ -241,7 +250,7 @@ export default function FloodFill() {
           <Text style={styles.winText}>
             {underPar
               ? `Under par! ${moves} moves`
-              : `Solved in ${moves} moves (par: ${PAR})`}
+              : `Solved in ${moves} moves (par: ${par})`}
           </Text>
           <ShareButton text={buildShareText()} />
         </View>
@@ -252,7 +261,7 @@ export default function FloodFill() {
         <View style={styles.picker}>
           <Text style={styles.pickerLabel}>Pick a color to flood:</Text>
           <View style={styles.pickerRow}>
-            {PALETTE.map((color, i) => {
+            {PALETTE.slice(0, numColors).map((color, i) => {
               const isCurrentColor = i === grid[0][0];
               return (
                 <Animated.View
@@ -285,7 +294,7 @@ export default function FloodFill() {
           The top-left cell is your starting point. Pick a color below to change
           your region to that color — absorbing all adjacent cells of the new
           color. Keep flooding until the entire board is one color.{'\n\n'}
-          Try to do it in {PAR} moves or fewer!
+          Try to do it in {par} moves or fewer!
         </Text>
       </View>
 
