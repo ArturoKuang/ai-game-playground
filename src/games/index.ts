@@ -9,6 +9,7 @@ import MirrorGrid from './MirrorGrid';
 import TapOut from './TapOut';
 import IceSlide from './IceSlide';
 import DropPop from './DropPop';
+import BitMap from './BitMap';
 
 const games: GameMeta[] = [
   {
@@ -80,6 +81,13 @@ const games: GameMeta[] = [
     emoji: '\ud83c\udfae',
     description: 'Pop groups of matching colors to clear the board',
     component: DropPop,
+  },
+  {
+    id: 'bitmap',
+    name: 'BitMap',
+    emoji: '\ud83d\uddbc\ufe0f',
+    description: 'Decode the pattern from row & column clues',
+    component: BitMap,
   },
 ];
 
