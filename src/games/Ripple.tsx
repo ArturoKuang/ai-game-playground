@@ -20,108 +20,98 @@ import {
 import { loadStats, recordGame, type Stats } from '../utils/stats';
 
 /* ─── Types ─── */
-type Seed = { r: number; c: number; target: number; color: number };
+type SeedInfo = { r: number; c: number; target: number; color: number };
+type Phase = 'placing' | 'animating' | 'result';
 
 /* ─── Constants ─── */
 const SIZE = 5;
 const GAP = 2;
-const NUM_SEEDS = 4;
 
 const PALETTE = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6'];
-const PALETTE_LIGHT = ['#fadbd8', '#d4e6f1', '#d5f5e3', '#fdebd0', '#e8daef'];
+const PALETTE_LIGHT = ['#f5b7b1', '#aed6f1', '#a9dfbf', '#fad7a0', '#d2b4de'];
 const PALETTE_BORDER = ['#c0392b', '#2980b9', '#27ae60', '#e67e22', '#8e44ad'];
 const EMOJI = ['\uD83D\uDFE5', '\uD83D\uDFE6', '\uD83D\uDFE9', '\uD83D\uDFE8', '\uD83D\uDFEA'];
 
 /* ─── Difficulty ─── */
 function getDifficulty() {
-  const d = getDayDifficulty(); // 1-5
-  const numSeeds = d <= 3 ? 4 : 5;
-  const parAttempts = d <= 2 ? 2 : 3;
-  return { numSeeds, parAttempts };
+  const d = getDayDifficulty();
+  const numSeeds = d <= 2 ? 3 : 4;
+  const numBarriers = d <= 1 ? 2 : d <= 3 ? 3 : 4;
+  const parAttempts = d <= 2 ? 3 : 4;
+  return { numSeeds, numBarriers, parAttempts };
 }
 
-/* ─── BFS distances from each seed to every cell ─── */
-function bfsDistances(seeds: { r: number; c: number }[]): number[][][] {
-  const result: number[][][] = [];
-  for (const { r: sr, c: sc } of seeds) {
-    const dist: number[][] = Array.from({ length: SIZE }, () =>
-      Array(SIZE).fill(Infinity),
-    );
-    dist[sr][sc] = 0;
-    const queue: [number, number][] = [[sr, sc]];
-    let head = 0;
-    while (head < queue.length) {
-      const [r, c] = queue[head++];
-      for (const [dr, dc] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
-        const nr = r + dr;
-        const nc = c + dc;
-        if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && dist[nr][nc] === Infinity) {
-          dist[nr][nc] = dist[r][c] + 1;
-          queue.push([nr, nc]);
-        }
-      }
-    }
-    result.push(dist);
-  }
-  return result;
-}
-
-/* ─── Compute territories for a given ordering ─── */
+/* ─── Multi-source BFS territories (simultaneous expansion) ─── */
 function computeTerritories(
-  numSeeds: number,
-  ordering: number[],
-  distances: number[][][],
+  seeds: { r: number; c: number }[],
+  barriers: Set<number>,
 ): { territory: number[][]; sizes: number[] } {
   const territory: number[][] = Array.from({ length: SIZE }, () =>
     Array(SIZE).fill(-1),
   );
-  const headStarts = ordering.map((_, i) => ordering.length - 1 - i);
+  const dist: number[][] = Array.from({ length: SIZE }, () =>
+    Array(SIZE).fill(Infinity),
+  );
 
-  for (let r = 0; r < SIZE; r++) {
-    for (let c = 0; c < SIZE; c++) {
-      let best = -1;
-      let bestEff = Infinity;
-      for (let i = 0; i < ordering.length; i++) {
-        const seedIdx = ordering[i];
-        const eff = distances[seedIdx][r][c] - headStarts[i];
-        if (eff < bestEff || (eff === bestEff && i < best)) {
-          bestEff = eff;
-          best = i;
-        }
+  const queue: [number, number, number][] = [];
+  for (let i = 0; i < seeds.length; i++) {
+    const { r, c } = seeds[i];
+    territory[r][c] = i;
+    dist[r][c] = 0;
+    queue.push([r, c, i]);
+  }
+
+  let head = 0;
+  while (head < queue.length) {
+    const [r, c, seed] = queue[head++];
+    const d = dist[r][c];
+    for (const [dr, dc] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+      const nr = r + dr;
+      const nc = c + dc;
+      if (
+        nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE &&
+        !barriers.has(nr * SIZE + nc) &&
+        dist[nr][nc] > d + 1
+      ) {
+        dist[nr][nc] = d + 1;
+        territory[nr][nc] = seed;
+        queue.push([nr, nc, seed]);
       }
-      territory[r][c] = ordering[best];
     }
   }
 
-  const sizes = new Array(numSeeds).fill(0);
+  const sizes = new Array(seeds.length).fill(0);
   for (let r = 0; r < SIZE; r++)
-    for (let c = 0; c < SIZE; c++) sizes[territory[r][c]]++;
+    for (let c = 0; c < SIZE; c++)
+      if (territory[r][c] >= 0) sizes[territory[r][c]]++;
   return { territory, sizes };
 }
 
-/* ─── Count valid orderings (for uniqueness check) ─── */
+/* ─── Count valid barrier placements (solution count) ─── */
 function countSolutions(
-  numSeeds: number,
+  seeds: { r: number; c: number }[],
+  numBarriers: number,
   targets: number[],
-  distances: number[][][],
 ): number {
+  const seedSet = new Set(seeds.map((s) => s.r * SIZE + s.c));
+  const empties: number[] = [];
+  for (let i = 0; i < SIZE * SIZE; i++) if (!seedSet.has(i)) empties.push(i);
+
   let count = 0;
-  function permute(ordering: number[], remaining: number[]) {
-    if (remaining.length === 0) {
-      const { sizes } = computeTerritories(numSeeds, ordering, distances);
+  function search(idx: number, chosen: number[]) {
+    if (chosen.length === numBarriers) {
+      const bs = new Set(chosen);
+      const { sizes } = computeTerritories(seeds, bs);
       if (sizes.every((s, i) => s === targets[i])) count++;
-      if (count > 3) return; // early exit — too many solutions
       return;
     }
-    for (let i = 0; i < remaining.length; i++) {
-      permute(
-        [...ordering, remaining[i]],
-        [...remaining.slice(0, i), ...remaining.slice(i + 1)],
-      );
-      if (count > 3) return;
+    if (count > 4) return;
+    for (let i = idx; i < empties.length; i++) {
+      search(i + 1, [...chosen, empties[i]]);
+      if (count > 4) return;
     }
   }
-  permute([], Array.from({ length: numSeeds }, (_, i) => i));
+  search(0, []);
   return count;
 }
 
@@ -129,105 +119,120 @@ function countSolutions(
 function generatePuzzle(
   seed: number,
   numSeeds: number,
-): { seeds: Seed[]; distances: number[][][]; solutionOrder: number[] } {
-  for (let attempt = 0; attempt < 200; attempt++) {
+  numBarriers: number,
+): { seeds: SeedInfo[]; solutionBarriers: number[] } {
+  for (let attempt = 0; attempt < 300; attempt++) {
     const rng = seededRandom(seed + attempt * 7919);
 
-    // Place seeds with minimum Manhattan distance 2
+    // Place seeds with min distance 2
     const positions: { r: number; c: number }[] = [];
-    for (let tries = 0; tries < 500 && positions.length < numSeeds; tries++) {
+    for (let t = 0; t < 500 && positions.length < numSeeds; t++) {
       const r = Math.floor(rng() * SIZE);
       const c = Math.floor(rng() * SIZE);
-      const tooClose = positions.some(
-        (p) => Math.abs(r - p.r) + Math.abs(c - p.c) < 2,
-      );
-      if (!tooClose) positions.push({ r, c });
+      if (positions.some((p) => Math.abs(r - p.r) + Math.abs(c - p.c) < 2))
+        continue;
+      positions.push({ r, c });
     }
     if (positions.length < numSeeds) continue;
 
-    const distances = bfsDistances(positions);
+    const seedSet = new Set(positions.map((p) => p.r * SIZE + p.c));
 
-    // Random ordering as the solution
-    const order = Array.from({ length: numSeeds }, (_, i) => i);
-    for (let i = order.length - 1; i > 0; i--) {
+    // Natural territories (no barriers)
+    const { sizes: naturalSizes } = computeTerritories(
+      positions,
+      new Set(),
+    );
+
+    // Pick random barrier cells
+    const empties: number[] = [];
+    for (let i = 0; i < SIZE * SIZE; i++) if (!seedSet.has(i)) empties.push(i);
+    for (let i = empties.length - 1; i > 0; i--) {
       const j = Math.floor(rng() * (i + 1));
-      [order[i], order[j]] = [order[j], order[i]];
+      [empties[i], empties[j]] = [empties[j], empties[i]];
     }
+    const barriers = empties.slice(0, numBarriers);
+    const barrierSet = new Set(barriers);
 
-    const { sizes } = computeTerritories(numSeeds, order, distances);
+    // Compute territories WITH barriers
+    const { sizes } = computeTerritories(positions, barrierSet);
 
     // Reject if any seed has 0 territory
     if (sizes.some((s) => s === 0)) continue;
 
-    // Reject if all territories are the same (trivial — any ordering works)
-    if (sizes.every((s) => s === sizes[0])) continue;
+    // Reject if barriers don't change anything
+    if (sizes.every((s, i) => s === naturalSizes[i])) continue;
 
-    // Count solutions (want 1-2 valid orderings)
-    const targets = sizes;
-    const solCount = countSolutions(numSeeds, targets, distances);
-    if (solCount < 1 || solCount > 2) continue;
+    // Check solution count (want 1-3)
+    const solCount = countSolutions(positions, numBarriers, sizes);
+    if (solCount < 1 || solCount > 3) continue;
 
     return {
       seeds: positions.map((p, i) => ({
         ...p,
-        target: targets[i],
+        target: sizes[i],
         color: i,
       })),
-      distances,
-      solutionOrder: order,
+      solutionBarriers: barriers,
     };
   }
 
-  // Fallback: corners with a known ordering
+  // Fallback
   const positions = [
     { r: 0, c: 0 },
     { r: 0, c: 4 },
     { r: 4, c: 0 },
-    { r: 4, c: 4 },
   ].slice(0, numSeeds);
-  const distances = bfsDistances(positions);
-  const order = Array.from({ length: numSeeds }, (_, i) => i);
-  const { sizes } = computeTerritories(numSeeds, order, distances);
+  const { sizes } = computeTerritories(positions, new Set([12]));
   return {
     seeds: positions.map((p, i) => ({ ...p, target: sizes[i], color: i })),
-    distances,
-    solutionOrder: order,
+    solutionBarriers: [12],
   };
 }
 
-/* ─── Build step-by-step animation frames ─── */
-function buildAnimationFrames(
-  numSeeds: number,
-  ordering: number[],
-  distances: number[][][],
+/* ─── Build animation frames (simultaneous BFS, step by step) ─── */
+function buildAnimFrames(
+  seeds: { r: number; c: number }[],
+  barriers: Set<number>,
 ): number[][][] {
-  const maxDist = SIZE * 2;
-  const headStarts = ordering.map((_, i) => ordering.length - 1 - i);
   const frames: number[][][] = [];
+  const territory: number[][] = Array.from({ length: SIZE }, () =>
+    Array(SIZE).fill(-1),
+  );
+  const dist: number[][] = Array.from({ length: SIZE }, () =>
+    Array(SIZE).fill(Infinity),
+  );
 
-  for (let step = 0; step <= maxDist + numSeeds; step++) {
-    const frame: number[][] = Array.from({ length: SIZE }, () =>
-      Array(SIZE).fill(-1),
-    );
-    for (let r = 0; r < SIZE; r++) {
-      for (let c = 0; c < SIZE; c++) {
-        let best = -1;
-        let bestEff = Infinity;
-        for (let i = 0; i < ordering.length; i++) {
-          const seedIdx = ordering[i];
-          const eff = distances[seedIdx][r][c] - headStarts[i];
-          if (eff <= step && (eff < bestEff || (eff === bestEff && i < best))) {
-            bestEff = eff;
-            best = i;
-          }
+  // BFS level by level
+  type Entry = [number, number, number]; // r, c, seedIdx
+  let current: Entry[] = [];
+  for (let i = 0; i < seeds.length; i++) {
+    const { r, c } = seeds[i];
+    territory[r][c] = i;
+    dist[r][c] = 0;
+    current.push([r, c, i]);
+  }
+  frames.push(territory.map((row) => [...row]));
+
+  while (current.length > 0) {
+    const next: Entry[] = [];
+    for (const [r, c, seed] of current) {
+      const d = dist[r][c];
+      for (const [dr, dc] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+        const nr = r + dr;
+        const nc = c + dc;
+        if (
+          nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE &&
+          !barriers.has(nr * SIZE + nc) &&
+          dist[nr][nc] > d + 1
+        ) {
+          dist[nr][nc] = d + 1;
+          territory[nr][nc] = seed;
+          next.push([nr, nc, seed]);
         }
-        if (best >= 0) frame[r][c] = ordering[best];
       }
     }
-    frames.push(frame);
-
-    // Stop when fully filled
-    if (frame.every((row) => row.every((c) => c >= 0))) break;
+    if (next.length > 0) frames.push(territory.map((row) => [...row]));
+    current = next;
   }
   return frames;
 }
@@ -240,8 +245,8 @@ export default function Ripple() {
   const puzzleDay = useMemo(() => getPuzzleDay(), []);
   const diff = useMemo(() => getDifficulty(), []);
   const puzzle = useMemo(
-    () => generatePuzzle(seed, diff.numSeeds),
-    [seed, diff.numSeeds],
+    () => generatePuzzle(seed, diff.numSeeds, diff.numBarriers),
+    [seed, diff.numSeeds, diff.numBarriers],
   );
 
   const { width: screenWidth } = useWindowDimensions();
@@ -249,12 +254,17 @@ export default function Ripple() {
   const cellSize = Math.floor((maxGrid - (SIZE - 1) * GAP) / SIZE);
   const gridWidth = SIZE * cellSize + (SIZE - 1) * GAP;
 
+  const seedSet = useMemo(
+    () => new Set(puzzle.seeds.map((s) => s.r * SIZE + s.c)),
+    [puzzle.seeds],
+  );
+
   /* state */
-  const [ordering, setOrdering] = useState<number[]>([]);
+  const [barriers, setBarriers] = useState<Set<number>>(new Set());
+  const [phase, setPhase] = useState<Phase>('placing');
   const [attempts, setAttempts] = useState(0);
   const [animFrame, setAnimFrame] = useState<number[][] | null>(null);
-  const [animating, setAnimating] = useState(false);
-  const [finalTerritory, setFinalTerritory] = useState<number[][] | null>(null);
+  const [resultTerritory, setResultTerritory] = useState<number[][] | null>(null);
   const [gameOver, setGameOver] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -264,21 +274,36 @@ export default function Ripple() {
   ).current;
   const animTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  /* ─── handle seed tap (ordering phase) ─── */
-  const handleSeedTap = useCallback(
-    (seedIdx: number) => {
-      if (animating || gameOver) return;
-      if (ordering.includes(seedIdx)) return; // already ordered
+  useEffect(() => {
+    return () => {
+      if (animTimerRef.current) clearTimeout(animTimerRef.current);
+    };
+  }, []);
 
-      // Bounce the seed cell
-      const idx = puzzle.seeds[seedIdx].r * SIZE + puzzle.seeds[seedIdx].c;
+  /* ─── tap cell: toggle barrier ─── */
+  const handleCellTap = useCallback(
+    (r: number, c: number) => {
+      if (phase !== 'placing' || gameOver) return;
+      const key = r * SIZE + c;
+      if (seedSet.has(key)) return; // can't place on seeds
+
+      const next = new Set(barriers);
+      if (next.has(key)) {
+        next.delete(key);
+      } else if (next.size < diff.numBarriers) {
+        next.add(key);
+      } else {
+        return; // max barriers placed
+      }
+
+      // Bounce animation
       Animated.sequence([
-        Animated.timing(cellScales[idx], {
-          toValue: 1.2,
+        Animated.timing(cellScales[key], {
+          toValue: 1.15,
           duration: 60,
           useNativeDriver: true,
         }),
-        Animated.spring(cellScales[idx], {
+        Animated.spring(cellScales[key], {
           toValue: 1,
           friction: 3,
           tension: 200,
@@ -286,74 +311,52 @@ export default function Ripple() {
         }),
       ]).start();
 
-      const newOrdering = [...ordering, seedIdx];
-      setOrdering(newOrdering);
-
-      // Auto-launch when all seeds are ordered
-      if (newOrdering.length === diff.numSeeds) {
-        launchWaves(newOrdering);
-      }
+      setBarriers(next);
     },
-    [ordering, animating, gameOver, diff.numSeeds, puzzle, cellScales],
+    [phase, gameOver, barriers, diff.numBarriers, seedSet, cellScales],
   );
 
-  /* ─── launch wave animation ─── */
-  const launchWaves = useCallback(
-    (order: number[]) => {
-      setAnimating(true);
-      const frames = buildAnimationFrames(
-        diff.numSeeds,
-        order,
-        puzzle.distances,
-      );
+  /* ─── launch waves ─── */
+  const handleGo = useCallback(() => {
+    if (barriers.size !== diff.numBarriers) return;
+    setPhase('animating');
 
-      let i = 0;
-      function showFrame() {
-        if (i >= frames.length) {
-          // Animation done — check result
-          const final = frames[frames.length - 1];
-          setFinalTerritory(final);
-          setAnimFrame(null);
-          setAnimating(false);
+    const frames = buildAnimFrames(puzzle.seeds, barriers);
+    let i = 0;
 
-          const { sizes } = computeTerritories(
-            diff.numSeeds,
-            order,
-            puzzle.distances,
-          );
-          const newAttempts = attempts + 1;
-          setAttempts(newAttempts);
+    function showFrame() {
+      if (i >= frames.length) {
+        const final = frames[frames.length - 1];
+        setResultTerritory(final);
+        setAnimFrame(null);
+        setPhase('result');
 
-          if (sizes.every((s, si) => s === puzzle.seeds[si].target)) {
-            setGameOver(true);
-            recordGame('ripple', newAttempts, diff.parAttempts).then((s) => {
-              setStats(s);
-              setShowStats(true);
-            });
-          }
-          return;
+        const { sizes } = computeTerritories(puzzle.seeds, barriers);
+        const newAttempts = attempts + 1;
+        setAttempts(newAttempts);
+
+        if (sizes.every((s, si) => s === puzzle.seeds[si].target)) {
+          setGameOver(true);
+          recordGame('ripple', newAttempts, diff.parAttempts).then((s) => {
+            setStats(s);
+            setShowStats(true);
+          });
         }
-        setAnimFrame(frames[i]);
-        i++;
-        animTimerRef.current = setTimeout(showFrame, 150);
+        return;
       }
-      showFrame();
-    },
-    [diff.numSeeds, diff.parAttempts, puzzle, attempts],
-  );
+      setAnimFrame(frames[i]);
+      i++;
+      animTimerRef.current = setTimeout(showFrame, 180);
+    }
+    showFrame();
+  }, [barriers, diff.numBarriers, diff.parAttempts, puzzle, attempts]);
 
-  /* cleanup timer on unmount */
-  useEffect(() => {
-    return () => {
-      if (animTimerRef.current) clearTimeout(animTimerRef.current);
-    };
-  }, []);
-
-  /* ─── reset for retry ─── */
+  /* ─── retry ─── */
   const handleRetry = useCallback(() => {
-    setOrdering([]);
+    setBarriers(new Set());
     setAnimFrame(null);
-    setFinalTerritory(null);
+    setResultTerritory(null);
+    setPhase('placing');
     cellScales.forEach((s) => s.setValue(1));
   }, [cellScales]);
 
@@ -363,28 +366,32 @@ export default function Ripple() {
     setShowStats(true);
   }, []);
 
-  /* ─── display grid: animation frame > final territory > empty ─── */
-  const displayGrid = animFrame ?? finalTerritory;
-
-  /* ─── check which targets are met ─── */
+  /* ─── target check ─── */
   const targetMet = useMemo(() => {
-    if (!finalTerritory) return null;
+    if (!resultTerritory) return null;
     const sizes = new Array(diff.numSeeds).fill(0);
     for (let r = 0; r < SIZE; r++)
       for (let c = 0; c < SIZE; c++)
-        if (finalTerritory[r][c] >= 0) sizes[finalTerritory[r][c]]++;
+        if (resultTerritory[r][c] >= 0) sizes[resultTerritory[r][c]]++;
     return puzzle.seeds.map((s, i) => sizes[i] === s.target);
-  }, [finalTerritory, puzzle.seeds, diff.numSeeds]);
+  }, [resultTerritory, puzzle.seeds, diff.numSeeds]);
+
+  /* ─── display grid ─── */
+  const displayGrid = animFrame ?? resultTerritory;
 
   /* ─── share text ─── */
   function buildShareText(): string {
-    if (!finalTerritory) return '';
+    if (!resultTerritory) return '';
     const rows: string[] = [];
     for (let r = 0; r < SIZE; r++) {
       let row = '';
       for (let c = 0; c < SIZE; c++) {
-        const owner = finalTerritory[r][c];
-        row += owner >= 0 ? EMOJI[owner] : '\u2B1C';
+        if (barriers.has(r * SIZE + c)) {
+          row += '\u2B1B';
+        } else {
+          const owner = resultTerritory[r][c];
+          row += owner >= 0 ? EMOJI[owner] : '\u2B1C';
+        }
       }
       rows.push(row);
     }
@@ -396,7 +403,7 @@ export default function Ripple() {
         ? attempts === 1
           ? '\u2B50 First try!'
           : `\u2B50 ${attempts} attempts (par ${diff.parAttempts})`
-        : `Solved in ${attempts} attempts (par ${diff.parAttempts})`,
+        : `Solved in ${attempts} (par ${diff.parAttempts})`,
     ].join('\n');
   }
 
@@ -412,14 +419,14 @@ export default function Ripple() {
       </View>
 
       <Text style={styles.subtitle}>
-        Tap seeds in order — first gets the biggest wave!
+        Place barriers to shape each wave's territory!
       </Text>
 
       <View style={styles.infoRow}>
         <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Order</Text>
+          <Text style={styles.infoLabel}>Barriers</Text>
           <Text style={styles.infoValue}>
-            {ordering.length}/{diff.numSeeds}
+            {barriers.size}/{diff.numBarriers}
           </Text>
         </View>
         <View style={styles.infoItem}>
@@ -441,10 +448,9 @@ export default function Ripple() {
         </View>
       </View>
 
-      {/* Seed targets legend */}
+      {/* Seed legend with targets */}
       <View style={styles.legendRow}>
         {puzzle.seeds.map((s, i) => {
-          const ordered = ordering.indexOf(i);
           const met = targetMet ? targetMet[i] : null;
           return (
             <View key={i} style={styles.legendItem}>
@@ -453,11 +459,7 @@ export default function Ripple() {
                   styles.legendDot,
                   { backgroundColor: PALETTE[s.color] },
                 ]}
-              >
-                {ordered >= 0 && (
-                  <Text style={styles.legendOrder}>{ordered + 1}</Text>
-                )}
-              </View>
+              />
               <Text
                 style={[
                   styles.legendTarget,
@@ -465,7 +467,7 @@ export default function Ripple() {
                   met === false && styles.legendMissed,
                 ]}
               >
-                {s.target}
+                {s.target} cells
               </Text>
             </View>
           );
@@ -477,41 +479,47 @@ export default function Ripple() {
         {Array.from({ length: SIZE }).map((_, r) => (
           <View key={r} style={styles.gridRow}>
             {Array.from({ length: SIZE }).map((_, c) => {
-              const idx = r * SIZE + c;
-              const seedIdx = puzzle.seeds.findIndex(
-                (s) => s.r === r && s.c === c,
-              );
-              const isSeed = seedIdx >= 0;
-              const ordered = isSeed ? ordering.indexOf(seedIdx) : -1;
+              const key = r * SIZE + c;
+              const isSeed = seedSet.has(key);
+              const seedIdx = isSeed
+                ? puzzle.seeds.findIndex((s) => s.r === r && s.c === c)
+                : -1;
+              const isBarrier = barriers.has(key);
               const owner = displayGrid ? displayGrid[r][c] : -1;
+
+              let bgColor = '#1a1a1b';
+              let borderColor = '#2a2a2c';
+              let borderWidth = 1;
+
+              if (isBarrier) {
+                bgColor = '#333';
+                borderColor = '#555';
+                borderWidth = 2;
+              } else if (isSeed) {
+                bgColor = PALETTE[puzzle.seeds[seedIdx].color];
+                borderColor = PALETTE_BORDER[puzzle.seeds[seedIdx].color];
+                borderWidth = 3;
+              } else if (owner >= 0 && displayGrid) {
+                bgColor = PALETTE_LIGHT[owner];
+                borderColor = PALETTE_BORDER[owner];
+                borderWidth = 1;
+              }
 
               return (
                 <Animated.View
                   key={c}
-                  style={{ transform: [{ scale: cellScales[idx] }] }}
+                  style={{ transform: [{ scale: cellScales[key] }] }}
                 >
                   <Pressable
-                    onPress={() => isSeed && handleSeedTap(seedIdx)}
+                    onPress={() => handleCellTap(r, c)}
                     style={[
                       styles.cell,
                       {
                         width: cellSize,
                         height: cellSize,
-                        backgroundColor:
-                          owner >= 0
-                            ? isSeed
-                              ? PALETTE[owner]
-                              : PALETTE_LIGHT[owner]
-                            : isSeed
-                              ? PALETTE[puzzle.seeds[seedIdx].color]
-                              : '#1a1a1b',
-                        borderColor:
-                          owner >= 0
-                            ? PALETTE_BORDER[owner]
-                            : isSeed
-                              ? PALETTE_BORDER[puzzle.seeds[seedIdx].color]
-                              : '#2a2a2c',
-                        borderWidth: isSeed ? 3 : 1,
+                        backgroundColor: bgColor,
+                        borderColor,
+                        borderWidth,
                       },
                     ]}
                   >
@@ -520,10 +528,8 @@ export default function Ripple() {
                         {puzzle.seeds[seedIdx].target}
                       </Text>
                     )}
-                    {isSeed && ordered >= 0 && !displayGrid && (
-                      <View style={styles.orderBadge}>
-                        <Text style={styles.orderText}>{ordered + 1}</Text>
-                      </View>
+                    {isBarrier && !displayGrid && (
+                      <Text style={styles.barrierX}>{'\u2716'}</Text>
                     )}
                   </Pressable>
                 </Animated.View>
@@ -533,8 +539,15 @@ export default function Ripple() {
         ))}
       </View>
 
-      {/* Retry button */}
-      {!gameOver && finalTerritory && !animating && (
+      {/* Go button */}
+      {phase === 'placing' && barriers.size === diff.numBarriers && (
+        <Pressable style={styles.goBtn} onPress={handleGo}>
+          <Text style={styles.goBtnText}>Release the waves!</Text>
+        </Pressable>
+      )}
+
+      {/* Retry */}
+      {phase === 'result' && !gameOver && (
         <Pressable style={styles.retryBtn} onPress={handleRetry}>
           <Text style={styles.retryText}>Try again</Text>
         </Pressable>
@@ -551,8 +564,8 @@ export default function Ripple() {
             {attempts === 1
               ? 'First try!'
               : attempts <= diff.parAttempts
-                ? `Solved in ${attempts} attempts \u2014 under par!`
-                : `Solved in ${attempts} attempts (par ${diff.parAttempts})`}
+                ? `Solved in ${attempts} \u2014 under par!`
+                : `Solved in ${attempts} (par ${diff.parAttempts})`}
           </Text>
           <ShareButton text={buildShareText()} />
         </View>
@@ -561,12 +574,12 @@ export default function Ripple() {
       <View style={styles.howTo}>
         <Text style={styles.howToTitle}>How to play</Text>
         <Text style={styles.howToText}>
-          Each colored seed wants to claim a specific number of cells. Tap
-          seeds to set their activation order — the first seed gets the
-          biggest head start and claims the most territory.
+          Each colored seed sends out a wave that claims territory. Waves
+          expand equally in all directions and stop at barriers.
           {'\n\n'}
-          Think about each seed's position and target. Corner seeds need
-          more head start than center seeds!
+          Place {diff.numBarriers} barriers to shape the territories so each
+          seed claims exactly its target number of cells. Tap cells to
+          toggle barriers, then press Go!
         </Text>
       </View>
 
@@ -618,26 +631,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 16,
     marginBottom: 12,
-    alignItems: 'center',
-  },
-  legendItem: { alignItems: 'center', gap: 2 },
-  legendDot: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
+    flexWrap: 'wrap',
     justifyContent: 'center',
   },
-  legendOrder: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  legendTarget: {
-    color: '#818384',
-    fontSize: 13,
-    fontWeight: '700',
-  },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  legendDot: { width: 14, height: 14, borderRadius: 7 },
+  legendTarget: { color: '#818384', fontSize: 13, fontWeight: '600' },
   legendMet: { color: '#2ecc71' },
   legendMissed: { color: '#e74c3c' },
   grid: { gap: GAP },
@@ -648,29 +647,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   seedText: {
-    color: '#ffffff',
+    color: '#fff',
     fontSize: 18,
     fontWeight: '900',
     textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
-  orderBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#f1c40f',
-    alignItems: 'center',
-    justifyContent: 'center',
+  barrierX: { color: '#888', fontSize: 16, fontWeight: '700' },
+  goBtn: {
+    marginTop: 16,
+    backgroundColor: '#6aaa64',
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    borderRadius: 24,
   },
-  orderText: {
-    color: '#000',
-    fontSize: 11,
-    fontWeight: '800',
-  },
+  goBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   retryBtn: {
     marginTop: 16,
     backgroundColor: '#3a3a3c',
