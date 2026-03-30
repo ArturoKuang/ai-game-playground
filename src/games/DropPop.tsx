@@ -11,27 +11,32 @@ import {
 import ShareButton from '../components/ShareButton';
 import StatsModal from '../components/StatsModal';
 import CelebrationBurst from '../components/CelebrationBurst';
-import { getDailySeed, seededRandom, getPuzzleDay } from '../utils/seed';
+import { getDailySeed, seededRandom, getPuzzleDay, getDayDifficulty } from '../utils/seed';
 import { loadStats, recordGame, type Stats } from '../utils/stats';
 
 /* ─── Constants ─── */
 const ROWS = 8;
 const COLS = 6;
-const NUM_COLORS = 4;
 const GAP = 2;
-const PAR = 4; // tiles remaining
 
-const COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f'];
-const COLOR_BORDERS = ['#c0392b', '#2980b9', '#27ae60', '#f39c12'];
-const COLOR_EMOJI = ['\ud83d\udfe5', '\ud83d\udfe6', '\ud83d\udfe9', '\ud83d\udfe8'];
+const ALL_COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6'];
+const ALL_BORDERS = ['#c0392b', '#2980b9', '#27ae60', '#f39c12', '#8e44ad'];
+const ALL_EMOJI = ['\ud83d\udfe5', '\ud83d\udfe6', '\ud83d\udfe9', '\ud83d\udfe8', '\ud83d\udfea'];
+
+function getDifficulty() {
+  const d = getDayDifficulty(); // 1 (Mon) to 5 (Fri)
+  const numColors = 3 + Math.floor((d - 1) / 2); // Mon-Tue: 3, Wed-Thu: 4, Fri: 5
+  const par = 8 - d; // Mon: 7, Fri: 3
+  return { numColors, par };
+}
 
 type Board = (number | null)[][];
 
 /* ─── Board generation ─── */
-function generateBoard(seed: number): Board {
+function generateBoard(seed: number, numColors: number): Board {
   const rng = seededRandom(seed);
   return Array.from({ length: ROWS }, () =>
-    Array.from({ length: COLS }, () => Math.floor(rng() * NUM_COLORS))
+    Array.from({ length: COLS }, () => Math.floor(rng() * numColors))
   );
 }
 
@@ -124,7 +129,8 @@ function countRemaining(board: Board): number {
 export default function DropPop() {
   const seed = useMemo(() => getDailySeed(), []);
   const puzzleDay = useMemo(() => getPuzzleDay(), []);
-  const initialBoard = useMemo(() => generateBoard(seed), [seed]);
+  const diff = useMemo(() => getDifficulty(), []);
+  const initialBoard = useMemo(() => generateBoard(seed, diff.numColors), [seed, diff.numColors]);
 
   const { width: screenWidth } = useWindowDimensions();
   const maxWidth = Math.min(screenWidth - 48, 360);
@@ -140,8 +146,7 @@ export default function DropPop() {
   const [gameOver, setGameOver] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
-  const [boardHistory, setBoardHistory] = useState<Board[]>([]);
-  const [popsHistory, setPopsHistory] = useState<number[]>([]);
+  const [biggestPop, setBiggestPop] = useState(0);
 
   const remaining = useMemo(() => countRemaining(board), [board]);
   const noMoves = useMemo(() => !hasValidMoves(board), [board]);
@@ -197,10 +202,6 @@ export default function DropPop() {
       });
 
       Animated.parallel(bounceAnims).start(() => {
-        // Save history for undo
-        setBoardHistory((h) => [...h, board.map((row) => [...row])]);
-        setPopsHistory((h) => [...h, pops]);
-
         // Pop: remove cells, gravity, compact
         const newBoard = board.map((row) => [...row]);
         for (const [gr, gc] of group) {
@@ -211,29 +212,22 @@ export default function DropPop() {
 
         setBoard(afterCompact);
         setPops((p) => p + 1);
+        setBiggestPop((prev) => Math.max(prev, group.length));
         setHighlighted(new Set());
 
         // Check game over
         if (!hasValidMoves(afterCompact)) {
           const rem = countRemaining(afterCompact);
           setGameOver(true);
-          recordGame('droppop', rem, PAR).then((s) => {
+          recordGame('droppop', rem, diff.par).then((s) => {
             setStats(s);
             setShowStats(true);
           });
         }
       });
     },
-    [board, gameOver, cellScales, pops]
+    [board, gameOver, cellScales, diff.par]
   );
-
-  const handleUndo = useCallback(() => {
-    if (boardHistory.length === 0 || gameOver) return;
-    setBoard(boardHistory[boardHistory.length - 1]);
-    setPops(popsHistory[popsHistory.length - 1]);
-    setBoardHistory((h) => h.slice(0, -1));
-    setPopsHistory((h) => h.slice(0, -1));
-  }, [boardHistory, popsHistory, gameOver]);
 
   const handleShowStats = useCallback(async () => {
     const s = await loadStats('droppop');
@@ -242,14 +236,26 @@ export default function DropPop() {
   }, []);
 
   function buildShareText(): string {
-    const under = remaining <= PAR;
-    const popIcons = '\ud83d\udca5'.repeat(Math.min(pops, 20));
-    return `DropPop Day #${puzzleDay} \ud83c\udfae\n${remaining} tiles left (par: ${PAR})\n${popIcons}\n${
+    const total = ROWS * COLS;
+    const cleared = total - remaining;
+    const pct = Math.round((cleared / total) * 100);
+    const under = remaining <= diff.par;
+    // Build a mini 4-row board snapshot from the final state
+    const snapRows: string[] = [];
+    for (let r = ROWS - 4; r < ROWS; r++) {
+      let row = '';
+      for (let c = 0; c < COLS; c++) {
+        const v = board[r][c];
+        row += v !== null ? ALL_EMOJI[v] : '\u2b1c';
+      }
+      snapRows.push(row);
+    }
+    return `DropPop Day #${puzzleDay} \ud83c\udfae\n${remaining} left | ${pops} pops | best pop: ${biggestPop}\n${snapRows.join('\n')}\n${
       under
         ? remaining === 0
           ? '\u2b50 Perfect clear!'
-          : '\u2b50 Under par!'
-        : `Cleared ${48 - remaining}/48`
+          : `\u2b50 Under par (${diff.par})!`
+        : `${pct}% cleared`
     }`;
   }
 
@@ -272,8 +278,8 @@ export default function DropPop() {
           <Text
             style={[
               styles.infoValue,
-              gameOver && remaining <= PAR && styles.infoValueGood,
-              gameOver && remaining > PAR && styles.infoValueOver,
+              gameOver && remaining <= diff.par && styles.infoValueGood,
+              gameOver && remaining > diff.par && styles.infoValueOver,
             ]}
           >
             {remaining}
@@ -285,7 +291,7 @@ export default function DropPop() {
         </View>
         <View style={styles.infoItem}>
           <Text style={styles.infoLabel}>Par</Text>
-          <Text style={styles.infoPar}>{'\u2264'}{PAR} left</Text>
+          <Text style={styles.infoPar}>{'\u2264'}{diff.par} left</Text>
         </View>
       </View>
 
@@ -324,10 +330,10 @@ export default function DropPop() {
                         height: cellSize,
                         backgroundColor: isHighlighted
                           ? '#ffffff'
-                          : COLORS[color],
+                          : ALL_COLORS[color],
                         borderColor: isHighlighted
                           ? '#ffffff'
-                          : COLOR_BORDERS[color],
+                          : ALL_BORDERS[color],
                       },
                     ]}
                   />
@@ -338,38 +344,23 @@ export default function DropPop() {
         ))}
       </View>
 
-      {/* Undo */}
-      {!gameOver && boardHistory.length > 0 && (
-        <Pressable style={styles.undoBtn} onPress={handleUndo}>
-          <Text style={styles.undoBtnText}>Undo</Text>
-        </Pressable>
-      )}
-
-      {/* Game over / no moves */}
-      {(gameOver || noMoves) && !gameOver && (
-        <View style={styles.winMessage}>
-          <Text style={styles.winEmoji}>{'\ud83d\udea7'}</Text>
-          <Text style={styles.winText}>No more moves!</Text>
-        </View>
-      )}
-
-      <CelebrationBurst show={gameOver && remaining <= PAR} />
+      <CelebrationBurst show={gameOver && remaining <= diff.par} />
 
       {gameOver && (
         <View style={styles.winMessage}>
           <Text style={styles.winEmoji}>
             {remaining === 0
               ? '\ud83c\udf1f'
-              : remaining <= PAR
+              : remaining <= diff.par
                 ? '\u2b50'
                 : '\ud83c\udfae'}
           </Text>
           <Text style={styles.winText}>
             {remaining === 0
               ? 'Perfect clear!'
-              : remaining <= PAR
+              : remaining <= diff.par
                 ? `Under par! ${remaining} left`
-                : `${remaining} tiles remaining (par: ${PAR})`}
+                : `${remaining} tiles remaining (par: \u2264${diff.par})`}
           </Text>
           <ShareButton text={buildShareText()} />
         </View>
@@ -378,10 +369,10 @@ export default function DropPop() {
       <View style={styles.howTo}>
         <Text style={styles.howToTitle}>How to play</Text>
         <Text style={styles.howToText}>
-          Tap a group of 2 or more connected same-colored tiles to pop them.
-          Tiles above fall down to fill gaps. Empty columns compact left.
+          Tap a group of 2+ connected same-colored tiles to pop them.
+          Tiles fall down; empty columns compact left. No undo!
           {'\n\n'}
-          Clear as many tiles as possible. Par: {PAR} or fewer remaining.
+          Clear as many tiles as possible. Par: {diff.par} or fewer remaining.
         </Text>
       </View>
 
@@ -449,18 +440,6 @@ const styles = StyleSheet.create({
   emptyCell: {
     borderRadius: 8,
     backgroundColor: 'transparent',
-  },
-  undoBtn: {
-    backgroundColor: '#3a3a3c',
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginTop: 16,
-  },
-  undoBtnText: {
-    color: '#ffffff',
-    fontWeight: '600',
-    fontSize: 14,
   },
   winMessage: {
     alignItems: 'center',
