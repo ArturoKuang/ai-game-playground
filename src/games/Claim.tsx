@@ -116,6 +116,7 @@ export default function Claim() {
     () => optimalSolve(initialGrid, diff.numPicks),
     [initialGrid, diff.numPicks],
   );
+  const minScore = Math.ceil(par * 0.6);
 
   const { width: screenWidth } = useWindowDimensions();
   const maxGrid = Math.min(screenWidth - 48, 340);
@@ -248,12 +249,15 @@ export default function Claim() {
       }
       rows.push(row);
     }
-    const beat = score >= par;
     return [
       `Claim Day #${puzzleDay} \uD83C\uDFC6`,
       rows.join('\n'),
       `Score: ${score} (par ${par})`,
-      beat ? '\u2B50 Beat par!' : `${par - score} short of par`,
+      score >= par
+        ? '\u2B50 Beat par!'
+        : score >= minScore
+          ? `${par - score} short of par`
+          : `\uD83D\uDCA8 Below minimum (${minScore})`,
     ].join('\n');
   }
 
@@ -284,14 +288,15 @@ export default function Claim() {
             style={[
               styles.infoValue,
               gameOver && score >= par && styles.infoValueGood,
+              gameOver && score < minScore && styles.infoValueBad,
             ]}
           >
             {score}
           </Text>
         </View>
         <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Par</Text>
-          <Text style={styles.infoPar}>{par}</Text>
+          <Text style={styles.infoLabel}>Min / Par</Text>
+          <Text style={styles.infoPar}>{minScore} / {par}</Text>
         </View>
       </View>
 
@@ -380,12 +385,18 @@ export default function Claim() {
       {gameOver && (
         <View style={styles.winMessage}>
           <Text style={styles.winEmoji}>
-            {score >= par ? '\u2B50' : '\uD83C\uDFC6'}
+            {score >= par
+              ? '\u2B50'
+              : score >= minScore
+                ? '\uD83C\uDFC6'
+                : '\uD83D\uDCA8'}
           </Text>
           <Text style={styles.winText}>
             {score >= par
               ? `Score ${score} \u2014 beat par (${par})!`
-              : `Score ${score} (par ${par})`}
+              : score >= minScore
+                ? `Score ${score} \u2014 passed! (par ${par})`
+                : `Score ${score} \u2014 below minimum (${minScore})`}
           </Text>
           <ShareButton text={buildShareText()} />
         </View>
@@ -445,6 +456,7 @@ const styles = StyleSheet.create({
   infoLabel: { color: '#818384', fontSize: 12 },
   infoValue: { color: '#ffffff', fontSize: 24, fontWeight: '800' },
   infoValueGood: { color: '#2ecc71' },
+  infoValueBad: { color: '#e74c3c' },
   infoPar: { color: '#818384', fontSize: 14, marginTop: 2 },
   grid: { gap: GAP },
   gridRow: { flexDirection: 'row', gap: GAP },
