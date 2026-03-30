@@ -127,6 +127,29 @@ export default function PathWeaver() {
   const reachedEnd =
     head.r === puzzle.end.r && head.c === puzzle.end.c;
   const won = reachedEnd && path.length === TOTAL_CELLS;
+
+  // Bottleneck detection: unvisited cells with exactly 1 unvisited neighbor
+  const bottleneckSet = useMemo(() => {
+    if (won) return new Set<string>();
+    const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+    const bset = new Set<string>();
+    for (let r = 0; r < GRID_SIZE; r++) {
+      for (let c = 0; c < GRID_SIZE; c++) {
+        if (visited.has(cellKey(r, c))) continue;
+        let freeNeighbors = 0;
+        for (const [dr, dc] of dirs) {
+          const nr = r + dr;
+          const nc = c + dc;
+          if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE && !visited.has(cellKey(nr, nc)))
+            freeNeighbors++;
+        }
+        // Also count the path head as a free neighbor (it can extend to this cell)
+        if (areAdjacent(head, { r, c })) freeNeighbors++;
+        if (freeNeighbors === 1) bset.add(cellKey(r, c));
+      }
+    }
+    return bset;
+  }, [visited, head, won]);
   const stuck =
     !won &&
     !['up', 'down', 'left', 'right'].some((dir) => {
@@ -243,11 +266,13 @@ export default function PathWeaver() {
     const isEnd = r === puzzle.end.r && c === puzzle.end.c;
     const isHead = r === head.r && c === head.c;
     const isVisited = visited.has(cellKey(r, c));
+    const isBottleneck = bottleneckSet.has(cellKey(r, c));
 
     if (isHead && !won) return '#3498db';
     if (isStart) return '#2ecc71';
     if (isEnd) return '#e74c3c';
     if (isVisited) return '#6aaa64';
+    if (isBottleneck) return '#3d2a1a'; // warm dark amber tint
     return '#2c2c2e';
   }
 
@@ -306,6 +331,10 @@ export default function PathWeaver() {
           <View style={[styles.legendDot, { backgroundColor: '#3498db' }]} />
           <Text style={styles.legendText}>You</Text>
         </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: '#e67e22' }]} />
+          <Text style={styles.legendText}>Urgent</Text>
+        </View>
       </View>
 
       {/* Grid */}
@@ -332,9 +361,11 @@ export default function PathWeaver() {
                       },
                     ]}
                   >
-                    {num && (
+                    {num ? (
                       <Text style={styles.cellNum}>{num}</Text>
-                    )}
+                    ) : bottleneckSet.has(cellKey(r, c)) ? (
+                      <View style={[styles.bottleneckDot, { width: cellSize * 0.2, height: cellSize * 0.2, borderRadius: cellSize * 0.1 }]} />
+                    ) : null}
                   </Pressable>
                 </Animated.View>
               );
@@ -464,6 +495,9 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '700',
     fontSize: 14,
+  },
+  bottleneckDot: {
+    backgroundColor: '#e67e22',
   },
   stuckMsg: {
     marginTop: 12,
