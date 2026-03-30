@@ -30,3 +30,4 @@ e294a89	6	2	2	0	1	0	1	1	1	1	0	1	killed	TapOut	Killed — pure reflex, zero strat
 e294a89	1	2	2	0	0	0	1	0	1	1	0	2	killed	MirrorGrid	Killed — red borders solve the puzzle for you. No decisions, no failure possible, trivially solved.
 3b81ea4	17	2	2	2	2	1	2	2	1	2	1	0	iterate	DropPop	Remove undo + day-of-week difficulty (3-5 colors). Weakest: uniqueness (still SameGame-like) and aha moments. Next: add combo multiplier for consecutive pops that form chains.
 b717755	18	2	2	2	2	1	2	2	2	2	1	0	keep	ChainPop	3 taps (was 1) + day-of-week bubbles (17-25). Weakest: one-more-day pull and aha moments. Multi-tap creates real strategy around timing and prioritization.
+012a2df	20	2	2	2	2	2	2	2	2	2	2	0	keep	PathWeaver	Guaranteed solvability via DFS + bounce animations + day-of-week par (Mon 5, Fri 1). Weakest: none below 2. Arrow grid share text is distinctive.
