@@ -31,7 +31,7 @@ Each pattern includes: what to do, why it works, evidence, and which rubric dime
 
 **Affects**: d3 (decisions) +1, d10 (aha) +1
 
-**How to apply**: For any game where the player makes a choice, ask: "Can I show what each option does before they commit?" If yes, show it. If showing the full answer trivializes the game (see A3), show partial info.
+**How to apply**: For any game where the player makes a choice, ask: "Can I show what each option does before they commit?" If yes, show it. If showing the full answer trivializes the game (see A3), show partial info. **Caveat (P9)**: P1 only helps when the puzzle has enough decision axes for comparison. Landing dots on a 1-gem IceSlide puzzle were neutral (16→16, `4089331`) because there was only one viable path to compare against.
 
 ---
 
@@ -164,6 +164,22 @@ Animated.sequence([
 **Affects**: d3 (decisions) +1, d7 (skill ceiling) +1, d10 (aha) +1
 
 **How to apply**: Wherever a player can choose between multiple small actions or one big action, make the big action disproportionately rewarding. Show the point values in the preview (P1) so players can reason about the tradeoff.
+
+---
+
+### P9: Minimum Decision Complexity Floor (Even on Easy Days)
+
+**What**: Even the easiest (Monday) puzzle must have at least 2 independent decision axes — e.g., 2 collectibles that create route-order choices.
+
+**Why**: P1 (pre-commitment info) and P4 (day-of-week difficulty) become meaningless when the puzzle only has one viable path. Showing all options doesn't help if there's nothing to compare. Monday should be easy to *solve*, but the player should still face "which order?" or "which route?" choices.
+
+**Evidence**:
+- IceSlide 1 gem Mon: 16/30 (`8c2ed21`, `4089331`). Landing previews + gems both scored d3=1 — one gem = one path. Two independent reviewers confirmed.
+- IceSlide 2 gems Mon: 18/30 (`a9d8c5c`). d3 jumped 1→2. Same mechanics, but 2 gems = genuine route comparison.
+
+**Affects**: d3 (decisions) +1, d4 (tension) +1, d7 (skill ceiling) +1
+
+**How to apply**: Before shipping, check: on the easiest seed, are there 2+ genuinely different strategies? If not, increase the minimum constraint count. Scale *difficulty* with day-of-week, but never scale below the decision floor.
 
 ---
 

@@ -315,7 +315,7 @@ The only hard rules:
 | PathWeaver | Guaranteed-solvable Hamiltonian path             | 67/100 | Active |
 | BounceOut  | Aim ball, predict bounces (short aim line)       | 63/100 | Active |
 | DropPop    | Two-tap select-then-pop, quadratic scoring       | 63/100 | Active |
-| IceSlide   | Slide puck on ice to reach goal via wall bounces | 63/100 | Active |
+| IceSlide   | Collect gems (stopping points) + slide to goal    | 18/30  | Active |
 | ChainPop   | 3 taps, chain reactions on floating bubbles      | 60/100 | Active |
 
 ## Architecture
