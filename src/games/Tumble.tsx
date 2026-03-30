@@ -280,31 +280,30 @@ export default function Tumble() {
 
   const remaining = useMemo(() => countTiles(board), [board]);
 
-  /* pop-count per direction (P1 preview numbers) */
-  const popCounts = useMemo(() => {
+  const moveLimit = generated.par + 2;
+
+  /* which directions actually move tiles? (no pop-count spoilers) */
+  const dirMoves = useMemo(() => {
     if (gameOver || stuck)
-      return { up: 0, down: 0, left: 0, right: 0 } as Record<
+      return { up: false, down: false, left: false, right: false } as Record<
         Direction,
-        number
+        boolean
       >;
-    const counts = {} as Record<Direction, number>;
-    for (const d of DIRECTIONS) counts[d] = simulateMove(board, d).popped;
-    return counts;
+    const bk = boardKey(board);
+    const moves = {} as Record<Direction, boolean>;
+    for (const d of DIRECTIONS)
+      moves[d] = boardKey(applyGravity(board, d)) !== bk;
+    return moves;
   }, [board, gameOver, stuck]);
 
-  /* preview board + highlighted groups when direction selected */
-  const previewData = useMemo(() => {
+  /* preview board (gravity-shifted, NO group highlighting) */
+  const previewBoard = useMemo(() => {
     if (!selectedDir) return null;
-    const previewBoard = applyGravity(board, selectedDir);
-    const groups = findGroups(previewBoard);
-    const hl = new Set<number>();
-    for (const g of groups) for (const [r, c] of g) hl.add(r * SIZE + c);
-    return { previewBoard, hl };
+    return applyGravity(board, selectedDir);
   }, [selectedDir, board]);
 
-  const displayBoard = previewData ? previewData.previewBoard : board;
-  const highlightSet = previewData ? previewData.hl : new Set<number>();
-  const isPreview = !!previewData;
+  const displayBoard = previewBoard ?? board;
+  const isPreview = !!previewBoard;
 
   /* cell scale animations */
   const cellScales = useRef(
@@ -314,36 +313,15 @@ export default function Tumble() {
   /* ─── execute a confirmed move ─── */
   const executeMove = useCallback(
     (dir: Direction) => {
+      const afterGravity = applyGravity(board, dir);
+      if (boardKey(afterGravity) === boardKey(board)) return; // true no-op
+
       const { result, popped } = simulateMove(board, dir);
-      if (popped === 0) return;
-
-      const previewBoard = applyGravity(board, dir);
-      const groups = findGroups(previewBoard);
-      const popIndices: number[] = [];
-      for (const g of groups)
-        for (const [r, c] of g) popIndices.push(r * SIZE + c);
-
-      setAnimating(true);
-
-      const anims = popIndices.map((idx) =>
-        Animated.sequence([
-          Animated.timing(cellScales[idx], {
-            toValue: 1.3,
-            duration: 80,
-            useNativeDriver: true,
-          }),
-          Animated.timing(cellScales[idx], {
-            toValue: 0,
-            duration: 120,
-            useNativeDriver: true,
-          }),
-        ]),
-      );
-
       const newFlips = flips + 1;
       const newHistory = [...moveHistory, dir];
+      const limit = generated.par + 2;
 
-      Animated.parallel(anims).start(() => {
+      const finish = () => {
         cellScales.forEach((s) => s.setValue(1));
         setBoard(result);
         setFlips(newFlips);
@@ -351,16 +329,48 @@ export default function Tumble() {
         setSelectedDir(null);
         setAnimating(false);
 
-        if (countTiles(result) === 0) {
+        const rem = countTiles(result);
+        if (rem === 0) {
           setGameOver(true);
           recordGame('tumble', newFlips, generated.par).then((s) => {
             setStats(s);
             setShowStats(true);
           });
+        } else if (newFlips >= limit) {
+          setStuck(true); // out of moves
         } else if (!hasAnyMove(result)) {
           setStuck(true);
         }
-      });
+      };
+
+      if (popped > 0) {
+        // Animate popping tiles
+        const groups = findGroups(afterGravity);
+        const popIndices: number[] = [];
+        for (const g of groups)
+          for (const [r, c] of g) popIndices.push(r * SIZE + c);
+
+        setAnimating(true);
+        Animated.parallel(
+          popIndices.map((idx) =>
+            Animated.sequence([
+              Animated.timing(cellScales[idx], {
+                toValue: 1.3,
+                duration: 80,
+                useNativeDriver: true,
+              }),
+              Animated.timing(cellScales[idx], {
+                toValue: 0,
+                duration: 120,
+                useNativeDriver: true,
+              }),
+            ]),
+          ),
+        ).start(finish);
+      } else {
+        // No pops — gravity rearranged but nothing matched. Still costs a flip.
+        finish();
+      }
     },
     [board, flips, moveHistory, cellScales, generated.par],
   );
@@ -369,14 +379,14 @@ export default function Tumble() {
   const handleDirPress = useCallback(
     (dir: Direction) => {
       if (gameOver || stuck || animating) return;
-      if (popCounts[dir] === 0) return;
+      if (!dirMoves[dir]) return;
       if (selectedDir === dir) {
         executeMove(dir);
       } else {
         setSelectedDir(dir);
       }
     },
-    [gameOver, stuck, animating, popCounts, selectedDir, executeMove],
+    [gameOver, stuck, animating, dirMoves, selectedDir, executeMove],
   );
 
   /* ─── restart ─── */
@@ -424,7 +434,7 @@ export default function Tumble() {
 
   /* ─── arrow button renderer ─── */
   function ArrowBtn({ dir }: { dir: Direction }) {
-    const disabled = popCounts[dir] === 0;
+    const disabled = !dirMoves[dir];
     const selected = selectedDir === dir;
     return (
       <Pressable
@@ -437,9 +447,6 @@ export default function Tumble() {
         ]}
       >
         <Text style={styles.arrowEmoji}>{DIR_EMOJI[dir]}</Text>
-        {!disabled && (
-          <Text style={styles.arrowCount}>{popCounts[dir]}</Text>
-        )}
       </Pressable>
     );
   }
@@ -461,8 +468,15 @@ export default function Tumble() {
 
       <View style={styles.infoRow}>
         <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Flips</Text>
-          <Text style={styles.infoValue}>{flips}</Text>
+          <Text style={styles.infoLabel}>Moves</Text>
+          <Text
+            style={[
+              styles.infoValue,
+              flips >= moveLimit && styles.infoValueBad,
+            ]}
+          >
+            {flips}/{moveLimit}
+          </Text>
         </View>
         <View style={styles.infoItem}>
           <Text style={styles.infoLabel}>Left</Text>
@@ -494,7 +508,6 @@ export default function Tumble() {
                 {Array.from({ length: SIZE }).map((_, c) => {
                   const color = displayBoard[r][c];
                   const idx = r * SIZE + c;
-                  const hl = highlightSet.has(idx);
 
                   if (color === null) {
                     return (
@@ -519,9 +532,10 @@ export default function Tumble() {
                           {
                             width: cellSize,
                             height: cellSize,
-                            backgroundColor: hl ? '#fff' : COLORS[color],
-                            borderColor: hl ? '#f1c40f' : BORDERS[color],
-                            opacity: isPreview && !hl ? 0.55 : 1,
+                            backgroundColor: COLORS[color],
+                            borderColor: isPreview
+                              ? '#888'
+                              : BORDERS[color],
                           },
                         ]}
                       />
@@ -542,8 +556,7 @@ export default function Tumble() {
       {selectedDir && !gameOver && !stuck && (
         <View style={styles.previewHint}>
           <Text style={styles.previewText}>
-            {DIR_EMOJI[selectedDir]} pops {popCounts[selectedDir]} tiles — tap
-            again!
+            {DIR_EMOJI[selectedDir]} Tap again to confirm!
           </Text>
         </View>
       )}
@@ -552,7 +565,11 @@ export default function Tumble() {
       {!gameOver && (flips > 0 || stuck) && (
         <Pressable style={styles.restartBtn} onPress={handleRestart}>
           <Text style={styles.restartText}>
-            {stuck ? 'Stuck! Tap to restart' : 'Restart'}
+            {stuck
+              ? flips >= moveLimit
+                ? 'Out of moves! Restart'
+                : 'Stuck! Restart'
+              : 'Restart'}
           </Text>
         </Pressable>
       )}
@@ -579,7 +596,7 @@ export default function Tumble() {
           Tap a direction to preview where tiles slide. Groups of 3+ matching
           colours pop! Tap the same direction again to confirm.
           {'\n\n'}
-          Clear all tiles in as few flips as possible. Par: {generated.par}{' '}
+          Clear all tiles within {moveLimit} moves. Par: {generated.par}{' '}
           flips.
         </Text>
       </View>
@@ -627,6 +644,7 @@ const styles = StyleSheet.create({
   infoLabel: { color: '#818384', fontSize: 12 },
   infoValue: { color: '#ffffff', fontSize: 24, fontWeight: '800' },
   infoValueGood: { color: '#2ecc71' },
+  infoValueBad: { color: '#e74c3c' },
   infoPar: { color: '#818384', fontSize: 14, marginTop: 2 },
   gridArea: { alignItems: 'center', gap: 8 },
   middleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -653,12 +671,6 @@ const styles = StyleSheet.create({
     borderColor: '#f1c40f',
   },
   arrowEmoji: { fontSize: 18 },
-  arrowCount: {
-    fontSize: 11,
-    color: '#f1c40f',
-    fontWeight: '700',
-    marginTop: -2,
-  },
   previewHint: {
     marginTop: 10,
     backgroundColor: '#2c2c2e',
