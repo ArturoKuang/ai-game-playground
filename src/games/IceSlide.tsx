@@ -119,7 +119,7 @@ function bfsWithGems(
 function generatePuzzle(seed: number) {
   const rng = seededRandom(seed);
   const d = getDayDifficulty(); // 1 (Mon) to 5 (Fri)
-  const numGems = d <= 2 ? 1 : d <= 4 ? 2 : 3;
+  const numGems = d <= 4 ? 2 : 3;
   const minMoves = 3 + d;      // Mon=4, Fri=8
   const maxMoves = 6 + d * 2;  // Mon=8, Fri=16
   const minWalls = 4 + d;      // Mon=5, Fri=9
@@ -392,9 +392,12 @@ export default function IceSlide() {
     }
     const undoStr = undos > 0 ? ` (${undos} undo${undos > 1 ? 's' : ''})` : '';
     const gemStr = puzzle.gems.length > 0 ? ` \ud83d\udc8e${puzzle.gems.length}/${puzzle.gems.length}` : '';
-    return `IceSlide Day #${puzzleDay} \ud83e\uddca\n${moves}/${puzzle.par} slides${undoStr}${gemStr}\n${arrows}\n${rows.join('\n')}\n${
-      under ? '\u2b50 Under par!' : `Solved in ${moves} slides`
-    }`;
+    const result = moves < puzzle.par
+      ? '\u2b50 Under par!'
+      : moves === puzzle.par
+        ? '\u2b50 Par!'
+        : `Solved in ${moves} slides`;
+    return `IceSlide Day #${puzzleDay} \ud83e\uddca\n${moves}/${puzzle.par} slides${undoStr}${gemStr}\n${arrows}\n${rows.join('\n')}\n${result}`;
   }
 
   return (
@@ -603,9 +606,11 @@ export default function IceSlide() {
             {moves <= puzzle.par ? '\u2b50' : '\ud83e\uddca'}
           </Text>
           <Text style={styles.winText}>
-            {moves <= puzzle.par
+            {moves < puzzle.par
               ? `Under par! ${moves} moves`
-              : `Solved in ${moves} moves (par: ${puzzle.par})`}
+              : moves === puzzle.par
+                ? `Par! ${moves} moves`
+                : `Solved in ${moves} moves (par: ${puzzle.par})`}
           </Text>
           <ShareButton text={buildShareText()} />
         </View>
@@ -634,7 +639,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     alignItems: 'center',
     backgroundColor: '#121213',
-    paddingVertical: 16,
+    paddingVertical: 8,
     paddingHorizontal: 16,
   },
   header: {
@@ -654,7 +659,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#818384',
     marginTop: 2,
-    marginBottom: 12,
+    marginBottom: 6,
     textAlign: 'center',
     maxWidth: 300,
   },
@@ -662,7 +667,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 6,
   },
   moveLabel: { color: '#818384', fontSize: 14 },
   moveCount: { color: '#ffffff', fontSize: 28, fontWeight: '800' },
@@ -709,8 +714,8 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   controls: {
-    marginTop: 20,
-    gap: 4,
+    marginTop: 12,
+    gap: 2,
   },
   controlRow: {
     flexDirection: 'row',
@@ -718,12 +723,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   controlSpacer: {
-    width: 56,
-    height: 56,
+    width: 50,
+    height: 50,
   },
   arrowBtn: {
-    width: 56,
-    height: 56,
+    width: 50,
+    height: 50,
     backgroundColor: '#2a2a3c',
     borderRadius: 12,
     borderWidth: 1.5,
@@ -737,8 +742,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   centerBtn: {
-    width: 56,
-    height: 56,
+    width: 50,
+    height: 50,
     backgroundColor: '#1a1a2c',
     borderRadius: 12,
     borderWidth: 1.5,
