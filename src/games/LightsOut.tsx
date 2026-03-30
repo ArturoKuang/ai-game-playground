@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import ShareButton from '../components/ShareButton';
 import StatsModal from '../components/StatsModal';
-import { getDailySeed, seededRandom } from '../utils/seed';
+import { getDailySeed, seededRandom, getPuzzleDay } from '../utils/seed';
 import { loadStats, recordGame, type Stats } from '../utils/stats';
 
 const GRID_SIZE = 5;
@@ -58,6 +58,7 @@ function isSolved(board: boolean[][]): boolean {
 
 export default function LightsOut() {
   const seed = useMemo(() => getDailySeed(), []);
+  const puzzleDay = useMemo(() => getPuzzleDay(), []);
   const initialBoard = useMemo(() => generateBoard(seed), [seed]);
 
   const [board, setBoard] = useState(() =>
@@ -120,6 +121,7 @@ export default function LightsOut() {
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>LightsOut</Text>
+        <Text style={styles.dayBadge}>Day #{puzzleDay}</Text>
         <Pressable onPress={handleShowStats}>
           <Text style={styles.statsIcon}>{'\ud83d\udcca'}</Text>
         </Pressable>
@@ -226,6 +228,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     letterSpacing: 2,
   },
+  dayBadge: { color: '#6aaa64', fontSize: 13, fontWeight: '600' },
   statsIcon: { fontSize: 24 },
   subtitle: {
     fontSize: 13,

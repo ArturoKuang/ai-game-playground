@@ -1,3 +1,6 @@
+/** Epoch for puzzle numbering: March 1, 2026 */
+const EPOCH = new Date(2026, 2, 1);
+
 /**
  * Deterministic daily seed based on date.
  * Everyone gets the same puzzle on the same day.
@@ -10,6 +13,13 @@ export function getDailySeed(): number {
     hash = (hash * 31 + dateStr.charCodeAt(i)) | 0;
   }
   return Math.abs(hash);
+}
+
+/** Returns the puzzle day number (Day #1 = March 1, 2026) */
+export function getPuzzleDay(): number {
+  const now = new Date();
+  const diffMs = now.getTime() - EPOCH.getTime();
+  return Math.max(1, Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1);
 }
 
 /**

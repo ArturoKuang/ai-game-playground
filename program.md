@@ -8,7 +8,7 @@ You are an autonomous game designer. Your job is to **design, implement, and ite
 
 ## Core Design Principles
 
-These are the principles that made Wordle a global phenomenon. Every game in Puzzle Lab must embody them — but the games themselves should NOT be Wordle clones. Be creative. Be original.
+These principles are distilled from the games that define the puzzle genre — Wordle, Tetris, 2048, Picross, Minesweeper, Mini Metro, Threes!, The Witness, Bejeweled, Sokoban, and the NYT puzzle suite. Every game in Puzzle Lab must embody them — but the games themselves should NOT clone any of these. Be creative. Be original.
 
 ### 1. Anyone can play, any age
 - A 6-year-old and a 70-year-old should both be able to pick it up instantly.
@@ -28,14 +28,22 @@ These are the principles that made Wordle a global phenomenon. Every game in Puz
 ### 3. Easy to learn, challenging to master
 - Rules explained in 1-2 sentences. First game should feel effortless.
 - But optimal play requires genuine thought, planning, or spatial reasoning.
-- The gap between "completing it" and "completing it well" is where the addiction lives.
+- The gap between "completing it" and "completing it well" is where the addiction lives. (Tetris: anyone can stack blocks, but clearing 4-line Tetrises is an art. 2048: anyone can swipe, but reaching 2048 requires real planning.)
 - Par/scoring systems that let players see how close to optimal they are.
+- **Teach through play, not text.** The Witness has zero tutorial text — it teaches rules through a sequence of puzzles that build on each other. If your game needs a paragraph of instructions, add a "first 3 taps are guided" onboarding instead.
+- **Emergent depth from simple rules.** Threes! has one rule (slide to merge) but creates infinite strategic depth. The best puzzle games feel like you're discovering strategy, not following instructions.
 
 ### 4. The emotional arc of a single session
 Every good 2-minute game has a 3-act structure:
 - **Opening (5 seconds):** "I understand what to do." Player feels confident.
 - **Middle (1-3 minutes):** "Hmm, this is trickier than I thought." Challenge ramps. Tension builds.
 - **Ending (5 seconds):** Either "Yes! I got it!" (satisfaction) or "So close — tomorrow!" (motivation to return).
+
+Great puzzle games create specific emotional moments:
+- **The "aha!" moment** (The Witness, Baba Is You) — a sudden insight that reframes the whole puzzle. Design for at least one per session.
+- **The cascade** (Bejeweled, 2048) — one good move triggers a chain of satisfying consequences. Reward planning with compounding payoffs.
+- **The calculated risk** (Minesweeper) — moments where the player must choose between safe-but-slow and risky-but-rewarding. This creates stories players want to share.
+- **The near-miss** (Wordle, Threes!) — losing by one move/one tile is more motivating than losing badly. Calibrate so close calls are common.
 
 If your game doesn't produce this arc, the mechanic is wrong. Redesign.
 
@@ -56,12 +64,13 @@ If a player taps something and nothing visually happens for 200ms, the game feel
 Avoid these at all costs:
 
 1. **Random outcome** — If the player's skill doesn't affect the result, it's not a game. Every game must have a meaningful skill/strategy gap between beginners and experts.
-2. **Brute-forceable** — If tapping randomly will eventually solve it, add constraints (move limits, time, undo costs).
-3. **One obvious strategy** — If there's only one way to approach it, there's no depth. Good games have "I wonder what would happen if..." moments.
-4. **Frustrating dead ends** — If the player can get stuck with no path forward and no feedback about *why*, they'll quit. Always provide an undo, reset, or hint about what went wrong.
-5. **Too much UI** — If more than 30% of the screen is buttons, labels, or instructions, the game is too complex. The *game itself* should dominate the screen.
+2. **Brute-forceable** — If tapping randomly will eventually solve it, add constraints (move limits, time, undo costs). Minesweeper's mine count and Sokoban's tight spaces are what prevent mindless play.
+3. **One obvious strategy** — If there's only one way to approach it, there's no depth. Good games have "I wonder what would happen if..." moments. 2048 thrives because corner strategy vs. edge strategy vs. freestyle are all viable.
+4. **Frustrating dead ends** — If the player can get stuck with no path forward and no feedback about *why*, they'll quit. Sokoban's biggest lesson: always provide an undo. Threes! never lets you get truly stuck — there's always a move, just not always a good one.
+5. **Too much UI** — If more than 30% of the screen is buttons, labels, or instructions, the game is too complex. The *game itself* should dominate the screen. Mini Metro uses almost zero UI — the game board *is* the interface.
 6. **Boring optimal play** — If the best strategy is tedious and repetitive (e.g., always start from the same corner), the game needs redesign. Optimal play should feel clever, not robotic.
-7. **No visible progress** — The player should always be able to see they're getting closer to the goal. Hidden state is the enemy of satisfaction.
+7. **No visible progress** — The player should always be able to see they're getting closer to the goal. Picross is the gold standard here: every correct deduction reveals part of a picture, so progress is literally visible.
+8. **No information to reason about** — If the player has nothing to analyze and must guess, it's not a puzzle. Minesweeper gives you numbers. Picross gives you row/column counts. NYT Connections gives you 16 words. The player needs *something* to think with.
 
 ---
 
@@ -185,14 +194,30 @@ Getting difficulty right is critical. Use these rules of thumb:
 
 ## Game Design Space
 
-Go wild. These are just starting points — invent new ones, mash genres together, add physics:
+Go wild. These are starting points — invent new ones, mash genres together, combine mechanics from different classics:
 
-- **Spatial puzzles** — flood fill, path finding, tile sliding, grid coloring
-- **Physics toys** — bounce balls, chain reactions, gravity drops, pendulums
-- **Logic puzzles** — lights out, binary grids, Sudoku-like constraints
-- **Timing/reaction** — tap at the right moment, catch falling objects
-- **Pattern recognition** — spot the difference, complete the sequence
-- **Building/stacking** — Tetris-like placement, tower building, balance games
+### Proven Mechanic Families (with iconic examples)
+
+- **Merge/collapse** (2048, Threes!) — slide, combine, grow. Simple input, emergent strategy. The key: merging must be irreversible or costly, so every move matters.
+- **Deduction grids** (Minesweeper, Picross, Sudoku) — use clues to determine hidden state. The satisfaction of certainty through logic. Great for daily puzzles because the solve path varies wildly per seed.
+- **Spatial packing** (Tetris, Blokus, tangrams) — fit shapes into spaces. The tension between greed (big pieces score more) and caution (leaving gaps kills you).
+- **Flow/connection** (Flow Free, Mini Metro, pipe puzzles) — connect points without crossing. Simple rules, but the solution space explodes with scale.
+- **Region painting** (flood fill, Kami, color puzzles) — transform areas of a board toward a goal state. Satisfying because progress is visible as color spreads.
+- **Push/slide** (Sokoban, 15-puzzle, ice puzzles) — move objects under constraints. The constraint (can't pull, slides until wall) is what creates the puzzle.
+- **Chain reactions** (Bejeweled, Puzzle Bobble, chain pop) — one action triggers cascading effects. Design so skilled players can set up bigger chains through planning, not luck.
+- **Toggle/constraint** (Lights Out, binary puzzles, nonograms) — change one thing, other things change too. The coupling between elements IS the puzzle.
+- **Grouping/categorization** (NYT Connections, Set) — find hidden relationships among items. Social gold because people argue about the groupings.
+- **Physics simulation** (Cut the Rope, Angry Birds, bounce puzzles) — aim, release, watch physics play out. The gap between prediction and result creates surprise and learning.
+- **Routing/pathing** (Hamiltonian paths, maze generation, snake puzzles) — find a path that satisfies constraints. Simple to understand ("visit everything"), hard to execute.
+- **Sequencing/ordering** (sorting puzzles, Tower of Hanoi, stack-based puzzles) — arrange elements into the right order under movement constraints.
+
+### Hybrid Ideas Worth Exploring
+
+- **Merge + physics** — tiles fall with gravity after merging (like Tetris + 2048)
+- **Deduction + daily reveal** — each day reveals one more clue about a week-long meta-puzzle
+- **Flow + time pressure** — connections decay if you're too slow, like Mini Metro's overcrowding
+- **Push puzzle + chain reaction** — pushing a block triggers a cascade of other blocks moving
+- **Grouping + spatial** — drag items into zones on a grid, but placement order matters
 
 The only hard rules:
 1. **2D** — no 3D rendering

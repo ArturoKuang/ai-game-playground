@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import ShareButton from '../components/ShareButton';
 import StatsModal from '../components/StatsModal';
-import { getDailySeed, seededRandom } from '../utils/seed';
+import { getDailySeed, seededRandom, getPuzzleDay } from '../utils/seed';
 import { loadStats, recordGame, type Stats } from '../utils/stats';
 
 const ARENA_SIZE = 340;
@@ -72,6 +72,7 @@ function normalize(v: Vec2): Vec2 {
 
 export default function BounceOut() {
   const seed = useMemo(() => getDailySeed(), []);
+  const puzzleDay = useMemo(() => getPuzzleDay(), []);
   const level = useMemo(() => generateLevel(seed), [seed]);
   const { width: screenWidth } = useWindowDimensions();
   const scale = Math.min(screenWidth - 32, ARENA_SIZE) / ARENA_SIZE;
@@ -186,6 +187,7 @@ export default function BounceOut() {
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>BounceOut</Text>
+        <Text style={styles.dayBadge}>Day #{puzzleDay}</Text>
         <Pressable onPress={handleShowStats}>
           <Text style={styles.statsIcon}>{'\ud83d\udcca'}</Text>
         </Pressable>
@@ -390,6 +392,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     letterSpacing: 2,
   },
+  dayBadge: { color: '#6aaa64', fontSize: 13, fontWeight: '600' },
   statsIcon: { fontSize: 24 },
   subtitle: {
     fontSize: 13,

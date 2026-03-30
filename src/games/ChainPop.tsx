@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import ShareButton from '../components/ShareButton';
 import StatsModal from '../components/StatsModal';
-import { getDailySeed, seededRandom } from '../utils/seed';
+import { getDailySeed, seededRandom, getPuzzleDay } from '../utils/seed';
 import { loadStats, recordGame, type Stats } from '../utils/stats';
 
 const ARENA_SIZE = 340;
@@ -56,6 +56,7 @@ function generateBubbles(seed: number): Bubble[] {
 
 export default function ChainPop() {
   const seed = useMemo(() => getDailySeed(), []);
+  const puzzleDay = useMemo(() => getPuzzleDay(), []);
   const [bubbles, setBubbles] = useState(() => generateBubbles(seed));
   const [started, setStarted] = useState(false);
   const [tapped, setTapped] = useState(false);
@@ -200,6 +201,7 @@ export default function ChainPop() {
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>ChainPop</Text>
+        <Text style={styles.dayBadge}>Day #{puzzleDay}</Text>
         <Pressable onPress={handleShowStats}>
           <Text style={styles.statsIcon}>{'\ud83d\udcca'}</Text>
         </Pressable>
@@ -348,6 +350,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     letterSpacing: 2,
   },
+  dayBadge: { color: '#6aaa64', fontSize: 13, fontWeight: '600' },
   statsIcon: { fontSize: 24 },
   subtitle: {
     fontSize: 13,

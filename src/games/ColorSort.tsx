@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import ShareButton from '../components/ShareButton';
 import StatsModal from '../components/StatsModal';
-import { getDailySeed, seededRandom } from '../utils/seed';
+import { getDailySeed, seededRandom, getPuzzleDay } from '../utils/seed';
 import { loadStats, recordGame, type Stats } from '../utils/stats';
 
 const NUM_COLORS = 4;
@@ -93,6 +93,7 @@ function canPour(from: Tube, to: Tube): boolean {
 
 export default function ColorSort() {
   const seed = useMemo(() => getDailySeed(), []);
+  const puzzleDay = useMemo(() => getPuzzleDay(), []);
   const initialTubes = useMemo(() => generateTubes(seed), [seed]);
   const { width: screenWidth } = useWindowDimensions();
 
@@ -204,6 +205,7 @@ export default function ColorSort() {
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>ColorSort</Text>
+        <Text style={styles.dayBadge}>Day #{puzzleDay}</Text>
         <Pressable onPress={handleShowStats}>
           <Text style={styles.statsIcon}>{'\ud83d\udcca'}</Text>
         </Pressable>
@@ -333,6 +335,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     letterSpacing: 2,
   },
+  dayBadge: { color: '#6aaa64', fontSize: 13, fontWeight: '600' },
   statsIcon: { fontSize: 24 },
   subtitle: {
     fontSize: 13,

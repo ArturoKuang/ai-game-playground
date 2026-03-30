@@ -9,7 +9,7 @@ import {
   Animated,
 } from 'react-native';
 import ShareButton from '../components/ShareButton';
-import { getDailySeed, seededRandom } from '../utils/seed';
+import { getDailySeed, seededRandom, getPuzzleDay } from '../utils/seed';
 import { loadStats, recordGame, type Stats } from '../utils/stats';
 import StatsModal from '../components/StatsModal';
 
@@ -74,6 +74,7 @@ function isSolved(grid: number[][]): boolean {
 
 export default function FloodFill() {
   const seed = useMemo(() => getDailySeed(), []);
+  const puzzleDay = useMemo(() => getPuzzleDay(), []);
   const initialGrid = useMemo(() => generateGrid(seed), [seed]);
   const { width: screenWidth } = useWindowDimensions();
 
@@ -163,13 +164,14 @@ export default function FloodFill() {
     for (let i = 0; i < sequence.length; i += 6) {
       rows.push(sequence.slice(i, i + 6));
     }
-    return `FloodFill ${moves}/${PAR} ${underPar ? '\ud83c\udf1f' : '\ud83c\udfaf'}\n${rows.join('\n')}`;
+    return `FloodFill Day #${puzzleDay} ${moves}/${PAR} ${underPar ? '\ud83c\udf1f' : '\ud83c\udfaf'}\n${rows.join('\n')}`;
   }
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>FloodFill</Text>
+        <Text style={styles.dayBadge}>Day #{puzzleDay}</Text>
         <Pressable onPress={handleShowStats}>
           <Text style={styles.statsIcon}>{'\ud83d\udcca'}</Text>
         </Pressable>
@@ -313,6 +315,11 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#ffffff',
     letterSpacing: 2,
+  },
+  dayBadge: {
+    color: '#6aaa64',
+    fontSize: 13,
+    fontWeight: '600',
   },
   statsIcon: {
     fontSize: 24,
