@@ -14,3 +14,4 @@ e52fc15	11	y	y	y	y	y	y	y	y	keep	BitMap	New game: 5x5 nonogram/picross deduction 
 28acb39	11	y	y	y	y	y	y	y	y	keep	FloodFill	Day-of-week difficulty: Monday 5 colors/par 24, Friday 6 colors/par 16
 475cc63	11	y	y	y	y	y	y	y	y	keep	LightsOut	Day-of-week difficulty: Monday par 10 (easy), Friday par 6 (hard)
 6564758	11	y	y	y	y	y	y	y	y	keep	IceSlide	Day-of-week difficulty: Monday 3-6 moves, Friday 7-14 moves
+d57199e	11	y	y	y	y	y	y	y	y	keep	LightsOut	Share text shows 5x5 tap heatmap — yellow=1 tap, orange=2+ taps
