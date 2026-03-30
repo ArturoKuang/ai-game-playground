@@ -32,10 +32,12 @@ const UNDERGROUND_TEXT = '#ffe0a0';
 /* ─── Difficulty ─── */
 function getDifficulty() {
   const d = getDayDifficulty(); // 1..5
+  // Surface values are LOW to force underground digging
+  // Underground values are HIGH to reward strategic exploration
   return {
-    picks: 6 + d,           // Mon:7, Fri:11
-    maxSurface: 4 + d,      // Mon:5, Fri:9
-    maxUnder: 4 + d,        // Mon:5, Fri:9
+    picks: 6 + d,                          // Mon:7, Fri:11
+    maxSurface: 2 + Math.ceil(d * 0.6),    // Mon:3, Fri:5
+    maxUnder: 5 + d,                        // Mon:6, Fri:10→capped at 9
   };
 }
 
@@ -45,8 +47,9 @@ function generateBoard(seed: number, maxS: number, maxU: number) {
   const surface = Array.from({ length: SIZE }, () =>
     Array.from({ length: SIZE }, () => 1 + Math.floor(rng() * maxS)),
   );
+  const effectiveMaxU = Math.min(maxU, 9);
   const underground = Array.from({ length: SIZE }, () =>
-    Array.from({ length: SIZE }, () => Math.floor(rng() * (maxU + 1))),
+    Array.from({ length: SIZE }, () => Math.floor(rng() * (effectiveMaxU + 1))),
   );
   return { surface, underground };
 }
@@ -254,14 +257,19 @@ export default function Dig() {
               let textColor = SURFACE_TEXT;
               let val = '';
 
+              let isJackpot = false;
+              let isBust = false;
               if (state === 'surface') {
                 bg = SURFACE_BG;
                 textColor = SURFACE_TEXT;
                 val = String(board.surface[r][c]);
               } else if (state === 'underground') {
-                bg = UNDERGROUND_BG;
-                textColor = UNDERGROUND_TEXT;
-                val = String(board.underground[r][c]);
+                const uVal = board.underground[r][c];
+                isJackpot = uVal >= 5;
+                isBust = uVal === 0;
+                bg = isJackpot ? '#b8860b' : isBust ? '#4a3a2a' : UNDERGROUND_BG;
+                textColor = isJackpot ? '#fff700' : isBust ? '#888' : UNDERGROUND_TEXT;
+                val = String(uVal);
               } else {
                 bg = EMPTY_BG;
               }
@@ -338,12 +346,12 @@ export default function Dig() {
       <View style={styles.howTo}>
         <Text style={styles.howToTitle}>How to play</Text>
         <Text style={styles.howToText}>
-          Tap a gem to collect it. Surface gems (gold) reveal a hidden
-          gem beneath. Tap the underground gem (brown) to collect it
-          too.{'\n\n'}
-          Column numbers show how much hidden treasure remains below.
-          High columns are worth digging into!{'\n'}
-          You have {diff.picks} picks total.
+          Tap to collect! Surface gems (gold) are small but safe.
+          Taking one reveals a hidden gem below {'\u2014'} underground
+          gems can be much bigger!{'\n\n'}
+          Column numbers show hidden underground totals. Use them
+          to find where the jackpots hide. Each pick costs 1 of
+          your {diff.picks} total.
         </Text>
       </View>
 
