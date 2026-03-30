@@ -31,7 +31,7 @@ Each pattern includes: what to do, why it works, evidence, and which rubric dime
 
 **Affects**: d3 (decisions) +1, d10 (aha) +1
 
-**How to apply**: For any game where the player makes a choice, ask: "Can I show what each option does before they commit?" If yes, show it. If showing the full answer trivializes the game (see A3), show partial info. **Caveat (P9)**: P1 only helps when the puzzle has enough decision axes for comparison. Landing dots on a 1-gem IceSlide puzzle were neutral (16→16, `4089331`) because there was only one viable path to compare against. **Caveat (P10)**: P1 works best when the COST shown is an OPPORTUNITY cost (what you lose access to) rather than a CALCULABLE penalty (exact points lost). Claim's "+5 pts, locks 12 pts" works because the lock significance depends on future strategy (incommensurate). Cross's "+5 pts, eliminates 12 pts" failed because the penalty was directly calculable. Shift's "region → N" failed because all 20 options were mechanically scannable. The sweet spot: show WHAT happens (visual preview) but let the player JUDGE how much it matters.
+**How to apply**: For any game where the player makes a choice, ask: "Can I show what each option does before they commit?" If yes, show it. If showing the full answer trivializes the game (see A3), show partial info. **Caveat (P9)**: P1 only helps when the puzzle has enough decision axes for comparison. Landing dots on a 1-gem IceSlide puzzle were neutral (16→16, `4089331`) because there was only one viable path to compare against. **Caveat (P10)**: P1 works best when the COST shown is an OPPORTUNITY cost (what you lose access to) rather than a CALCULABLE penalty (exact points lost). Claim's "+5 pts, locks 12 pts" works because the lock significance depends on future strategy (incommensurate). Cross's "+5 pts, eliminates 12 pts" failed because the penalty was directly calculable. Shift's "region → N" failed because all 20 options were mechanically scannable. Tint's conflict penalty "+7 quad, -5 clash = +2" failed because gain AND cost were both numeric — player just picks max delta. The sweet spot: show WHAT happens (visual preview) but let the player JUDGE how much it matters.
 
 ---
 
@@ -293,6 +293,18 @@ Animated.sequence([
 
 ---
 
+### A10: Fully-Visible Optimization = Planning Puzzle Trap
+
+**What it looks like**: The entire board state is visible from the start, and the player must find the optimal configuration/coloring/assignment. The player plans everything before acting; execution is rote.
+
+**Why it fails**: Collapses d4 (tension) and d10 (aha) simultaneously. No information is revealed during play, so there's no progressive discovery. The player either finds the optimal in the planning phase or doesn't — execution adds nothing. P1 previews with calculable deltas make this worse by turning each decision into "scan for max number."
+
+**Evidence**: Tint killed after 3 iterations (42→49→46). Map coloring + quadratic scoring + P1 deltas. Even with irreversible painting and conflict penalties, d4 never exceeded 4. Reviewers consistently flagged: "tension is front-loaded in planning, execution is rote."
+
+**Test**: Can the player solve the puzzle by staring at the board before touching anything? If yes, the game lacks execution uncertainty. Good games reveal information THROUGH play (Wordle: guess → feedback, Minesweeper: click → revealed, Claim: pick → lock cascade).
+
+---
+
 ## Score Prediction Heuristics
 
 Use these to sanity-check rubric scores before logging. If your score disagrees with the prediction by more than 3 points, re-examine your narration.
@@ -399,3 +411,4 @@ If a game can't check 8/10 of these at design time, reconsider the mechanic.
 | 2026-03-30 | Added A9 (preview-outcome gap) from Tumble kill | Tumble 44→53→49 killed after 3 iterations |
 | 2026-03-30 | Claim kept at 63/100 — locking + P1 value preview = d3=8 | Claim v1→v6: 41→38→56→56→63→62 |
 | 2026-03-30 | Killed 10 games, key learnings: (1) variants of same template get d8=2, (2) small combinatorial spaces are exhaustible, (3) P1 with all options scannable creates brute-force not insight, (4) single-push clearing = A5 in disguise | Flip d8=2, Cross 45→51→43, Shift 46→48, Shove 42→37 |
+| 2026-03-30 | Added A10 (fully-visible optimization = planning puzzle trap) from Tint kill. P10 caveat updated with Tint evidence. | Tint 42→49→46, killed after 3 iterations |

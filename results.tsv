@@ -75,3 +75,4 @@ abdd807	42	5	5	5	3	3	4	4	5	4	4	0	discard	Shove	New game v1: push blocks to slide
 c246533	43	6	6	4	3	3	5	3	5	5	3	0	killed	Cross	v3: removed cost number from preview. WORSE — removing info didn't add depth. KILLED after 3 iterations (45→51→43). 5x5 assignment problem too tractable for daily puzzle depth.
 4acbf62	42	4	5	5	3	3	5	4	5	4	4	0	discard	Tint	New game v1: map coloring + quadratic scoring. d4=3 (free erase kills tension — no irrevocable decisions). Fix: add move limit for resource pressure.
 74ed2c1	49	4	5	6	4	4	5	5	6	5	5	0	discard	Tint	v2: move limit (numRegions+buffer). d4 improved 3→4 but tension is front-loaded (planning not execution). Fix: irreversible two-tap + conflict penalty tradeoff.
+e01cf6e	46	4	5	6	4	3	5	5	5	5	4	0	killed	Tint	v3: irreversible two-tap + conflict penalty + P1 deltas. KILLED after 3 iterations (42→49→46). P1 deltas made "pick highest number" dominant — calculable costs kill insight.
