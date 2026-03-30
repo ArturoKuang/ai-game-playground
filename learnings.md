@@ -31,7 +31,7 @@ Each pattern includes: what to do, why it works, evidence, and which rubric dime
 
 **Affects**: d3 (decisions) +1, d10 (aha) +1
 
-**How to apply**: For any game where the player makes a choice, ask: "Can I show what each option does before they commit?" If yes, show it. If showing the full answer trivializes the game (see A3), show partial info. **Caveat (P9)**: P1 only helps when the puzzle has enough decision axes for comparison. Landing dots on a 1-gem IceSlide puzzle were neutral (16→16, `4089331`) because there was only one viable path to compare against.
+**How to apply**: For any game where the player makes a choice, ask: "Can I show what each option does before they commit?" If yes, show it. If showing the full answer trivializes the game (see A3), show partial info. **Caveat (P9)**: P1 only helps when the puzzle has enough decision axes for comparison. Landing dots on a 1-gem IceSlide puzzle were neutral (16→16, `4089331`) because there was only one viable path to compare against. **Caveat (P10)**: P1 works best when the COST shown is an OPPORTUNITY cost (what you lose access to) rather than a CALCULABLE penalty (exact points lost). Claim's "+5 pts, locks 12 pts" works because the lock significance depends on future strategy (incommensurate). Cross's "+5 pts, eliminates 12 pts" failed because the penalty was directly calculable. Shift's "region → N" failed because all 20 options were mechanically scannable. The sweet spot: show WHAT happens (visual preview) but let the player JUDGE how much it matters.
 
 ---
 
@@ -397,3 +397,5 @@ If a game can't check 8/10 of these at design time, reconsider the mechanic.
 |------|-------|---------|
 | 2026-03-29 | Initial creation from 11-game evaluation + 8 iteration experiments | results.tsv rows e294a89 through 4348c4e |
 | 2026-03-30 | Added A9 (preview-outcome gap) from Tumble kill | Tumble 44→53→49 killed after 3 iterations |
+| 2026-03-30 | Claim kept at 63/100 — locking + P1 value preview = d3=8 | Claim v1→v6: 41→38→56→56→63→62 |
+| 2026-03-30 | Killed 10 games, key learnings: (1) variants of same template get d8=2, (2) small combinatorial spaces are exhaustible, (3) P1 with all options scannable creates brute-force not insight, (4) single-push clearing = A5 in disguise | Flip d8=2, Cross 45→51→43, Shift 46→48, Shove 42→37 |
