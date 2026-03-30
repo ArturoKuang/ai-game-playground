@@ -317,6 +317,7 @@ The only hard rules:
 | DropPop    | Two-tap select-then-pop, quadratic scoring       | 63/100 | Active |
 | IceSlide   | Collect gems (stopping points) + slide to goal    | 18/30  | Active |
 | ChainPop   | 3 taps, chain reactions on floating bubbles      | 60/100 | Active |
+| Claim      | Pick cells to score; claiming locks neighbors    | 63/100 | Active |
 
 ## Architecture
 
