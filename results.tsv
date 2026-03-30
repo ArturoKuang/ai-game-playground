@@ -58,3 +58,5 @@ a404bac	42	3	5	4	4	3	5	4	6	4	4	0	killed	Ripple	v2: barrier placement replaces or
 b8a351b	26	6	4	3	3	3	4	3	3	5	2	1	killed	TwoTone	6x6 binary constraint (Takuzu). RED FLAG A4: well-known puzzle type. d3=3 (all cells forced by propagation), d10=2 (no aha moments). KILLED after 1 iteration — clone with no twist.
 c838d48	43	5	6	3	3	3	5	3	6	5	4	0	discard	Reflect	New game v1: laser mirror puzzle. d2=6 d8=6 (beam viz is great). d3=3 d4=3 — unlimited mirrors = no decisions/tension.
 2836da5	42	5	5	3	3	3	5	3	6	5	4	0	killed	Reflect	v2: mirror limit = solution count. Score unchanged — puzzle has one viable configuration on easy days. KILLED after 2 iterations (43→42). Search problem, not strategy problem.
+3ac77d9	41	7	6	3	3	3	5	3	4	5	2	0	discard	Claim	New game v1: pick cells to score, drain neighbors by 1. d1=7 (best clarity). d3=3 — drain too gentle, greedy nearly optimal.
+27c14a7	38	7	6	3	2	3	5	3	4	3	2	0	discard	Claim	v2: DRAIN=2. Score dropped — more dead tiles, corners even more obviously optimal. Fundamental issue: greedy dominates regardless of drain value.

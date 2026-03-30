@@ -22,26 +22,17 @@ import { loadStats, recordGame, type Stats } from '../utils/stats';
 /* ─── Constants ─── */
 const SIZE = 5;
 const GAP = 3;
-const DRAIN = 2; // neighbors lose this much per claim
 
 const VAL_COLORS = [
-  '#2a2a2c', // 0 (empty)
-  '#4a5568', // 1
-  '#5a6b80', // 2
-  '#6b8299', // 3
-  '#3498db', // 4
-  '#2ecc71', // 5
-  '#f1c40f', // 6
-  '#e67e22', // 7
-  '#e74c3c', // 8
-  '#9b59b6', // 9
+  '#2a2a2c', '#4a5568', '#5a6b80', '#6b8299',
+  '#3498db', '#2ecc71', '#f1c40f', '#e67e22', '#e74c3c', '#9b59b6',
 ];
 
 /* ─── Difficulty ─── */
 function getDifficulty() {
   const d = getDayDifficulty();
   const maxVal = 4 + d; // Mon: 5, Fri: 9
-  const numPicks = 3 + Math.ceil(d / 2); // Mon: 4, Wed: 5, Fri: 6
+  const numPicks = 3 + Math.ceil(d / 2); // Mon: 4, Fri: 6
   return { maxVal, numPicks };
 }
 
@@ -53,41 +44,64 @@ function generateGrid(seed: number, maxVal: number): number[][] {
   );
 }
 
-/* ─── Greedy solver for par ─── */
-function greedySolve(grid: number[][], numPicks: number): number {
-  const g = grid.map((r) => [...r]);
-  const claimed = new Set<number>();
-  let score = 0;
+/* ─── Get neighbors ─── */
+function neighbors(key: number): number[] {
+  const r = Math.floor(key / SIZE);
+  const c = key % SIZE;
+  const result: number[] = [];
+  for (const [dr, dc] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+    const nr = r + dr;
+    const nc = c + dc;
+    if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE) result.push(nr * SIZE + nc);
+  }
+  return result;
+}
 
-  for (let p = 0; p < numPicks; p++) {
-    let bestVal = -1;
-    let bestKey = -1;
-    for (let r = 0; r < SIZE; r++) {
-      for (let c = 0; c < SIZE; c++) {
-        const key = r * SIZE + c;
-        if (claimed.has(key)) continue;
-        if (g[r][c] > bestVal) {
-          bestVal = g[r][c];
-          bestKey = key;
-        }
+/* ─── Optimal solver (DFS with pruning) ─── */
+function optimalSolve(grid: number[][], numPicks: number): number {
+  let best = 0;
+
+  function dfs(
+    claimedSet: Set<number>,
+    lockedSet: Set<number>,
+    picksLeft: number,
+    score: number,
+  ) {
+    if (picksLeft === 0) {
+      best = Math.max(best, score);
+      return;
+    }
+
+    // Collect available cells sorted by value descending
+    const available: [number, number][] = [];
+    for (let i = 0; i < SIZE * SIZE; i++) {
+      if (!claimedSet.has(i) && !lockedSet.has(i)) {
+        const r = Math.floor(i / SIZE);
+        const c = i % SIZE;
+        available.push([i, grid[r][c]]);
       }
     }
-    if (bestKey < 0) break;
-    claimed.add(bestKey);
-    const br = Math.floor(bestKey / SIZE);
-    const bc = bestKey % SIZE;
-    score += g[br][bc];
-    g[br][bc] = 0;
-    // Drain neighbors
-    for (const [dr, dc] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
-      const nr = br + dr;
-      const nc = bc + dc;
-      if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && !claimed.has(nr * SIZE + nc)) {
-        g[nr][nc] = Math.max(0, g[nr][nc] - DRAIN);
-      }
+    available.sort((a, b) => b[1] - a[1]);
+
+    // Upper bound: sum of top picksLeft available values
+    let ub = score;
+    for (let i = 0; i < Math.min(picksLeft, available.length); i++) ub += available[i][1];
+    if (ub <= best) return;
+
+    // Try top candidates (limit branching)
+    const limit = Math.min(available.length, 10);
+    for (let i = 0; i < limit; i++) {
+      const [key, val] = available[i];
+      const newClaimed = new Set(claimedSet);
+      newClaimed.add(key);
+      const newLocked = new Set(lockedSet);
+      for (const nk of neighbors(key)) newLocked.add(nk);
+      dfs(newClaimed, newLocked, picksLeft - 1, score + val);
     }
   }
-  return score;
+
+  dfs(new Set(), new Set(), numPicks, 0);
+  return best;
 }
 
 /* ═══════════════════════════════════════════ */
@@ -99,7 +113,7 @@ export default function Claim() {
   const diff = useMemo(() => getDifficulty(), []);
   const initialGrid = useMemo(() => generateGrid(seed, diff.maxVal), [seed, diff.maxVal]);
   const par = useMemo(
-    () => greedySolve(initialGrid, diff.numPicks),
+    () => optimalSolve(initialGrid, diff.numPicks),
     [initialGrid, diff.numPicks],
   );
 
@@ -108,10 +122,8 @@ export default function Claim() {
   const cellSize = Math.floor((maxGrid - (SIZE - 1) * GAP) / SIZE);
   const gridWidth = SIZE * cellSize + (SIZE - 1) * GAP;
 
-  const [grid, setGrid] = useState<number[][]>(() =>
-    initialGrid.map((r) => [...r]),
-  );
   const [claimed, setClaimed] = useState<Set<number>>(new Set());
+  const [locked, setLocked] = useState<Set<number>>(new Set());
   const [picks, setPicks] = useState(0);
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
@@ -127,51 +139,38 @@ export default function Claim() {
     (r: number, c: number) => {
       if (gameOver) return;
       const key = r * SIZE + c;
-      if (claimed.has(key)) return;
-      if (grid[r][c] <= 0) return;
+      if (claimed.has(key) || locked.has(key)) return;
 
-      const cellVal = grid[r][c];
-      const newScore = score + cellVal;
+      const val = initialGrid[r][c];
+      const newScore = score + val;
       const newPicks = picks + 1;
       const newClaimed = new Set(claimed);
       newClaimed.add(key);
+      const newLocked = new Set(locked);
 
-      // Pop animation on claimed cell
+      // Claimed cell animation
       Animated.sequence([
         Animated.timing(cellScales[key], {
           toValue: 1.3,
           duration: 80,
           useNativeDriver: true,
         }),
-        Animated.timing(cellScales[key], {
-          toValue: 0.85,
-          duration: 100,
-          useNativeDriver: true,
-        }),
         Animated.spring(cellScales[key], {
           toValue: 1,
-          friction: 4,
+          friction: 3,
           tension: 200,
           useNativeDriver: true,
         }),
       ]).start();
 
-      // Drain neighbors with subtle bounce
-      const newGrid = grid.map((row) => [...row]);
-      newGrid[r][c] = 0;
-      for (const [dr, dc] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
-        const nr = r + dr;
-        const nc = c + dc;
-        const nk = nr * SIZE + nc;
-        if (
-          nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE &&
-          !newClaimed.has(nk) && newGrid[nr][nc] > 0
-        ) {
-          newGrid[nr][nc] = Math.max(0, newGrid[nr][nc] - DRAIN);
+      // Lock neighbors
+      for (const nk of neighbors(key)) {
+        if (!newClaimed.has(nk) && !newLocked.has(nk)) {
+          newLocked.add(nk);
           Animated.sequence([
             Animated.timing(cellScales[nk], {
-              toValue: 0.9,
-              duration: 60,
+              toValue: 0.85,
+              duration: 80,
               useNativeDriver: true,
             }),
             Animated.spring(cellScales[nk], {
@@ -184,8 +183,8 @@ export default function Claim() {
         }
       }
 
-      setGrid(newGrid);
       setClaimed(newClaimed);
+      setLocked(newLocked);
       setPicks(newPicks);
       setScore(newScore);
 
@@ -197,7 +196,7 @@ export default function Claim() {
         });
       }
     },
-    [grid, claimed, picks, score, gameOver, diff.numPicks, par, cellScales],
+    [claimed, locked, picks, score, gameOver, diff.numPicks, par, cellScales, initialGrid],
   );
 
   const handleShowStats = useCallback(async () => {
@@ -212,11 +211,7 @@ export default function Claim() {
       let row = '';
       for (let c = 0; c < SIZE; c++) {
         const key = r * SIZE + c;
-        if (claimed.has(key)) {
-          row += '\uD83D\uDFE9'; // green = claimed
-        } else {
-          row += '\u2B1B'; // black = unclaimed
-        }
+        row += claimed.has(key) ? '\uD83D\uDFE9' : locked.has(key) ? '\uD83D\uDFE5' : '\u2B1B';
       }
       rows.push(row);
     }
@@ -225,7 +220,7 @@ export default function Claim() {
       `Claim Day #${puzzleDay} \uD83C\uDFC6`,
       rows.join('\n'),
       `Score: ${score} (par ${par})`,
-      beat ? '\u2B50 Beat par!' : 'Try to beat par tomorrow!',
+      beat ? '\u2B50 Beat par!' : `${par - score} short of par`,
     ].join('\n');
   }
 
@@ -240,7 +235,7 @@ export default function Claim() {
       </View>
 
       <Text style={styles.subtitle}>
-        Pick {diff.numPicks} cells to score — but neighbors shrink!
+        Pick {diff.numPicks} cells — but claiming locks neighbors!
       </Text>
 
       <View style={styles.infoRow}>
@@ -273,8 +268,22 @@ export default function Claim() {
           <View key={r} style={styles.gridRow}>
             {Array.from({ length: SIZE }).map((_, c) => {
               const key = r * SIZE + c;
-              const val = grid[r][c];
+              const val = initialGrid[r][c];
               const isClaimed = claimed.has(key);
+              const isLocked = locked.has(key);
+
+              let bg = VAL_COLORS[Math.min(val, 9)];
+              let border = '#555';
+              let bw = 1;
+              if (isClaimed) {
+                bg = '#1a4a1a';
+                border = '#2ecc71';
+                bw = 3;
+              } else if (isLocked) {
+                bg = '#2a1a1a';
+                border = '#c0392b';
+                bw = 2;
+              }
 
               return (
                 <Animated.View
@@ -288,32 +297,25 @@ export default function Claim() {
                       {
                         width: cellSize,
                         height: cellSize,
-                        backgroundColor: isClaimed
-                          ? '#1a3a1a'
-                          : val > 0
-                            ? VAL_COLORS[Math.min(val, 9)]
-                            : '#1a1a1b',
-                        borderColor: isClaimed
-                          ? '#2ecc71'
-                          : val > 0
-                            ? '#555'
-                            : '#2a2a2c',
-                        borderWidth: isClaimed ? 2 : 1,
+                        backgroundColor: bg,
+                        borderColor: border,
+                        borderWidth: bw,
                       },
                     ]}
                   >
                     {isClaimed ? (
                       <Text style={styles.claimedCheck}>{'\u2713'}</Text>
-                    ) : val > 0 ? (
+                    ) : (
                       <Text
                         style={[
                           styles.cellValue,
-                          val >= 7 && styles.cellValueHigh,
+                          isLocked && styles.cellValueLocked,
+                          val >= 7 && !isLocked && styles.cellValueHigh,
                         ]}
                       >
                         {val}
                       </Text>
-                    ) : null}
+                    )}
                   </Pressable>
                 </Animated.View>
               );
@@ -342,10 +344,11 @@ export default function Claim() {
         <Text style={styles.howToTitle}>How to play</Text>
         <Text style={styles.howToText}>
           Tap a cell to claim it and add its value to your score. But
-          each claim drains adjacent cells by {DRAIN}!
+          claiming a cell LOCKS all its neighbors — you can't claim
+          locked cells!
           {'\n\n'}
-          Choose wisely — grabbing the highest number first might cost
-          you more later. Plan your {diff.numPicks} picks to beat par.
+          Think ahead: grabbing the 9 might lock a nearby 7 you needed.
+          Plan your {diff.numPicks} picks to beat par.
         </Text>
       </View>
 
@@ -405,15 +408,17 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '800',
   },
+  cellValueLocked: {
+    color: '#666',
+  },
   cellValueHigh: {
-    color: '#fff',
     textShadowColor: 'rgba(255,255,255,0.3)',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 6,
   },
   claimedCheck: {
     color: '#2ecc71',
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '800',
   },
   winMessage: { alignItems: 'center', marginTop: 20 },
