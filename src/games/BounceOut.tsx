@@ -11,29 +11,35 @@ import {
 } from 'react-native';
 import ShareButton from '../components/ShareButton';
 import StatsModal from '../components/StatsModal';
-import { getDailySeed, seededRandom, getPuzzleDay } from '../utils/seed';
+import CelebrationBurst from '../components/CelebrationBurst';
+import { getDailySeed, seededRandom, getPuzzleDay, getDayDifficulty } from '../utils/seed';
 import { loadStats, recordGame, type Stats } from '../utils/stats';
 
 const ARENA_SIZE = 340;
 const BALL_RADIUS = 8;
 const TARGET_RADIUS = 14;
 const WALL_THICKNESS = 4;
-const NUM_TARGETS = 5;
-const PAR_SHOTS = 3;
-const PHYSICS_DT = 1000 / 60;
 const BALL_SPEED = 6;
 const MAX_BOUNCES = 20;
+const AIM_LINE_LENGTH = 50; // short aim line, no bounce prediction
+
+function getDifficulty() {
+  const d = getDayDifficulty(); // 1 (Mon) to 5 (Fri)
+  const numTargets = 3 + d; // Mon: 4, Fri: 8
+  const parShots = Math.max(2, 5 - Math.floor(d / 2)); // Mon: 5, Fri: 3
+  return { numTargets, parShots };
+}
 
 type Vec2 = { x: number; y: number };
 type Target = Vec2 & { alive: boolean; id: number };
 type Wall = { x: number; y: number; w: number; h: number };
 
-function generateLevel(seed: number): { targets: Target[]; walls: Wall[] } {
+function generateLevel(seed: number, numTargets: number): { targets: Target[]; walls: Wall[] } {
   const rng = seededRandom(seed);
   const margin = 40;
   const targets: Target[] = [];
 
-  for (let i = 0; i < NUM_TARGETS; i++) {
+  for (let i = 0; i < numTargets; i++) {
     let x: number, y: number, tooClose: boolean;
     let attempts = 0;
     do {
@@ -73,7 +79,8 @@ function normalize(v: Vec2): Vec2 {
 export default function BounceOut() {
   const seed = useMemo(() => getDailySeed(), []);
   const puzzleDay = useMemo(() => getPuzzleDay(), []);
-  const level = useMemo(() => generateLevel(seed), [seed]);
+  const diff = useMemo(() => getDifficulty(), []);
+  const level = useMemo(() => generateLevel(seed, diff.numTargets), [seed, diff.numTargets]);
   const { width: screenWidth } = useWindowDimensions();
   const scale = Math.min(screenWidth - 32, ARENA_SIZE) / ARENA_SIZE;
 
@@ -168,7 +175,7 @@ export default function BounceOut() {
   // Record stats when won
   useEffect(() => {
     if (allDead && shots > 0) {
-      recordGame('bounceout', shots, PAR_SHOTS).then((s) => {
+      recordGame('bounceout', shots, diff.parShots).then((s) => {
         setStatsData(s);
         setShowStats(true);
       });
@@ -182,15 +189,15 @@ export default function BounceOut() {
   }, []);
 
   function buildShareText(): string {
-    const under = shots <= PAR_SHOTS;
+    const under = shots <= diff.parShots;
     const shotLines = shotHits
-      .map((hits, i) =>
+      .map((hits) =>
         hits === 0
           ? '\ud83d\udca8'
           : '\ud83c\udfaf'.repeat(hits)
       )
       .join('\n');
-    return `BounceOut Day #${puzzleDay} \ud83c\udfb1\n${shots}/${PAR_SHOTS} shots\n${shotLines}\n${under ? '\u2b50 Under par!' : `Cleared in ${shots} shots`}`;
+    return `BounceOut Day #${puzzleDay} \ud83c\udfb1\n${shots}/${diff.parShots} shots | ${diff.numTargets} targets\n${shotLines}\n${under ? '\u2b50 Under par!' : `Cleared in ${shots} shots`}`;
   }
 
   return (
@@ -203,13 +210,13 @@ export default function BounceOut() {
         </Pressable>
       </View>
       <Text style={styles.subtitle}>
-        Bounce a ball to hit all {NUM_TARGETS} targets
+        Bounce a ball to hit all {diff.numTargets} targets
       </Text>
 
       <View style={styles.moveCounter}>
         <Text style={styles.moveLabel}>Shots</Text>
         <Text style={styles.moveCount}>{shots}</Text>
-        <Text style={styles.movePar}>Par: {PAR_SHOTS}</Text>
+        <Text style={styles.movePar}>Par: {diff.parShots}</Text>
       </View>
 
       {/* Arena */}
@@ -293,22 +300,15 @@ export default function BounceOut() {
           ]}
         />
 
-        {/* Trajectory preview */}
+        {/* Short aim line — direction only, no bounce prediction */}
         {aiming && !animating && (() => {
-          const previewSteps = 80;
           const dots: { x: number; y: number }[] = [];
-          let px = launchPos.x;
-          let py = launchPos.y;
-          let vx = aimDir.x * BALL_SPEED;
-          let vy = aimDir.y * BALL_SPEED;
-          for (let i = 0; i < previewSteps; i++) {
-            px += vx;
-            py += vy;
-            if (px <= BALL_RADIUS) { px = BALL_RADIUS; vx *= -1; }
-            if (px >= ARENA_SIZE - BALL_RADIUS) { px = ARENA_SIZE - BALL_RADIUS; vx *= -1; }
-            if (py <= BALL_RADIUS) { py = BALL_RADIUS; vy *= -1; }
-            if (py >= ARENA_SIZE - BALL_RADIUS) { py = ARENA_SIZE - BALL_RADIUS; vy *= -1; }
-            if (i % 3 === 0) dots.push({ x: px, y: py });
+          for (let i = 1; i <= 8; i++) {
+            const dist = (AIM_LINE_LENGTH / 8) * i;
+            dots.push({
+              x: launchPos.x + aimDir.x * dist,
+              y: launchPos.y + aimDir.y * dist,
+            });
           }
           return dots.map((d, i) => (
             <View
@@ -320,8 +320,8 @@ export default function BounceOut() {
                 width: 4,
                 height: 4,
                 borderRadius: 2,
-                backgroundColor: 'rgba(52, 152, 219, 0.5)',
-                opacity: 1 - (i / dots.length) * 0.7,
+                backgroundColor: 'rgba(52, 152, 219, 0.6)',
+                opacity: 1 - (i / dots.length) * 0.5,
               }}
             />
           ));
@@ -353,13 +353,15 @@ export default function BounceOut() {
         </Pressable>
       )}
 
+      <CelebrationBurst show={allDead && shots <= diff.parShots} />
+
       {allDead && (
         <View style={styles.winMessage}>
           <Text style={styles.winEmoji}>
-            {shots <= PAR_SHOTS ? '\ud83c\udf1f' : '\ud83c\udfaf'}
+            {shots <= diff.parShots ? '\ud83c\udf1f' : '\ud83c\udfaf'}
           </Text>
           <Text style={styles.winText}>
-            {shots <= PAR_SHOTS
+            {shots <= diff.parShots
               ? `Under par! ${shots} shots`
               : `Cleared in ${shots} shots`}
           </Text>
@@ -372,7 +374,7 @@ export default function BounceOut() {
         <Text style={styles.howToText}>
           Tap the arena to aim, then hit Fire. The ball bounces off walls and
           obstacles. Hit all the red targets in as few shots as possible.{'\n\n'}
-          Par: {PAR_SHOTS} shots
+          Par: {diff.parShots} shots. You only see your aim direction — predict the bounces!
         </Text>
       </View>
 
