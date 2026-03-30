@@ -179,9 +179,6 @@ export default function BitMap() {
   const [endTime, setEndTime] = useState<number | null>(null);
   const [showStats, setShowStats] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
-  const [fillMode, setFillMode] = useState(true); // true = fill, false = mark-X
-  const [lives, setLives] = useState(3);
-  const gameOver = lives <= 0;
 
   const cellScales = useRef(
     Array.from({ length: N * N }, () => new Animated.Value(1))
@@ -209,60 +206,36 @@ export default function BitMap() {
 
   const handleTap = useCallback(
     (r: number, c: number) => {
-      if (won || gameOver) return;
+      if (won) return;
 
       if (!startTime) {
         setStartTime(Date.now());
         timerRef.current = setInterval(() => setTick((t) => t + 1), 200);
       }
 
+      // Cycle: 0 → 1 → 2 → 0
       const idx = r * N + c;
-      const current = grid[r][c];
+      Animated.sequence([
+        Animated.timing(cellScales[idx], {
+          toValue: 0.85,
+          duration: 60,
+          useNativeDriver: true,
+        }),
+        Animated.spring(cellScales[idx], {
+          toValue: 1,
+          friction: 3,
+          tension: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
 
-      if (fillMode) {
-        // Fill mode: toggle between unknown(0) and filled(1)
-        if (current === 2) return; // already marked X, ignore in fill mode
-        const newState: CellState = current === 1 ? 0 : 1;
-
-        if (newState === 1 && !puzzle.target[r][c]) {
-          // Error! Filling a cell that should be empty
-          Animated.sequence([
-            Animated.timing(cellScales[idx], { toValue: 1.2, duration: 50, useNativeDriver: true }),
-            Animated.timing(cellScales[idx], { toValue: 0.9, duration: 50, useNativeDriver: true }),
-            Animated.spring(cellScales[idx], { toValue: 1, friction: 3, tension: 200, useNativeDriver: true }),
-          ]).start();
-          setLives((l) => l - 1);
-          return; // cell stays unchanged
-        }
-
-        Animated.sequence([
-          Animated.timing(cellScales[idx], { toValue: 0.85, duration: 60, useNativeDriver: true }),
-          Animated.spring(cellScales[idx], { toValue: 1, friction: 3, tension: 200, useNativeDriver: true }),
-        ]).start();
-
-        setGrid((prev) => {
-          const next = prev.map((row) => [...row]);
-          next[r][c] = newState;
-          return next;
-        });
-      } else {
-        // Mark mode: toggle between unknown(0) and marked-X(2)
-        if (current === 1) return; // already filled, ignore in mark mode
-        const newState: CellState = current === 2 ? 0 : 2;
-
-        Animated.sequence([
-          Animated.timing(cellScales[idx], { toValue: 0.85, duration: 60, useNativeDriver: true }),
-          Animated.spring(cellScales[idx], { toValue: 1, friction: 3, tension: 200, useNativeDriver: true }),
-        ]).start();
-
-        setGrid((prev) => {
-          const next = prev.map((row) => [...row]);
-          next[r][c] = newState;
-          return next;
-        });
-      }
+      setGrid((prev) => {
+        const next = prev.map((row) => [...row]);
+        next[r][c] = ((prev[r][c] + 1) % 3) as CellState;
+        return next;
+      });
     },
-    [won, gameOver, startTime, cellScales, fillMode, grid, puzzle]
+    [won, startTime, cellScales]
   );
 
   // Check win after grid update
@@ -296,8 +269,7 @@ export default function BitMap() {
     const usedRatio = Math.min(finalTime / parTime, 2);
     const usedCount = Math.min(segments, Math.round(usedRatio * segments));
     const timeBar = '\u2b1b'.repeat(usedCount) + '\ud83d\udfe9'.repeat(segments - usedCount);
-    const hearts = '\u2764\ufe0f'.repeat(lives) + '\ud83d\udc94'.repeat(3 - lives);
-    return `BitMap Day #${puzzleDay} \ud83d\uddbc\ufe0f\n${rows}\n${timeBar} ${finalTime}s\n${hearts}\n${
+    return `BitMap Day #${puzzleDay} \ud83d\uddbc\ufe0f\n${rows}\n${timeBar} ${finalTime}s\n${
       underPar ? '\u2b50 Under par!' : `Solved in ${finalTime}s`
     }`;
   }
@@ -340,28 +312,6 @@ export default function BitMap() {
           {won ? `${finalTime}s` : `${Math.floor(elapsed)}s`}
         </Text>
         <Text style={styles.timerPar}>Par: {parTime}s</Text>
-        <Text style={styles.livesDisplay}>
-          {'\u2764\ufe0f'.repeat(lives)}{'\ud83d\udc94'.repeat(3 - lives)}
-        </Text>
-      </View>
-
-      <View style={styles.modeRow}>
-        <Pressable
-          style={[styles.modeBtn, fillMode && styles.modeBtnActive]}
-          onPress={() => setFillMode(true)}
-        >
-          <Text style={[styles.modeBtnText, fillMode && styles.modeBtnTextActive]}>
-            {'\u25a0'} Fill
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[styles.modeBtn, !fillMode && styles.modeBtnActive]}
-          onPress={() => setFillMode(false)}
-        >
-          <Text style={[styles.modeBtnText, !fillMode && styles.modeBtnTextActive]}>
-            {'\u2715'} Mark
-          </Text>
-        </Pressable>
       </View>
 
       {/* Puzzle grid with clues */}
@@ -459,24 +409,15 @@ export default function BitMap() {
 
       <CelebrationBurst show={won} />
 
-      {gameOver && (
-        <View style={styles.winMessage}>
-          <Text style={styles.winEmoji}>{'\ud83d\udc94'}</Text>
-          <Text style={styles.winText}>Out of lives! Try again tomorrow.</Text>
-        </View>
-      )}
-
       {won && (
         <View style={styles.winMessage}>
           <Text style={styles.winEmoji}>
-            {lives === 3 ? '\u2b50' : underPar ? '\u2b50' : '\ud83d\uddbc\ufe0f'}
+            {underPar ? '\u2b50' : '\ud83d\uddbc\ufe0f'}
           </Text>
           <Text style={styles.winText}>
-            {lives === 3 && underPar
-              ? `Perfect! ${finalTime}s, no errors`
-              : underPar
-                ? `Under par! ${finalTime}s`
-                : `Solved in ${finalTime}s (par: ${parTime}s)`}
+            {underPar
+              ? `Under par! ${finalTime}s`
+              : `Solved in ${finalTime}s (par: ${parTime}s)`}
           </Text>
           <ShareButton text={buildShareText()} />
         </View>
@@ -486,10 +427,10 @@ export default function BitMap() {
         <Text style={styles.howToTitle}>How to play</Text>
         <Text style={styles.howToText}>
           Numbers on each row and column show groups of consecutive filled
-          cells. "2 1" means a group of 2, a gap, then 1.{'\n\n'}
-          Use {'\u25a0'} Fill to fill cells, {'\u2715'} Mark to cross out
-          empty cells. Filling a wrong cell costs a {'\u2764\ufe0f'} {'\u2014'} 3
-          strikes and you're out!{'\n\n'}
+          cells. For example, "2 1" means a group of 2, a gap, then a group
+          of 1.{'\n\n'}
+          Tap to fill a cell. Tap again to mark it empty ({'\u2715'}). Tap a
+          third time to clear.{'\n\n'}
           Solve in under {parTime}s for a star!
         </Text>
       </View>
@@ -541,32 +482,6 @@ const styles = StyleSheet.create({
   timerGood: { color: '#2ecc71' },
   timerOver: { color: '#e67e22' },
   timerPar: { color: '#818384', fontSize: 14 },
-  livesDisplay: { fontSize: 16, marginLeft: 4 },
-  modeRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 10,
-  },
-  modeBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: '#1a1a2e',
-    borderWidth: 1.5,
-    borderColor: '#3a3a4c',
-  },
-  modeBtnActive: {
-    backgroundColor: '#2a3a5c',
-    borderColor: '#4a7aff',
-  },
-  modeBtnText: {
-    color: '#818384',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  modeBtnTextActive: {
-    color: '#ffffff',
-  },
   puzzleArea: {
     alignItems: 'flex-start',
   },
