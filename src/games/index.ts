@@ -8,7 +8,6 @@ import PathWeaver from './PathWeaver';
 import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
-import TwoTone from './TwoTone';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -65,13 +64,6 @@ const games: GameMeta[] = [
     emoji: '\ud83d\uddbc\ufe0f',
     description: 'Decode the pattern from row & column clues',
     component: BitMap,
-  },
-  {
-    id: 'twotone',
-    name: 'TwoTone',
-    emoji: '\uD83C\uDF13',
-    description: 'Balance dark and light — no three in a row!',
-    component: TwoTone,
   },
 ];
 
