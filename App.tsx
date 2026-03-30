@@ -12,6 +12,16 @@ type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+const linking = {
+  prefixes: ['http://localhost:8081'],
+  config: {
+    screens: {
+      Home: '',
+      Game: 'game/:gameId',
+    },
+  },
+};
+
 function HomeScreen({ navigation }: any) {
   return (
     <View style={styles.home}>
@@ -49,7 +59,7 @@ function GameScreen({ route }: any) {
 
 export default function App() {
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking}>
       <Stack.Navigator
         screenOptions={{
           headerStyle: { backgroundColor: '#121213' },

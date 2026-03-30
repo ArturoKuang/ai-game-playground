@@ -150,13 +150,33 @@ Before committing, **run the game and verify it is bug-free.** Type-checking alo
 git add -A && git commit -m "experiment: [short description]"
 ```
 
-### Step 6: Evaluate — The Playtest Simulation
+### Step 6: Evaluate — Automated Playtest Review
 
-Do NOT just read the code and assign scores. **Mentally simulate a complete game session** and narrate it tap-by-tap:
+**Do NOT self-evaluate.** Spawn an independent review agent that plays the game in a real browser.
 
-> "I open the game. I see a 5x5 grid with colored cells. I tap the blue button. The top-left region floods to blue — oh, I see, it absorbs adjacent cells. I try green next. Now I have a bigger region. I need to plan ahead to minimize moves..."
+**Prerequisites:** The Expo web server must be running (`npx expo start --web` on port 8081).
 
-**Write out the full narration** — at least 10 sentences covering opening, middle, and end. If you can't narrate 10 interesting sentences, the game is boring.
+**Dispatch the review agent:**
+
+```
+Read tools/review-prompt.md → use its contents as the agent prompt.
+Append the game ID and commit hash to the prompt.
+Spawn via: Agent(subagent_type="general-purpose", prompt=<review_prompt + game details>)
+```
+
+The review agent will:
+1. Read the game source (without builder bias)
+2. Launch the game in a headless browser via `tools/playtest.mjs`
+3. Play a full session (10-20 clicks with screenshots between each)
+4. Check for bugs (crash, console errors, broken win condition)
+5. Score the rubric based on actual play experience
+6. Return a structured evaluation with scores, narration, and bugs
+
+**Use the review agent's scores for Step 7 (Keep/Discard).** If the review agent finds bugs, fix them before re-evaluating.
+
+#### Fallback: Manual playtest simulation
+
+If the browser harness is unavailable, fall back to mental simulation. Narrate tap-by-tap:
 
 Then evaluate using the rubric below. **Every question uses a graduated 0–10 scale.** A score of 3–4 is the default for any functional game — you must justify scores of 5 or above with specific evidence from your narration.
 
@@ -198,11 +218,11 @@ If any of these are true, subtract 10 points from the total (minimum score 0):
 
 ### Step 7: Keep or Discard
 
-- If score **>= 18 AND >= previous best for this game** → KEEP.
-- If score **15-17** → game has potential. KEEP but flag for iteration — log what specific dimensions scored low and what changes might improve them.
-- If score **< 15** → `git reset --hard HEAD~1`. Discard. The game is not good enough.
+- If score **>= 60 AND >= previous best for this game** → KEEP.
+- If score **50–59** → game has potential. KEEP but flag for iteration — log what specific dimensions scored low and what changes might improve them.
+- If score **< 50** → `git reset --hard HEAD~1`. Discard. The game is not good enough.
 - If the game **crashes** → attempt a fix. If not trivial, discard and log as "crash".
-- **Kill rule:** If a game has been iterated on 3+ times and never reached 18, delete the game entirely and log it as "killed — fundamentally boring." Move on to a new concept.
+- **Kill rule:** If a game has been iterated on 3+ times and never reached 60, delete the game entirely and log it as "killed — fundamentally boring." Move on to a new concept.
 - **Cull rule:** If the total game count exceeds 8, kill the lowest-scoring game to make room. A tight collection of great games beats a bloated collection of okay games.
 
 ### Step 8: Log
@@ -213,8 +233,8 @@ Append a row to `results.tsv`:
 commit_hash	score	d1	d2	d3	d4	d5	d6	d7	d8	d9	d10	red_flags	status	game	description
 ```
 
-- `d1`–`d10`: individual dimension scores (0-3 each)
-- `red_flags`: number of red flag deductions applied (0-4)
+- `d1`–`d10`: individual dimension scores (0-10 each)
+- `red_flags`: number of red flag deductions applied (0-4), -10 points each
 - Status is one of: `keep`, `iterate`, `discard`, `crash`, `killed`.
 
 **When logging, also write 1-2 sentences about what the game's weakest dimension is and what would improve it.** This prevents repeating the same mistakes.
@@ -289,14 +309,14 @@ The only hard rules:
 
 | Game       | Mechanic                                         | Score | Status |
 | ---------- | ------------------------------------------------ | ----- | ------ |
-| BitMap     | 5x5 nonogram/picross deduction puzzle            | 20/30 | Active |
-| LightsOut  | Toggle cells + neighbors to turn all lights off  | 20/30 | Active |
-| FloodFill  | Absorb colors from corner, +N gain preview       | 20/30 | Active |
-| PathWeaver | Guaranteed-solvable Hamiltonian path             | 20/30 | Active |
-| BounceOut  | Aim ball, predict bounces (short aim line)       | 19/30 | Active |
-| DropPop    | Two-tap select-then-pop, quadratic scoring       | 19/30 | Active |
-| IceSlide   | Slide puck on ice to reach goal via wall bounces | 19/30 | Active |
-| ChainPop   | 3 taps, chain reactions on floating bubbles      | 18/30 | Active |
+| BitMap     | 5x5 nonogram/picross deduction puzzle            | 67/100 | Active |
+| LightsOut  | Toggle cells + neighbors to turn all lights off  | 67/100 | Active |
+| FloodFill  | Absorb colors from corner, +N gain preview       | 67/100 | Active |
+| PathWeaver | Guaranteed-solvable Hamiltonian path             | 67/100 | Active |
+| BounceOut  | Aim ball, predict bounces (short aim line)       | 63/100 | Active |
+| DropPop    | Two-tap select-then-pop, quadratic scoring       | 63/100 | Active |
+| IceSlide   | Slide puck on ice to reach goal via wall bounces | 63/100 | Active |
+| ChainPop   | 3 taps, chain reactions on floating bubbles      | 60/100 | Active |
 
 ## Architecture
 
