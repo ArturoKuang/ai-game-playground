@@ -22,8 +22,8 @@ export default function StatsModal({ stats, onClose }: StatsModalProps) {
           <View style={styles.statRow}>
             <StatBox value={stats.gamesPlayed} label="Played" />
             <StatBox value={winPct} label="Win %" />
-            <StatBox value={stats.currentStreak} label="Current{'\n'}Streak" />
-            <StatBox value={stats.maxStreak} label="Max{'\n'}Streak" />
+            <StatBox value={stats.currentStreak} label={`Current\nStreak`} />
+            <StatBox value={stats.maxStreak} label={`Max\nStreak`} />
           </View>
 
           {stats.bestScore !== null && (
