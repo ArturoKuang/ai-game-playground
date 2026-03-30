@@ -138,6 +138,7 @@ export default function IceSlide() {
   const [showStats, setShowStats] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
   const [animating, setAnimating] = useState(false);
+  const [undos, setUndos] = useState(0);
 
   const animX = useRef(new Animated.Value(0)).current;
   const animY = useRef(new Animated.Value(0)).current;
@@ -236,7 +237,8 @@ export default function IceSlide() {
     ]).start(() => {
       setAnimating(false);
       setPos(prevPos);
-      setMoves((m) => m - 1);
+      // Undo does NOT decrement moves — wasted slides still count
+      setUndos((u) => u + 1);
       setMoveHistory((h) => h.slice(0, -1));
       setPosHistory((h) => h.slice(0, -1));
     });
@@ -267,7 +269,8 @@ export default function IceSlide() {
       }
       rows.push(row);
     }
-    return `IceSlide Day #${puzzleDay} \ud83e\uddca\n${moves}/${puzzle.par} moves\n${arrows}\n${rows.join('\n')}\n${
+    const undoStr = undos > 0 ? ` (${undos} undo${undos > 1 ? 's' : ''})` : '';
+    return `IceSlide Day #${puzzleDay} \ud83e\uddca\n${moves}/${puzzle.par} slides${undoStr}\n${arrows}\n${rows.join('\n')}\n${
       under ? '\u2b50 Under par!' : `Solved in ${moves} slides`
     }`;
   }
@@ -297,6 +300,9 @@ export default function IceSlide() {
           {moves}
         </Text>
         <Text style={styles.movePar}>Par: {puzzle.par}</Text>
+        {undos > 0 && (
+          <Text style={styles.undoCount}>({undos} undo{undos > 1 ? 's' : ''})</Text>
+        )}
       </View>
 
       {/* Grid */}
@@ -439,8 +445,8 @@ export default function IceSlide() {
         <Text style={styles.howToText}>
           Use the arrows to slide the puck across the ice. It glides until it
           hits a wall or the edge of the board.{'\n\n'}
-          Reach the {'\u2b50'} in as few moves as possible. Par: {puzzle.par}{' '}
-          moves.
+          Reach the {'\u2b50'} in as few slides as possible. Undo is available
+          but wasted slides still count! Par: {puzzle.par} slides.
         </Text>
       </View>
 
@@ -491,6 +497,7 @@ const styles = StyleSheet.create({
   moveCountGood: { color: '#2ecc71' },
   moveCountOver: { color: '#e67e22' },
   movePar: { color: '#818384', fontSize: 14 },
+  undoCount: { color: '#e67e22', fontSize: 12, fontWeight: '600' },
   grid: {
     position: 'relative',
     gap: GAP,
