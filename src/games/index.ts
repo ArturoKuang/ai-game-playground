@@ -9,6 +9,7 @@ import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
 import Claim from './Claim';
+import Dig from './Dig';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -72,6 +73,13 @@ const games: GameMeta[] = [
     emoji: '\uD83C\uDFC6',
     description: 'Pick cells to score — neighbors shrink!',
     component: Claim,
+  },
+  {
+    id: 'dig',
+    name: 'Dig',
+    emoji: '\u26CF\uFE0F',
+    description: 'Collect gems \u2014 surface reveals underground!',
+    component: Dig,
   },
 ];
 
