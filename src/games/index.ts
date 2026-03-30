@@ -8,6 +8,7 @@ import ColorSort from './ColorSort';
 import MirrorGrid from './MirrorGrid';
 import TapOut from './TapOut';
 import IceSlide from './IceSlide';
+import DropPop from './DropPop';
 
 const games: GameMeta[] = [
   {
@@ -72,6 +73,13 @@ const games: GameMeta[] = [
     emoji: '\ud83e\uddca',
     description: 'Slide the puck to the star on ice',
     component: IceSlide,
+  },
+  {
+    id: 'droppop',
+    name: 'DropPop',
+    emoji: '\ud83c\udfae',
+    description: 'Pop groups of matching colors to clear the board',
+    component: DropPop,
   },
 ];
 
