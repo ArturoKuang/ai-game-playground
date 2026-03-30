@@ -9,6 +9,7 @@ import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
 import Claim from './Claim';
+import Shift from './Shift';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -72,6 +73,13 @@ const games: GameMeta[] = [
     emoji: '\uD83C\uDFC6',
     description: 'Pick cells to score — neighbors shrink!',
     component: Claim,
+  },
+  {
+    id: 'shift',
+    name: 'Shift',
+    emoji: '\uD83D\uDD00',
+    description: 'Slide rows & columns to group colors!',
+    component: Shift,
   },
 ];
 
