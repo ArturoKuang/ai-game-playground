@@ -119,7 +119,21 @@ export default function LightsOut() {
 
   function buildShareText(): string {
     const under = taps <= parTaps;
-    return `LightsOut ${taps}/${parTaps} taps \ud83d\udca1\n${under ? '\u2b1b All lights off!' : `Solved in ${taps} taps`}`;
+    // Build a 5x5 heatmap of tap locations
+    const tapCounts = Array.from({ length: GRID_SIZE }, () =>
+      Array(GRID_SIZE).fill(0)
+    );
+    for (const [r, c] of tapHistory) tapCounts[r][c]++;
+    const heatmap = tapCounts
+      .map((row) =>
+        row
+          .map((count) =>
+            count === 0 ? '\u2b1b' : count === 1 ? '\ud83d\udfe8' : '\ud83d\udfe7'
+          )
+          .join('')
+      )
+      .join('\n');
+    return `LightsOut Day #${puzzleDay} \ud83d\udca1\n${taps}/${parTaps} taps\n${heatmap}\n${under ? '\u2b50 All lights off!' : `Solved in ${taps} taps`}`;
   }
 
   // Count remaining lights
