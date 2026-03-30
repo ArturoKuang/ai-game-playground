@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import ShareButton from '../components/ShareButton';
 import StatsModal from '../components/StatsModal';
+import CelebrationBurst from '../components/CelebrationBurst';
 import { getDailySeed, seededRandom, getPuzzleDay, getDayDifficulty } from '../utils/seed';
 import { loadStats, recordGame, type Stats } from '../utils/stats';
 
@@ -400,6 +401,8 @@ export default function IceSlide() {
           </View>
         </View>
       )}
+
+      <CelebrationBurst show={won} />
 
       {won && (
         <View style={styles.winMessage}>
