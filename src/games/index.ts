@@ -6,6 +6,7 @@ import ChainPop from './ChainPop';
 import PathWeaver from './PathWeaver';
 import ColorSort from './ColorSort';
 import MirrorGrid from './MirrorGrid';
+import TapOut from './TapOut';
 
 const games: GameMeta[] = [
   {
@@ -56,6 +57,13 @@ const games: GameMeta[] = [
     emoji: '\ud83e\ude9e',
     description: 'Fix the symmetry by toggling cells',
     component: MirrorGrid,
+  },
+  {
+    id: 'tapout',
+    name: 'TapOut',
+    emoji: '\u26a1',
+    description: 'Tap numbers in order — race the clock!',
+    component: TapOut,
   },
 ];
 
