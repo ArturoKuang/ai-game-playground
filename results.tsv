@@ -60,3 +60,4 @@ c838d48	43	5	6	3	3	3	5	3	6	5	4	0	discard	Reflect	New game v1: laser mirror puzzl
 2836da5	42	5	5	3	3	3	5	3	6	5	4	0	killed	Reflect	v2: mirror limit = solution count. Score unchanged — puzzle has one viable configuration on easy days. KILLED after 2 iterations (43→42). Search problem, not strategy problem.
 3ac77d9	41	7	6	3	3	3	5	3	4	5	2	0	discard	Claim	New game v1: pick cells to score, drain neighbors by 1. d1=7 (best clarity). d3=3 — drain too gentle, greedy nearly optimal.
 27c14a7	38	7	6	3	2	3	5	3	4	3	2	0	discard	Claim	v2: DRAIN=2. Score dropped — more dead tiles, corners even more obviously optimal. Fundamental issue: greedy dominates regardless of drain value.
+4978769	56	7	7	6	5	4	6	5	6	5	5	0	iterate	Claim	v3: locking replaces drain. Best score today! d1=7 d2=7 d3=6. Weakest: d5=4 (too short, strategy uniform). Next: add P1 preview (show locks before committing), consider longer sessions.
