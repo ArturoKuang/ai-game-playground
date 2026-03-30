@@ -241,6 +241,18 @@ Animated.sequence([
 
 ---
 
+### A7: Uncontrolled Auto-Play Destroys Agency
+
+**What it looks like**: After the player's action, the game automatically performs additional actions (auto-cascades, auto-matches, chain reactions) that the player cannot influence or stop.
+
+**Why it fails**: Collapses d3, d4, d7, d9, d10 simultaneously. The player becomes a spectator watching the game play itself. Worse, the auto-play can be so powerful that a single input determines the entire outcome, making the game a one-shot slot machine (A5).
+
+**Evidence**: DropPop auto-cascade (`20f6add`) scored 4/30. One pop triggered ×10 cascade clearing 75% of board. d3=0, d4=0, d7=0, d9=0, d10=0. The cascade minimum group size of 2 was too low — gravity almost always creates pairs.
+
+**Fix**: Auto-play is acceptable ONLY if: (a) the player triggered it intentionally through planning, AND (b) the cascade is capped or predictable, AND (c) most game decisions are still manual. If auto-play dominates, switch to player-triggered bonuses (highlight gravity groups, let player choose).
+
+---
+
 ## Score Prediction Heuristics
 
 Use these to sanity-check rubric scores before logging. If your score disagrees with the prediction by more than 3 points, re-examine your narration.
