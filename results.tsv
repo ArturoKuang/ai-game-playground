@@ -5,3 +5,4 @@ f49ddd0	11	y	y	y	y	y	y	y	y	keep	ColorSort	New game: sort colored balls into matc
 8cff011	11	y	y	y	y	y	y	y	y	keep	ChainPop	Slower bubbles + blast radius preview with bubble count
 7f887f0	9	y	y	n	y	y	y	y	y	keep	TapOut	New game: tap numbers 1-25 in order, race the clock
 2c6a187	11	y	y	y	y	y	y	y	y	keep	BounceOut	Trajectory preview dotted line showing predicted bounces
+076cf7c	11	y	y	y	y	y	y	y	y	keep	FloodFill	Share text shows color sequence as emoji rows (Wordle-like)
