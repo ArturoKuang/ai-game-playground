@@ -7,6 +7,7 @@ import PathWeaver from './PathWeaver';
 import ColorSort from './ColorSort';
 import MirrorGrid from './MirrorGrid';
 import TapOut from './TapOut';
+import IceSlide from './IceSlide';
 
 const games: GameMeta[] = [
   {
@@ -64,6 +65,13 @@ const games: GameMeta[] = [
     emoji: '\u26a1',
     description: 'Tap numbers in order — race the clock!',
     component: TapOut,
+  },
+  {
+    id: 'iceslide',
+    name: 'IceSlide',
+    emoji: '\ud83e\uddca',
+    description: 'Slide the puck to the star on ice',
+    component: IceSlide,
   },
 ];
 
