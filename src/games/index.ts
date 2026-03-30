@@ -4,6 +4,7 @@ import BounceOut from './BounceOut';
 import LightsOut from './LightsOut';
 import ChainPop from './ChainPop';
 import PathWeaver from './PathWeaver';
+import ColorSort from './ColorSort';
 
 const games: GameMeta[] = [
   {
@@ -40,6 +41,13 @@ const games: GameMeta[] = [
     emoji: '\ud83e\uddf5',
     description: 'Draw a path through every cell',
     component: PathWeaver,
+  },
+  {
+    id: 'colorsort',
+    name: 'ColorSort',
+    emoji: '\ud83e\udde9',
+    description: 'Sort colored balls into matching tubes',
+    component: ColorSort,
   },
 ];
 
