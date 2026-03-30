@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,11 @@ import {
   Pressable,
   ScrollView,
   useWindowDimensions,
+  Animated,
 } from 'react-native';
 import ShareButton from '../components/ShareButton';
 import StatsModal from '../components/StatsModal';
+import CelebrationBurst from '../components/CelebrationBurst';
 import { getDailySeed, seededRandom, getPuzzleDay, getDayDifficulty } from '../utils/seed';
 import { loadStats, recordGame, type Stats } from '../utils/stats';
 
@@ -82,9 +84,42 @@ export default function LightsOut() {
   const maxWidth = Math.min(screenWidth - 48, 340);
   const cellSize = Math.floor(maxWidth / GRID_SIZE) - 6;
 
+  const cellScales = useRef(
+    Array.from({ length: GRID_SIZE * GRID_SIZE }, () => new Animated.Value(1))
+  ).current;
+
+  const animateAffected = useCallback(
+    (r: number, c: number) => {
+      const affected = [
+        [r, c], [r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1],
+      ].filter(([ar, ac]) => ar >= 0 && ar < GRID_SIZE && ac >= 0 && ac < GRID_SIZE);
+
+      const anims = affected.map(([ar, ac]) => {
+        const idx = ar * GRID_SIZE + ac;
+        return Animated.sequence([
+          Animated.timing(cellScales[idx], {
+            toValue: 1.15,
+            duration: 60,
+            useNativeDriver: true,
+          }),
+          Animated.spring(cellScales[idx], {
+            toValue: 1,
+            friction: 3,
+            tension: 200,
+            useNativeDriver: true,
+          }),
+        ]);
+      });
+
+      Animated.parallel(anims).start();
+    },
+    [cellScales]
+  );
+
   const handleTap = useCallback(
     (r: number, c: number) => {
       if (solved) return;
+      animateAffected(r, c);
       const next = board.map((row) => [...row]);
       toggle(next, r, c);
       setBoard(next);
@@ -172,23 +207,30 @@ export default function LightsOut() {
       <View style={styles.grid}>
         {board.map((row, r) => (
           <View key={r} style={styles.gridRow}>
-            {row.map((lit, c) => (
-              <Pressable
-                key={c}
-                onPress={() => handleTap(r, c)}
-                style={[
-                  styles.cell,
-                  {
-                    width: cellSize,
-                    height: cellSize,
-                    backgroundColor: lit ? '#f1c40f' : '#2c2c2e',
-                    borderColor: lit ? '#f39c12' : '#3a3a3c',
-                  },
-                ]}
-              >
-                {lit && <View style={styles.glow} />}
-              </Pressable>
-            ))}
+            {row.map((lit, c) => {
+              const idx = r * GRID_SIZE + c;
+              return (
+                <Animated.View
+                  key={c}
+                  style={{ transform: [{ scale: cellScales[idx] }] }}
+                >
+                  <Pressable
+                    onPress={() => handleTap(r, c)}
+                    style={[
+                      styles.cell,
+                      {
+                        width: cellSize,
+                        height: cellSize,
+                        backgroundColor: lit ? '#f1c40f' : '#2c2c2e',
+                        borderColor: lit ? '#f39c12' : '#3a3a3c',
+                      },
+                    ]}
+                  >
+                    {lit && <View style={styles.glow} />}
+                  </Pressable>
+                </Animated.View>
+              );
+            })}
           </View>
         ))}
       </View>
@@ -199,6 +241,8 @@ export default function LightsOut() {
           <Text style={styles.undoBtnText}>Undo</Text>
         </Pressable>
       )}
+
+      <CelebrationBurst show={solved && taps <= parTaps} />
 
       {solved && (
         <View style={styles.winMessage}>
