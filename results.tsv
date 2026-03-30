@@ -28,3 +28,4 @@ e294a89	9	2	2	1	1	1	1	1	1	1	1	1	iterate	DropPop	Re-eval. Red flag: undo makes fa
 e294a89	8	2	1	1	1	1	1	1	1	1	1	1	killed	ColorSort	Killed — ball sort clone with no twist. Minimal strategy, no animations, weak share text.
 e294a89	6	2	2	0	1	0	1	1	1	1	0	1	killed	TapOut	Killed — pure reflex, zero strategy. No meaningful decisions, no aha moments. Optimal play is obvious.
 e294a89	1	2	2	0	0	0	1	0	1	1	0	2	killed	MirrorGrid	Killed — red borders solve the puzzle for you. No decisions, no failure possible, trivially solved.
+3b81ea4	17	2	2	2	2	1	2	2	1	2	1	0	iterate	DropPop	Remove undo + day-of-week difficulty (3-5 colors). Weakest: uniqueness (still SameGame-like) and aha moments. Next: add combo multiplier for consecutive pops that form chains.
