@@ -16,6 +16,9 @@ import { loadStats, recordGame, type Stats } from '../utils/stats';
 const GRID_SIZE = 5;
 const TOTAL_TILES = GRID_SIZE * GRID_SIZE;
 const PAR_TIME = 15; // seconds — par for tapping all 25 in order
+const STREAK_THRESHOLD = 3; // taps to activate streak bonus
+const STREAK_WINDOW = 1000; // ms between taps to maintain streak
+const STREAK_BONUS = 0.3; // seconds saved per streak tap
 
 const TILE_COLORS = [
   '#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6',
@@ -46,18 +49,23 @@ export default function TapOut() {
   const [wrongTap, setWrongTap] = useState<number | null>(null);
   const [showStats, setShowStats] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [streak, setStreak] = useState(0);
+  const [lastTapTime, setLastTapTime] = useState(0);
+  const [bonusTime, setBonusTime] = useState(0); // total seconds saved
+  const [streakFlash, setStreakFlash] = useState(false);
 
   const maxWidth = Math.min(screenWidth - 48, 360);
   const cellSize = Math.floor(maxWidth / GRID_SIZE) - 6;
 
   const gameOver = nextNumber > TOTAL_TILES;
-  const elapsedTime = endTime && startTime
+  const rawElapsed = endTime && startTime
     ? ((endTime - startTime) / 1000)
     : startTime
       ? ((Date.now() - startTime) / 1000)
       : 0;
-  const finalTime = endTime && startTime ? (endTime - startTime) / 1000 : 0;
-  const underPar = finalTime > 0 && finalTime <= PAR_TIME;
+  const rawFinal = endTime && startTime ? (endTime - startTime) / 1000 : 0;
+  const adjustedTime = Math.max(0, rawFinal - bonusTime);
+  const underPar = adjustedTime > 0 && adjustedTime <= PAR_TIME;
 
   // Timer refresh
   const [, setTick] = useState(0);
@@ -97,6 +105,25 @@ export default function TapOut() {
           }),
         ]).start();
 
+        // Streak logic
+        const now = Date.now();
+        const timeSinceLast = now - lastTapTime;
+        let newStreak: number;
+        let newBonus = bonusTime;
+        if (lastTapTime > 0 && timeSinceLast < STREAK_WINDOW) {
+          newStreak = streak + 1;
+          if (newStreak >= STREAK_THRESHOLD) {
+            newBonus += STREAK_BONUS;
+            setStreakFlash(true);
+            setTimeout(() => setStreakFlash(false), 200);
+          }
+        } else {
+          newStreak = 1;
+        }
+        setStreak(newStreak);
+        setLastTapTime(now);
+        setBonusTime(newBonus);
+
         setTappedTiles((prev) => new Set(prev).add(tileNumber));
         setNextNumber((n) => n + 1);
         setWrongTap(null);
@@ -107,15 +134,17 @@ export default function TapOut() {
           setEndTime(finishTime);
           if (timerRef.current) clearInterval(timerRef.current);
 
-          const timeScore = Math.round((finishTime - (startTime || finishTime)) / 1000);
-          recordGame('tapout', timeScore, PAR_TIME).then((s) => {
+          const rawTime = (finishTime - (startTime || finishTime)) / 1000;
+          const finalScore = Math.max(0, Math.round(rawTime - newBonus));
+          recordGame('tapout', finalScore, PAR_TIME).then((s) => {
             setStats(s);
             setShowStats(true);
           });
         }
       } else {
-        // Wrong tap — flash red
+        // Wrong tap — flash red and break streak
         setWrongTap(index);
+        setStreak(0);
         Animated.sequence([
           Animated.timing(cellScales[index], {
             toValue: 1.2,
@@ -132,7 +161,7 @@ export default function TapOut() {
         setTimeout(() => setWrongTap(null), 300);
       }
     },
-    [nextNumber, startTime, gameOver, cellScales, startTimer]
+    [nextNumber, startTime, gameOver, cellScales, startTimer, streak, lastTapTime, bonusTime]
   );
 
   const handleShowStats = useCallback(async () => {
@@ -142,8 +171,9 @@ export default function TapOut() {
   }, []);
 
   function buildShareText(): string {
-    const time = finalTime.toFixed(1);
-    return `TapOut ${time}s / ${PAR_TIME}s \u23f1\ufe0f\n${underPar ? '\ud83c\udf1f Speed demon!' : `Cleared in ${time}s`}\n${'1\ufe0f\u20e3'.repeat(Math.min(5, Math.floor(PAR_TIME / finalTime * 5)))}`;
+    const time = adjustedTime.toFixed(1);
+    const bonusStr = bonusTime > 0 ? ` (-${bonusTime.toFixed(1)}s streak)` : '';
+    return `TapOut Day #${puzzleDay} \u23f1\ufe0f\n${time}s / ${PAR_TIME}s${bonusStr}\n${underPar ? '\ud83c\udf1f Speed demon!' : `Cleared in ${time}s`}\n${'\u26a1'.repeat(Math.min(10, Math.floor(bonusTime / STREAK_BONUS)))}`;
   }
 
   function getTileColor(num: number): string {
@@ -172,13 +202,32 @@ export default function TapOut() {
             gameOver && !underPar && styles.moveCountOver,
           ]}
         >
-          {gameOver ? finalTime.toFixed(1) : elapsedTime.toFixed(1)}s
+          {gameOver ? adjustedTime.toFixed(1) : rawElapsed.toFixed(1)}s
         </Text>
         <Text style={styles.movePar}>Par: {PAR_TIME}s</Text>
         {!gameOver && (
           <Text style={styles.nextHint}>Next: {nextNumber}</Text>
         )}
       </View>
+
+      {/* Streak indicator */}
+      {!gameOver && startTime && (
+        <View style={styles.streakRow}>
+          <Text
+            style={[
+              styles.streakText,
+              streak >= STREAK_THRESHOLD && styles.streakActive,
+              streakFlash && styles.streakFlash,
+            ]}
+          >
+            {streak >= STREAK_THRESHOLD
+              ? `\u26a1 Streak x${streak} (-${bonusTime.toFixed(1)}s)`
+              : streak >= 2
+                ? `\u26a1 ${streak}/${STREAK_THRESHOLD}`
+                : ''}
+          </Text>
+        </View>
+      )}
 
       {/* Grid */}
       <View style={styles.grid}>
@@ -243,9 +292,14 @@ export default function TapOut() {
           </Text>
           <Text style={styles.winText}>
             {underPar
-              ? `Speed demon! ${finalTime.toFixed(1)}s`
-              : `Done in ${finalTime.toFixed(1)}s (par: ${PAR_TIME}s)`}
+              ? `Speed demon! ${adjustedTime.toFixed(1)}s`
+              : `Done in ${adjustedTime.toFixed(1)}s (par: ${PAR_TIME}s)`}
           </Text>
+          {bonusTime > 0 && (
+            <Text style={styles.bonusText}>
+              Streak bonus: -{bonusTime.toFixed(1)}s
+            </Text>
+          )}
           <ShareButton text={buildShareText()} />
         </View>
       )}
@@ -254,8 +308,10 @@ export default function TapOut() {
         <Text style={styles.howToTitle}>How to play</Text>
         <Text style={styles.howToText}>
           Find and tap tile #1 to start the clock. Then tap #2, #3, #4... all
-          the way to #{TOTAL_TILES} as fast as you can. Wrong taps flash red
-          but don't penalize — speed is all that matters!{'\n\n'}
+          the way to #{TOTAL_TILES} as fast as you can.{'\n\n'}
+          Tap fast to build streaks! {STREAK_THRESHOLD}+ rapid taps earn
+          {' '}{STREAK_BONUS}s off your time each. Wrong taps break your streak.
+          {'\n\n'}
           Beat {PAR_TIME} seconds for a star!
         </Text>
       </View>
@@ -365,5 +421,26 @@ const styles = StyleSheet.create({
     color: '#818384',
     fontSize: 13,
     lineHeight: 20,
+  },
+  streakRow: {
+    height: 20,
+    marginBottom: 4,
+  },
+  streakText: {
+    fontSize: 13,
+    color: '#818384',
+    fontWeight: '600',
+  },
+  streakActive: {
+    color: '#f1c40f',
+  },
+  streakFlash: {
+    color: '#ffffff',
+  },
+  bonusText: {
+    color: '#f1c40f',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 4,
   },
 });
