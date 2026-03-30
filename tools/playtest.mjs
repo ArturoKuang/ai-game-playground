@@ -53,7 +53,8 @@ async function connectToSession() {
   try {
     const browser = await puppeteer.connect({ browserWSEndpoint: wsEndpoint });
     const pages = await browser.pages();
-    const page = pages[0] || await browser.newPage();
+    // Pick the first non-blank page (start creates a new tab, leaving about:blank at index 0)
+    const page = pages.find(p => p.url() !== 'about:blank') || pages[pages.length - 1] || await browser.newPage();
     return { browser, page };
   } catch (e) {
     console.error('ERROR: Could not connect to browser session. It may have been closed.');

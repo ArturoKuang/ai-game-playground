@@ -73,3 +73,5 @@ abdd807	42	5	5	5	3	3	4	4	5	4	4	0	discard	Shove	New game v1: push blocks to slide
 370b2f5	45	7	5	4	3	3	5	4	6	4	4	0	discard	Cross	New game v1: assignment puzzle (one per row, forced top-to-bottom). d1=7 d8=6. d3=4 d4=3 — last 2 rows forced, game gets less interesting.
 82566bd	51	7	6	5	4	4	5	5	5	5	5	0	iterate	Cross	v2: free-form picking. d3 improved 4→5, most dimensions +1. But preview cost number makes optimal calculable.
 c246533	43	6	6	4	3	3	5	3	5	5	3	0	killed	Cross	v3: removed cost number from preview. WORSE — removing info didn't add depth. KILLED after 3 iterations (45→51→43). 5x5 assignment problem too tractable for daily puzzle depth.
+4acbf62	42	4	5	5	3	3	5	4	5	4	4	0	discard	Tint	New game v1: map coloring + quadratic scoring. d4=3 (free erase kills tension — no irrevocable decisions). Fix: add move limit for resource pressure.
+74ed2c1	49	4	5	6	4	4	5	5	6	5	5	0	discard	Tint	v2: move limit (numRegions+buffer). d4 improved 3→4 but tension is front-loaded (planning not execution). Fix: irreversible two-tap + conflict penalty tradeoff.
