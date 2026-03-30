@@ -68,3 +68,5 @@ f6a6c90	62	6	7	8	5	5	6	7	6	6	6	0	keep	Claim	v6: added minimum score threshold (6
 60530c4	46	5	6	5	4	4	5	5	2	6	4	0	killed	Flip	Pick cells + flip neighbor values. d8=2 — structurally identical to Claim (same grid, same preview, same solver). KILLED after 1 iteration — variant, not a new game.
 dbfadfa	46	5	6	5	3	3	5	4	5	6	4	0	discard	Shift	New game v1: slide rows/columns to group colors. d8=5 (unique interaction). d4=3 (no fail), d10=4 (no preview).
 f011230	48	7	5	4	5	4	6	4	5	5	3	0	killed	Shift	v2: P1 preview + region highlighting + min threshold. Preview created "scan 20 numbers, pick highest" loop — mechanical, not spatial. KILLED after 2 iterations (46→48).
+abdd807	42	5	5	5	3	3	4	4	5	4	4	0	discard	Shove	New game v1: push blocks to slide + match-3 + clear. Board empties after first big clear, last pushes score 0. d4=3.
+78ec7b7	37	6	6	2	2	3	5	2	5	3	3	0	killed	Shove	v2: added gravity after clears. WORSE — single push scored par (70) in one move, last 3 pushes dead. KILLED after 2 iterations (42→37). Single-push dominance = A5 in disguise.

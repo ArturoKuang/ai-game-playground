@@ -9,7 +9,6 @@ import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
 import Claim from './Claim';
-import Shove from './Shove';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -73,13 +72,6 @@ const games: GameMeta[] = [
     emoji: '\uD83C\uDFC6',
     description: 'Pick cells to score — neighbors shrink!',
     component: Claim,
-  },
-  {
-    id: 'shove',
-    name: 'Shove',
-    emoji: '\uD83D\uDFE7',
-    description: 'Push blocks to slide, match 3+ to score!',
-    component: Shove,
   },
 ];
 
