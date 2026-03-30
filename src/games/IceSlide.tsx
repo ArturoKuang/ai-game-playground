@@ -251,7 +251,23 @@ export default function IceSlide() {
   function buildShareText(): string {
     const under = moves <= puzzle.par;
     const arrows = moveHistory.map((d) => DIR_EMOJI[d]).join('');
-    return `IceSlide Day #${puzzleDay} \ud83e\uddca\n${moves}/${puzzle.par} moves\n${arrows}\n${
+    // Build mini path grid
+    const wallSet = puzzle.walls;
+    const pathSet = new Set(posHistory.map((p) => `${p.r},${p.c}`));
+    const rows: string[] = [];
+    for (let r = 0; r < GRID; r++) {
+      let row = '';
+      for (let c = 0; c < GRID; c++) {
+        const key = `${r},${c}`;
+        if (r === puzzle.goal.r && c === puzzle.goal.c) row += '\u2b50';
+        else if (r === puzzle.start.r && c === puzzle.start.c) row += '\ud83d\udfe2';
+        else if (wallSet.has(key)) row += '\u2b1b';
+        else if (pathSet.has(key)) row += '\ud83d\udfe6';
+        else row += '\u2b1c';
+      }
+      rows.push(row);
+    }
+    return `IceSlide Day #${puzzleDay} \ud83e\uddca\n${moves}/${puzzle.par} moves\n${arrows}\n${rows.join('\n')}\n${
       under ? '\u2b50 Under par!' : `Solved in ${moves} slides`
     }`;
   }
