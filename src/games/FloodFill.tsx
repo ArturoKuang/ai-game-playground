@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   Pressable,
   ScrollView,
   useWindowDimensions,
+  Animated,
 } from 'react-native';
 import ShareButton from '../components/ShareButton';
 import { getDailySeed, seededRandom } from '../utils/seed';
@@ -85,11 +86,37 @@ export default function FloodFill() {
   const won = isSolved(grid);
   const underPar = moves <= PAR;
 
+  // Bounce animations for picker buttons
+  const pickerScales = useRef(
+    PALETTE.map(() => new Animated.Value(1))
+  ).current;
+
+  const bounceButton = useCallback((idx: number) => {
+    Animated.sequence([
+      Animated.timing(pickerScales[idx], {
+        toValue: 1.2,
+        duration: 80,
+        useNativeDriver: true,
+      }),
+      Animated.spring(pickerScales[idx], {
+        toValue: 1,
+        friction: 3,
+        tension: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [pickerScales]);
+
+  // Grid flash animation on win
+  const winGlow = useRef(new Animated.Value(0)).current;
+
   const handleColorPick = useCallback(
     (colorIdx: number) => {
       if (gameOver) return;
       // Can't pick the current flood color — it's a no-op
       if (colorIdx === grid[0][0]) return;
+
+      bounceButton(colorIdx);
 
       const nextGrid = applyFlood(grid, colorIdx);
       const nextMoves = moves + 1;
@@ -98,6 +125,14 @@ export default function FloodFill() {
 
       if (isSolved(nextGrid)) {
         setGameOver(true);
+        // Win celebration pulse
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(winGlow, { toValue: 1, duration: 600, useNativeDriver: false }),
+            Animated.timing(winGlow, { toValue: 0, duration: 600, useNativeDriver: false }),
+          ]),
+          { iterations: 3 }
+        ).start();
         // Record stats
         recordGame('floodfill', nextMoves, PAR).then((s) => {
           setStats(s);
@@ -105,7 +140,7 @@ export default function FloodFill() {
         });
       }
     },
-    [grid, moves, gameOver]
+    [grid, moves, gameOver, bounceButton, winGlow]
   );
 
   const handleShowStats = useCallback(async () => {
@@ -151,7 +186,22 @@ export default function FloodFill() {
       </View>
 
       {/* Grid */}
-      <View style={styles.gridContainer}>
+      <Animated.View
+        style={[
+          styles.gridContainer,
+          gameOver && {
+            shadowColor: PALETTE[grid[0][0]].hex,
+            shadowOpacity: winGlow.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 0.8],
+            }) as unknown as number,
+            shadowRadius: winGlow.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 20],
+            }) as unknown as number,
+          },
+        ]}
+      >
         {grid.map((row, r) => (
           <View key={r} style={styles.gridRow}>
             {row.map((cell, c) => (
@@ -170,7 +220,7 @@ export default function FloodFill() {
             ))}
           </View>
         ))}
-      </View>
+      </Animated.View>
 
       {/* Win message */}
       {gameOver && (
@@ -195,19 +245,23 @@ export default function FloodFill() {
             {PALETTE.map((color, i) => {
               const isCurrentColor = i === grid[0][0];
               return (
-                <Pressable
+                <Animated.View
                   key={i}
-                  onPress={() => handleColorPick(i)}
-                  style={[
-                    styles.pickerBtn,
-                    { backgroundColor: color.hex },
-                    isCurrentColor && styles.pickerBtnDisabled,
-                  ]}
+                  style={{ transform: [{ scale: pickerScales[i] }] }}
                 >
-                  {isCurrentColor && (
-                    <View style={styles.pickerBtnOverlay} />
-                  )}
-                </Pressable>
+                  <Pressable
+                    onPress={() => handleColorPick(i)}
+                    style={[
+                      styles.pickerBtn,
+                      { backgroundColor: color.hex },
+                      isCurrentColor && styles.pickerBtnDisabled,
+                    ]}
+                  >
+                    {isCurrentColor && (
+                      <View style={styles.pickerBtnOverlay} />
+                    )}
+                  </Pressable>
+                </Animated.View>
               );
             })}
           </View>
