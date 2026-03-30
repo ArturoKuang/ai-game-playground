@@ -261,10 +261,15 @@ export default function BitMap() {
   function buildShareText(): string {
     const rows = puzzle.target
       .map((row) =>
-        row.map((cell) => (cell ? '\u2b1b' : '\u2b1c')).join('')
+        row.map((cell) => (cell ? '\ud83d\udfe6' : '\u2b1b')).join('')
       )
       .join('\n');
-    return `BitMap Day #${puzzleDay} \ud83d\uddbc\ufe0f\n${finalTime}s / ${parTime}s\n${rows}\n${
+    // Time bar: 10 segments, green = time budget remaining, used = filled
+    const segments = 10;
+    const usedRatio = Math.min(finalTime / parTime, 2);
+    const usedCount = Math.min(segments, Math.round(usedRatio * segments));
+    const timeBar = '\u2b1b'.repeat(usedCount) + '\ud83d\udfe9'.repeat(segments - usedCount);
+    return `BitMap Day #${puzzleDay} \ud83d\uddbc\ufe0f\n${rows}\n${timeBar} ${finalTime}s\n${
       underPar ? '\u2b50 Under par!' : `Solved in ${finalTime}s`
     }`;
   }
