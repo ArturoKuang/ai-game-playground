@@ -296,14 +296,19 @@ export default function Tumble() {
     return moves;
   }, [board, gameOver, stuck]);
 
-  /* preview board (gravity-shifted, NO group highlighting) */
-  const previewBoard = useMemo(() => {
+  /* preview board + group highlighting (but NO pop counts) */
+  const previewData = useMemo(() => {
     if (!selectedDir) return null;
-    return applyGravity(board, selectedDir);
+    const pb = applyGravity(board, selectedDir);
+    const groups = findGroups(pb);
+    const hl = new Set<number>();
+    for (const g of groups) for (const [r, c] of g) hl.add(r * SIZE + c);
+    return { pb, hl };
   }, [selectedDir, board]);
 
-  const displayBoard = previewBoard ?? board;
-  const isPreview = !!previewBoard;
+  const displayBoard = previewData ? previewData.pb : board;
+  const highlightSet = previewData ? previewData.hl : new Set<number>();
+  const isPreview = !!previewData;
 
   /* cell scale animations */
   const cellScales = useRef(
@@ -508,6 +513,7 @@ export default function Tumble() {
                 {Array.from({ length: SIZE }).map((_, c) => {
                   const color = displayBoard[r][c];
                   const idx = r * SIZE + c;
+                  const hl = highlightSet.has(idx);
 
                   if (color === null) {
                     return (
@@ -532,10 +538,9 @@ export default function Tumble() {
                           {
                             width: cellSize,
                             height: cellSize,
-                            backgroundColor: COLORS[color],
-                            borderColor: isPreview
-                              ? '#888'
-                              : BORDERS[color],
+                            backgroundColor: hl ? '#fff' : COLORS[color],
+                            borderColor: hl ? '#f1c40f' : BORDERS[color],
+                            opacity: isPreview && !hl ? 0.55 : 1,
                           },
                         ]}
                       />
