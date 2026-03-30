@@ -142,11 +142,13 @@ export default function DropPop() {
     initialBoard.map((row) => [...row])
   );
   const [pops, setPops] = useState(0);
+  const [selectedGroup, setSelectedGroup] = useState<[number, number][] | null>(null);
   const [highlighted, setHighlighted] = useState<Set<number>>(new Set());
   const [gameOver, setGameOver] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
   const [biggestPop, setBiggestPop] = useState(0);
+  const [score, setScore] = useState(0);
 
   const remaining = useMemo(() => countRemaining(board), [board]);
   const noMoves = useMemo(() => !hasValidMoves(board), [board]);
@@ -155,6 +157,53 @@ export default function DropPop() {
   const cellScales = useRef(
     Array.from({ length: ROWS * COLS }, () => new Animated.Value(1))
   ).current;
+
+  const popGroup = useCallback(
+    (group: [number, number][]) => {
+      // Bounce animation on group cells
+      const bounceAnims = group.map(([gr, gc]) => {
+        const idx = gr * COLS + gc;
+        return Animated.sequence([
+          Animated.timing(cellScales[idx], {
+            toValue: 0.6,
+            duration: 80,
+            useNativeDriver: true,
+          }),
+          Animated.timing(cellScales[idx], {
+            toValue: 1,
+            duration: 60,
+            useNativeDriver: true,
+          }),
+        ]);
+      });
+
+      Animated.parallel(bounceAnims).start(() => {
+        const newBoard = board.map((row) => [...row]);
+        for (const [gr, gc] of group) {
+          newBoard[gr][gc] = null;
+        }
+        const afterGravity = applyGravity(newBoard);
+        const afterCompact = compactColumns(afterGravity);
+
+        setBoard(afterCompact);
+        setPops((p) => p + 1);
+        setBiggestPop((prev) => Math.max(prev, group.length));
+        setScore((prev) => prev + group.length * group.length); // quadratic scoring
+        setHighlighted(new Set());
+        setSelectedGroup(null);
+
+        if (!hasValidMoves(afterCompact)) {
+          const rem = countRemaining(afterCompact);
+          setGameOver(true);
+          recordGame('droppop', rem, diff.par).then((s) => {
+            setStats(s);
+            setShowStats(true);
+          });
+        }
+      });
+    },
+    [board, cellScales, diff.par]
+  );
 
   const handleTap = useCallback(
     (r: number, c: number) => {
@@ -177,56 +226,25 @@ export default function DropPop() {
             useNativeDriver: true,
           }),
         ]).start();
+        setSelectedGroup(null);
+        setHighlighted(new Set());
         return;
       }
 
-      // Highlight group briefly, then pop
       const groupKeys = new Set(group.map(([gr, gc]) => gr * COLS + gc));
+
+      // If this is the same group as currently selected → pop it
+      if (selectedGroup && selectedGroup.length === group.length &&
+          selectedGroup[0][0] === group[0][0] && selectedGroup[0][1] === group[0][1]) {
+        popGroup(group);
+        return;
+      }
+
+      // First tap: select and preview the group
+      setSelectedGroup(group);
       setHighlighted(groupKeys);
-
-      // Bounce animation on group cells
-      const bounceAnims = group.map(([gr, gc]) => {
-        const idx = gr * COLS + gc;
-        return Animated.sequence([
-          Animated.timing(cellScales[idx], {
-            toValue: 0.6,
-            duration: 80,
-            useNativeDriver: true,
-          }),
-          Animated.timing(cellScales[idx], {
-            toValue: 1,
-            duration: 60,
-            useNativeDriver: true,
-          }),
-        ]);
-      });
-
-      Animated.parallel(bounceAnims).start(() => {
-        // Pop: remove cells, gravity, compact
-        const newBoard = board.map((row) => [...row]);
-        for (const [gr, gc] of group) {
-          newBoard[gr][gc] = null;
-        }
-        const afterGravity = applyGravity(newBoard);
-        const afterCompact = compactColumns(afterGravity);
-
-        setBoard(afterCompact);
-        setPops((p) => p + 1);
-        setBiggestPop((prev) => Math.max(prev, group.length));
-        setHighlighted(new Set());
-
-        // Check game over
-        if (!hasValidMoves(afterCompact)) {
-          const rem = countRemaining(afterCompact);
-          setGameOver(true);
-          recordGame('droppop', rem, diff.par).then((s) => {
-            setStats(s);
-            setShowStats(true);
-          });
-        }
-      });
     },
-    [board, gameOver, cellScales, diff.par]
+    [board, gameOver, cellScales, selectedGroup, popGroup]
   );
 
   const handleShowStats = useCallback(async () => {
@@ -250,11 +268,11 @@ export default function DropPop() {
       }
       snapRows.push(row);
     }
-    return `DropPop Day #${puzzleDay} \ud83c\udfae\n${remaining} left | ${pops} pops | best pop: ${biggestPop}\n${snapRows.join('\n')}\n${
+    return `DropPop Day #${puzzleDay} \ud83c\udfae\n${remaining} left | ${score} pts | best: ${biggestPop}-pop\n${snapRows.join('\n')}\n${
       under
         ? remaining === 0
           ? '\u2b50 Perfect clear!'
-          : `\u2b50 Under par (${diff.par})!`
+          : `\u2b50 Under par (\u2264${diff.par})!`
         : `${pct}% cleared`
     }`;
   }
@@ -286,8 +304,8 @@ export default function DropPop() {
           </Text>
         </View>
         <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Pops</Text>
-          <Text style={styles.infoValue}>{pops}</Text>
+          <Text style={styles.infoLabel}>Score</Text>
+          <Text style={styles.infoValue}>{score}</Text>
         </View>
         <View style={styles.infoItem}>
           <Text style={styles.infoLabel}>Par</Text>
@@ -344,6 +362,15 @@ export default function DropPop() {
         ))}
       </View>
 
+      {/* Group preview hint */}
+      {selectedGroup && !gameOver && (
+        <View style={styles.groupHint}>
+          <Text style={styles.groupHintText}>
+            {selectedGroup.length}-group ({selectedGroup.length * selectedGroup.length} pts) — tap again to pop!
+          </Text>
+        </View>
+      )}
+
       <CelebrationBurst show={gameOver && remaining <= diff.par} />
 
       {gameOver && (
@@ -369,10 +396,10 @@ export default function DropPop() {
       <View style={styles.howTo}>
         <Text style={styles.howToTitle}>How to play</Text>
         <Text style={styles.howToText}>
-          Tap a group of 2+ connected same-colored tiles to pop them.
+          Tap a group to select it (shows size + points). Tap again to pop!
           Tiles fall down; empty columns compact left. No undo!
           {'\n\n'}
-          Clear as many tiles as possible. Par: {diff.par} or fewer remaining.
+          Bigger groups score more (size\u00b2 points). Par: {diff.par} or fewer remaining.
         </Text>
       </View>
 
@@ -436,6 +463,20 @@ const styles = StyleSheet.create({
   cell: {
     borderRadius: 8,
     borderWidth: 2,
+  },
+  groupHint: {
+    marginTop: 10,
+    marginBottom: 4,
+    backgroundColor: '#2c2c2e',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  groupHintText: {
+    color: '#f1c40f',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   emptyCell: {
     borderRadius: 8,
