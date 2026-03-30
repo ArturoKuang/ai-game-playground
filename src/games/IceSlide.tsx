@@ -226,6 +226,28 @@ export default function IceSlide() {
     [puzzle.gems]
   );
 
+  // Projected landing positions for each direction (P1: pre-commitment info)
+  const landingPreviews = useMemo(() => {
+    if (won || animating) return new Map<string, Dir[]>();
+
+    const uncollected = new Set<string>();
+    puzzle.gems.forEach((g) => {
+      const key = `${g.r},${g.c}`;
+      if (!collectedGems.has(key)) uncollected.add(key);
+    });
+
+    const previews = new Map<string, Dir[]>();
+    for (const dir of ['up', 'down', 'left', 'right'] as Dir[]) {
+      const { pos: landing } = slideStep(puzzle.walls, uncollected, pos, dir);
+      if (landing.r === pos.r && landing.c === pos.c) continue;
+      const key = `${landing.r},${landing.c}`;
+      const dirs = previews.get(key) || [];
+      dirs.push(dir);
+      previews.set(key, dirs);
+    }
+    return previews;
+  }, [pos, won, animating, puzzle, collectedGems]);
+
   const handleMove = useCallback(
     (dir: Dir) => {
       if (won || animating) return;
@@ -423,6 +445,8 @@ export default function IceSlide() {
               const isCollectedGem = gemSet.has(key) && collectedGems.has(key);
               const isTrail =
                 trailSet.has(key) && !(r === pos.r && c === pos.c);
+              const isLanding = landingPreviews.has(key);
+              const landingHitsGem = isLanding && isGem;
 
               return (
                 <View
@@ -440,26 +464,45 @@ export default function IceSlide() {
                             ? '#1a4a2e'
                             : isGoal
                               ? '#1a2a3e'
-                              : isTrail
-                                ? '#1a2030'
-                                : '#16161e',
+                              : isLanding
+                                ? '#0a1a2a'
+                                : isTrail
+                                  ? '#1a2030'
+                                  : '#16161e',
                       borderColor: isWall
                         ? '#5a5a6c'
                         : isGem
                           ? '#9a4aff'
                           : isGoal
                             ? '#4a9a6a'
-                            : '#22222e',
+                            : isLanding
+                              ? '#005a8a'
+                              : '#22222e',
                     },
                   ]}
                 >
                   {isGoal && (
                     <Text style={{ fontSize: cellSize * 0.5 }}>{'\u2b50'}</Text>
                   )}
-                  {isGem && (
+                  {isGem && !landingHitsGem && (
                     <Text style={{ fontSize: cellSize * 0.45 }}>{'\ud83d\udc8e'}</Text>
                   )}
-                  {isCollectedGem && (
+                  {landingHitsGem && (
+                    <Text style={{ fontSize: cellSize * 0.45, opacity: 1 }}>{'\ud83d\udc8e'}</Text>
+                  )}
+                  {isLanding && !isGoal && !isGem && (
+                    <View
+                      style={[
+                        styles.landingGhost,
+                        {
+                          width: cellSize * 0.5,
+                          height: cellSize * 0.5,
+                          borderRadius: cellSize * 0.25,
+                        },
+                      ]}
+                    />
+                  )}
+                  {isCollectedGem && !isLanding && (
                     <View
                       style={[
                         styles.collectedGemDot,
@@ -471,7 +514,7 @@ export default function IceSlide() {
                       ]}
                     />
                   )}
-                  {isTrail && !isGoal && !isGem && !isCollectedGem && (
+                  {isTrail && !isGoal && !isGem && !isCollectedGem && !isLanding && (
                     <View
                       style={[
                         styles.trailDot,
@@ -645,6 +688,11 @@ const styles = StyleSheet.create({
   },
   trailDot: {
     backgroundColor: 'rgba(0, 180, 255, 0.3)',
+  },
+  landingGhost: {
+    backgroundColor: 'rgba(0, 180, 255, 0.2)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 180, 255, 0.35)',
   },
   collectedGemDot: {
     backgroundColor: 'rgba(154, 74, 255, 0.25)',
