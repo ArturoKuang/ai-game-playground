@@ -177,11 +177,14 @@ export default function Shift() {
   const cellSize = Math.floor((maxGridW - (SIZE - 1) * GAP) / SIZE);
   const gridWidth = SIZE * cellSize + (SIZE - 1) * GAP;
 
+  const minScore = Math.ceil(par * 0.6);
+
   const [grid, setGrid] = useState<number[][]>(() =>
     initialGrid.map((r) => [...r]),
   );
   const [slides, setSlides] = useState(0);
   const [region, setRegion] = useState(initialRegion);
+  const [previewAction, setPreviewAction] = useState<SlideAction | null>(null);
   const [gameOver, setGameOver] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -190,52 +193,104 @@ export default function Shift() {
     Array.from({ length: SIZE * SIZE }, () => new Animated.Value(1)),
   ).current;
 
-  /* ─── perform a slide ─── */
-  const handleSlide = useCallback(
+  /* ─── P1 preview: show result of a potential slide ─── */
+  const previewData = useMemo(() => {
+    if (!previewAction) return null;
+    const pg = applySlide(grid, previewAction);
+    return { grid: pg, region: largestRegion(pg) };
+  }, [previewAction, grid]);
+
+  /* ─── highlight cells in the largest region ─── */
+  const regionCells = useMemo(() => {
+    const g = previewData ? previewData.grid : grid;
+    const visited = new Set<number>();
+    let bestSet = new Set<number>();
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        const key = r * SIZE + c;
+        if (visited.has(key)) continue;
+        const color = g[r][c];
+        const group = new Set<number>();
+        const queue = [key];
+        visited.add(key);
+        while (queue.length > 0) {
+          const k = queue.shift()!;
+          group.add(k);
+          for (const nk of adj(k)) {
+            if (!visited.has(nk)) {
+              const nr = Math.floor(nk / SIZE);
+              const nc = nk % SIZE;
+              if (g[nr][nc] === color) { visited.add(nk); queue.push(nk); }
+            }
+          }
+        }
+        if (group.size > bestSet.size) bestSet = group;
+      }
+    }
+    return bestSet;
+  }, [grid, previewData]);
+
+  const displayGrid = previewData ? previewData.grid : grid;
+  const displayRegion = previewData ? previewData.region : region;
+
+  /* ─── handle arrow tap (two-tap: preview then confirm) ─── */
+  const handleArrowTap = useCallback(
     (action: SlideAction) => {
-      if (gameOver) return;
-      if (slides >= diff.numSlides) return;
+      if (gameOver || slides >= diff.numSlides) return;
 
-      const newGrid = applySlide(grid, action);
-      const newRegion = largestRegion(newGrid);
-      const newSlides = slides + 1;
+      // Same arrow tapped twice → confirm
+      if (
+        previewAction &&
+        previewAction.type === action.type &&
+        previewAction.index === action.index &&
+        previewAction.dir === action.dir
+      ) {
+        setPreviewAction(null);
+        const newGrid = applySlide(grid, action);
+        const newRegion = largestRegion(newGrid);
+        const newSlides = slides + 1;
 
-      // Animate affected cells
-      const affected: number[] = [];
-      if (action.type === 'row') {
-        for (let c = 0; c < SIZE; c++) affected.push(action.index * SIZE + c);
-      } else {
-        for (let r = 0; r < SIZE; r++) affected.push(r * SIZE + action.index);
+        // Animate affected cells
+        const affected: number[] = [];
+        if (action.type === 'row') {
+          for (let cc = 0; cc < SIZE; cc++) affected.push(action.index * SIZE + cc);
+        } else {
+          for (let rr = 0; rr < SIZE; rr++) affected.push(rr * SIZE + action.index);
+        }
+        for (const key of affected) {
+          Animated.sequence([
+            Animated.timing(cellScales[key], {
+              toValue: 0.85,
+              duration: 60,
+              useNativeDriver: true,
+            }),
+            Animated.spring(cellScales[key], {
+              toValue: 1,
+              friction: 3,
+              tension: 200,
+              useNativeDriver: true,
+            }),
+          ]).start();
+        }
+
+        setGrid(newGrid);
+        setRegion(newRegion);
+        setSlides(newSlides);
+
+        if (newSlides >= diff.numSlides) {
+          setGameOver(true);
+          recordGame('shift', newRegion, par, true).then((s) => {
+            setStats(s);
+            setShowStats(true);
+          });
+        }
+        return;
       }
-      for (const key of affected) {
-        Animated.sequence([
-          Animated.timing(cellScales[key], {
-            toValue: 0.85,
-            duration: 60,
-            useNativeDriver: true,
-          }),
-          Animated.spring(cellScales[key], {
-            toValue: 1,
-            friction: 3,
-            tension: 200,
-            useNativeDriver: true,
-          }),
-        ]).start();
-      }
 
-      setGrid(newGrid);
-      setRegion(newRegion);
-      setSlides(newSlides);
-
-      if (newSlides >= diff.numSlides) {
-        setGameOver(true);
-        recordGame('shift', newRegion, par, true).then((s) => {
-          setStats(s);
-          setShowStats(true);
-        });
-      }
+      // First tap → preview
+      setPreviewAction(action);
     },
-    [grid, slides, gameOver, diff.numSlides, par, cellScales],
+    [previewAction, grid, slides, gameOver, diff.numSlides, par, cellScales],
   );
 
   const handleShowStats = useCallback(async () => {
@@ -287,14 +342,15 @@ export default function Shift() {
             style={[
               styles.infoValue,
               gameOver && region >= par && styles.infoValueGood,
+              gameOver && region < minScore && styles.infoValueBad,
             ]}
           >
-            {region}
+            {displayRegion}
           </Text>
         </View>
         <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Par</Text>
-          <Text style={styles.infoPar}>{par}</Text>
+          <Text style={styles.infoLabel}>Min / Par</Text>
+          <Text style={styles.infoPar}>{minScore} / {par}</Text>
         </View>
       </View>
 
@@ -305,7 +361,7 @@ export default function Shift() {
           {Array.from({ length: SIZE }).map((_, c) => (
             <Pressable
               key={c}
-              onPress={() => handleSlide({ type: 'col', index: c, dir: -1 })}
+              onPress={() => handleArrowTap({ type: 'col', index: c, dir: -1 })}
               style={[styles.arrow, { width: cellSize, height: arrowSize }]}
             >
               <Text style={styles.arrowText}>{'\u25B2'}</Text>
@@ -319,7 +375,7 @@ export default function Shift() {
             {Array.from({ length: SIZE }).map((_, r) => (
               <Pressable
                 key={r}
-                onPress={() => handleSlide({ type: 'row', index: r, dir: -1 })}
+                onPress={() => handleArrowTap({ type: 'row', index: r, dir: -1 })}
                 style={[styles.arrow, { width: arrowSize, height: cellSize }]}
               >
                 <Text style={styles.arrowText}>{'\u25C0'}</Text>
@@ -333,7 +389,8 @@ export default function Shift() {
               <View key={r} style={styles.gridRow}>
                 {Array.from({ length: SIZE }).map((_, c) => {
                   const key = r * SIZE + c;
-                  const color = grid[r][c];
+                  const color = displayGrid[r][c];
+                  const inRegion = regionCells.has(key);
                   return (
                     <Animated.View
                       key={c}
@@ -346,7 +403,8 @@ export default function Shift() {
                             width: cellSize,
                             height: cellSize,
                             backgroundColor: TILE_COLORS[color],
-                            borderColor: TILE_BORDERS[color],
+                            borderColor: inRegion ? '#fff' : TILE_BORDERS[color],
+                            borderWidth: inRegion ? 3 : 2,
                           },
                         ]}
                       />
@@ -362,7 +420,7 @@ export default function Shift() {
             {Array.from({ length: SIZE }).map((_, r) => (
               <Pressable
                 key={r}
-                onPress={() => handleSlide({ type: 'row', index: r, dir: 1 })}
+                onPress={() => handleArrowTap({ type: 'row', index: r, dir: 1 })}
                 style={[styles.arrow, { width: arrowSize, height: cellSize }]}
               >
                 <Text style={styles.arrowText}>{'\u25B6'}</Text>
@@ -376,7 +434,7 @@ export default function Shift() {
           {Array.from({ length: SIZE }).map((_, c) => (
             <Pressable
               key={c}
-              onPress={() => handleSlide({ type: 'col', index: c, dir: 1 })}
+              onPress={() => handleArrowTap({ type: 'col', index: c, dir: 1 })}
               style={[styles.arrow, { width: cellSize, height: arrowSize }]}
             >
               <Text style={styles.arrowText}>{'\u25BC'}</Text>
@@ -384,6 +442,15 @@ export default function Shift() {
           ))}
         </View>
       </View>
+
+      {/* Preview hint */}
+      {previewAction && !gameOver && (
+        <View style={styles.previewHint}>
+          <Text style={styles.previewText}>
+            Region {'\u2192'} {previewData?.region ?? '?'} — tap again!
+          </Text>
+        </View>
+      )}
 
       <CelebrationBurst show={gameOver && region >= par} />
 
@@ -457,6 +524,20 @@ const styles = StyleSheet.create({
   infoLabel: { color: '#818384', fontSize: 12 },
   infoValue: { color: '#ffffff', fontSize: 24, fontWeight: '800' },
   infoValueGood: { color: '#2ecc71' },
+  infoValueBad: { color: '#e74c3c' },
+  previewHint: {
+    marginTop: 8,
+    backgroundColor: '#2c2c2e',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  previewText: {
+    color: '#f1c40f',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   infoPar: { color: '#818384', fontSize: 14, marginTop: 2 },
   gridArea: { alignItems: 'center', gap: 4 },
   colArrows: { flexDirection: 'row', gap: GAP, justifyContent: 'center' },
