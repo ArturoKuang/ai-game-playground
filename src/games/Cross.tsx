@@ -353,8 +353,7 @@ export default function Cross() {
       {selectedCell !== null && !gameOver && (
         <View style={styles.previewHint}>
           <Text style={styles.previewText}>
-            +{grid[Math.floor(selectedCell / SIZE)][selectedCell % SIZE]} pts, eliminates{' '}
-            {previewCost} pts — tap again!
+            +{grid[Math.floor(selectedCell / SIZE)][selectedCell % SIZE]} pts — tap again to pick!
           </Text>
         </View>
       )}
@@ -378,8 +377,8 @@ export default function Cross() {
       <View style={styles.howTo}>
         <Text style={styles.howToTitle}>How to play</Text>
         <Text style={styles.howToText}>
-          Pick one cell from each row (top to bottom). Each pick
-          crosses out that column for all remaining rows!
+          Pick 5 cells — one from each row, one from each column.
+          Each pick crosses out its entire row and column!
           {'\n\n'}
           Grabbing a high number might cost you an even higher one
           in a later row. Preview shows what you'd lose!
