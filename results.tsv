@@ -33,3 +33,4 @@ b717755	18	2	2	2	2	1	2	2	2	2	1	0	keep	ChainPop	3 taps (was 1) + day-of-week bubb
 012a2df	20	2	2	2	2	2	2	2	2	2	2	0	keep	PathWeaver	Guaranteed solvability via DFS + bounce animations + day-of-week par (Mon 5, Fri 1). Weakest: none below 2. Arrow grid share text is distinctive.
 f72c3aa	19	2	2	2	2	1	2	2	2	2	2	0	keep	BounceOut	Short aim line (no bounce preview) + day-of-week targets (4-8). Weakest: one-more-day pull. Removing preview makes aiming a real skill — predicting bounces is the game now.
 421630a	20	1	2	3	2	2	2	2	2	2	2	0	keep	LightsOut	Animated cell bounce on tap (all 5 affected cells pulse). d3 earns 3: cross-toggle coupling creates rich tradeoffs where every tap has unintended side effects requiring deep planning.
+32f2aa9	19	2	2	2	2	1	2	2	2	2	2	0	keep	DropPop	Two-tap select-then-pop + quadratic scoring (size²). Preview gives info to compare groups. Weakest: one-more-day pull. Aha: popping small groups to create bigger ones via gravity.
