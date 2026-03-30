@@ -81,6 +81,7 @@ export default function BounceOut() {
     level.targets.map((t) => ({ ...t }))
   );
   const [shots, setShots] = useState(0);
+  const [shotHits, setShotHits] = useState<number[]>([]); // targets hit per shot
   const [aiming, setAiming] = useState(false);
   const [aimDir, setAimDir] = useState<Vec2>({ x: 0, y: -1 });
   const [ballTrail, setBallTrail] = useState<Vec2[] | null>(null);
@@ -157,6 +158,7 @@ export default function BounceOut() {
         prev.map((t) => (hitIds.includes(t.id) ? { ...t, alive: false } : t))
       );
       setShots((s) => s + 1);
+      setShotHits((prev) => [...prev, hitIds.length]);
       setBallTrail(null);
       setAnimating(false);
       setAiming(false);
@@ -180,7 +182,15 @@ export default function BounceOut() {
   }, []);
 
   function buildShareText(): string {
-    return `BounceOut ${shots}/${PAR_SHOTS} shots \ud83c\udfb1\n${shots <= PAR_SHOTS ? '\ud83c\udf1f Under par!' : `Cleared in ${shots}`}`;
+    const under = shots <= PAR_SHOTS;
+    const shotLines = shotHits
+      .map((hits, i) =>
+        hits === 0
+          ? '\ud83d\udca8'
+          : '\ud83c\udfaf'.repeat(hits)
+      )
+      .join('\n');
+    return `BounceOut Day #${puzzleDay} \ud83c\udfb1\n${shots}/${PAR_SHOTS} shots\n${shotLines}\n${under ? '\u2b50 Under par!' : `Cleared in ${shots} shots`}`;
   }
 
   return (
