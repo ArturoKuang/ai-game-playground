@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import ShareButton from '../components/ShareButton';
 import StatsModal from '../components/StatsModal';
-import { getDailySeed, seededRandom, getPuzzleDay } from '../utils/seed';
+import { getDailySeed, seededRandom, getPuzzleDay, getDayDifficulty } from '../utils/seed';
 import { loadStats, recordGame, type Stats } from '../utils/stats';
 
 /* ─── Constants ─── */
@@ -75,10 +75,14 @@ function bfs(walls: Set<string>, start: Pos, goal: Pos): Dir[] | null {
 /* ─── Puzzle generation ─── */
 function generatePuzzle(seed: number) {
   const rng = seededRandom(seed);
+  const d = getDayDifficulty(); // 1 (Mon) to 5 (Fri)
+  const minMoves = 2 + d;      // Mon=3, Fri=7
+  const maxMoves = 4 + d * 2;  // Mon=6, Fri=14
+  const minWalls = 4 + d;      // Mon=5, Fri=9
 
   for (let attempt = 0; attempt < 500; attempt++) {
     const walls = new Set<string>();
-    const numWalls = 6 + Math.floor(rng() * 5);
+    const numWalls = minWalls + Math.floor(rng() * 4);
 
     for (let i = 0; i < numWalls; i++) {
       walls.add(`${Math.floor(rng() * GRID)},${Math.floor(rng() * GRID)}`);
@@ -98,8 +102,8 @@ function generatePuzzle(seed: number) {
     } while (goal.r === start.r && goal.c === start.c);
 
     const solution = bfs(walls, start, goal);
-    if (!solution || solution.length < 4 || solution.length > 12) continue;
-    if (new Set(solution).size < 3) continue; // need 3+ distinct directions
+    if (!solution || solution.length < minMoves || solution.length > maxMoves) continue;
+    if (new Set(solution).size < 3) continue;
 
     return { walls, start, goal, par: solution.length };
   }
