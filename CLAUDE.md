@@ -37,6 +37,23 @@ When evaluating games, be **honest and demanding**:
 - Watch for the "demo effect" -- a game that impresses on first play but has no replay depth is not a good daily game.
 - Trust the rubric over your gut. If the score is low, the game needs work, even if you personally like the mechanic.
 
+## Frozen Games — Do NOT Iterate
+
+The following games are **frozen**. Do not modify, iterate on, or tweak them. They are done. Focus all loop energy on designing **new games** instead.
+
+| Game | Score | Status |
+|------|-------|--------|
+| LightsOut | 20 | frozen |
+| FloodFill | 20 | frozen |
+| PathWeaver | 20 | frozen |
+| BounceOut | 19 | frozen |
+| DropPop | 19 | frozen |
+| IceSlide | 18 | frozen |
+| ChainPop | 18 | frozen |
+| BitMap | 16 | frozen |
+
+When running the design loop, **skip Steps 0-1 for existing games**. Go straight to Step 2 with a **new game concept**. Use `learnings.md` and `results.tsv` to inform your new designs, but do not touch existing game files.
+
 ## Project Structure
 
 ```
