@@ -8,6 +8,7 @@ import PathWeaver from './PathWeaver';
 import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
+import Claim from './Claim';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -64,6 +65,13 @@ const games: GameMeta[] = [
     emoji: '\ud83d\uddbc\ufe0f',
     description: 'Decode the pattern from row & column clues',
     component: BitMap,
+  },
+  {
+    id: 'claim',
+    name: 'Claim',
+    emoji: '\uD83C\uDFC6',
+    description: 'Pick cells to score — neighbors shrink!',
+    component: Claim,
   },
 ];
 
