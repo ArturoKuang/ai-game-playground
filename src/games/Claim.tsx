@@ -124,6 +124,7 @@ export default function Claim() {
 
   const [claimed, setClaimed] = useState<Set<number>>(new Set());
   const [locked, setLocked] = useState<Set<number>>(new Set());
+  const [selectedCell, setSelectedCell] = useState<number | null>(null);
   const [picks, setPicks] = useState(0);
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
@@ -134,12 +135,44 @@ export default function Claim() {
     Array.from({ length: SIZE * SIZE }, () => new Animated.Value(1)),
   ).current;
 
-  /* ─── claim a cell ─── */
+  /* ─── P1 preview: cells that WOULD be locked if selectedCell is claimed ─── */
+  const previewLocked = useMemo(() => {
+    if (selectedCell === null) return new Set<number>();
+    const pv = new Set<number>();
+    for (const nk of neighbors(selectedCell)) {
+      if (!claimed.has(nk) && !locked.has(nk)) pv.add(nk);
+    }
+    return pv;
+  }, [selectedCell, claimed, locked]);
+
+  /* ─── claim a cell (two-tap: select then confirm) ─── */
   const handleTap = useCallback(
     (r: number, c: number) => {
       if (gameOver) return;
       const key = r * SIZE + c;
       if (claimed.has(key) || locked.has(key)) return;
+
+      // First tap: select and preview
+      if (selectedCell !== key) {
+        setSelectedCell(key);
+        Animated.sequence([
+          Animated.timing(cellScales[key], {
+            toValue: 1.15,
+            duration: 60,
+            useNativeDriver: true,
+          }),
+          Animated.spring(cellScales[key], {
+            toValue: 1,
+            friction: 3,
+            tension: 200,
+            useNativeDriver: true,
+          }),
+        ]).start();
+        return;
+      }
+
+      // Second tap: confirm claim
+      setSelectedCell(null);
 
       const val = initialGrid[r][c];
       const newScore = score + val;
@@ -271,6 +304,8 @@ export default function Claim() {
               const val = initialGrid[r][c];
               const isClaimed = claimed.has(key);
               const isLocked = locked.has(key);
+              const isSelected = selectedCell === key;
+              const wouldLock = previewLocked.has(key);
 
               let bg = VAL_COLORS[Math.min(val, 9)];
               let border = '#555';
@@ -282,6 +317,12 @@ export default function Claim() {
               } else if (isLocked) {
                 bg = '#2a1a1a';
                 border = '#c0392b';
+                bw = 2;
+              } else if (isSelected) {
+                border = '#f1c40f';
+                bw = 3;
+              } else if (wouldLock) {
+                border = '#e74c3c';
                 bw = 2;
               }
 
@@ -324,6 +365,16 @@ export default function Claim() {
         ))}
       </View>
 
+      {/* Preview hint */}
+      {selectedCell !== null && !gameOver && (
+        <View style={styles.previewHint}>
+          <Text style={styles.previewText}>
+            +{initialGrid[Math.floor(selectedCell / SIZE)][selectedCell % SIZE]} pts, locks{' '}
+            {previewLocked.size} cell{previewLocked.size !== 1 ? 's' : ''} — tap again!
+          </Text>
+        </View>
+      )}
+
       <CelebrationBurst show={gameOver && score >= par} />
 
       {gameOver && (
@@ -343,11 +394,10 @@ export default function Claim() {
       <View style={styles.howTo}>
         <Text style={styles.howToTitle}>How to play</Text>
         <Text style={styles.howToText}>
-          Tap a cell to claim it and add its value to your score. But
-          claiming a cell LOCKS all its neighbors — you can't claim
-          locked cells!
+          Tap a cell to preview — it highlights which neighbors would be
+          locked. Tap again to confirm! Locked cells can't be claimed.
           {'\n\n'}
-          Think ahead: grabbing the 9 might lock a nearby 7 you needed.
+          Think ahead: compare which pick locks the least value.
           Plan your {diff.numPicks} picks to beat par.
         </Text>
       </View>
@@ -415,6 +465,19 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(255,255,255,0.3)',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 6,
+  },
+  previewHint: {
+    marginTop: 10,
+    backgroundColor: '#2c2c2e',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  previewText: {
+    color: '#f1c40f',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   claimedCheck: {
     color: '#2ecc71',
