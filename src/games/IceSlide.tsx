@@ -365,6 +365,19 @@ export default function IceSlide() {
     });
   }, [moveHistory, posHistory, gemHistory, won, animating, puzzle, step, animX, animY]);
 
+  const handleRestart = useCallback(() => {
+    if (won || animating) return;
+    setPos(puzzle.start);
+    setMoves(0);
+    setMoveHistory([]);
+    setPosHistory([puzzle.start]);
+    setCollectedGems(new Set());
+    setGemHistory([]);
+    setUndos(0);
+    animX.setValue(0);
+    animY.setValue(0);
+  }, [won, animating, puzzle, animX, animY]);
+
   const handleShowStats = useCallback(async () => {
     const s = await loadStats('iceslide');
     setStats(s);
@@ -433,6 +446,11 @@ export default function IceSlide() {
         </Text>
         {undos > 0 && (
           <Text style={styles.undoCount}>({undos} undo{undos > 1 ? 's' : ''})</Text>
+        )}
+        {moves > 0 && !won && (
+          <Pressable onPress={handleRestart}>
+            <Text style={styles.restartBtn}>{'\u21bb'}</Text>
+          </Pressable>
         )}
       </View>
 
@@ -677,6 +695,7 @@ const styles = StyleSheet.create({
   gemCounter: { color: '#9a4aff', fontSize: 14, fontWeight: '600' },
   gemCounterDone: { color: '#2ecc71' },
   undoCount: { color: '#e67e22', fontSize: 12, fontWeight: '600' },
+  restartBtn: { color: '#818384', fontSize: 18, marginLeft: 4 },
   grid: {
     position: 'relative',
     gap: GAP,
