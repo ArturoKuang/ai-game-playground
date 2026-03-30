@@ -229,6 +229,18 @@ Animated.sequence([
 
 ---
 
+### A6: Moving Targets Kill Strategic Depth
+
+**What it looks like**: Game elements move continuously, so the board state changes between the player's observation and action.
+
+**Why it fails**: Collapses d3 (decisions), d7 (skill ceiling), and d10 (aha moments) simultaneously. The player can't compare options or plan ahead because positions change unpredictably. Optimal play degrades to "react to clusters as they form" — reflex, not strategy.
+
+**Evidence**: ChainPop wave-multiplier experiment scored 13/30 (`96124f1`). Despite adding strategic scoring depth (wave ×N multiplier), d3=1, d7=1, d10=1 because bubble movement prevented planning. Two independent reviewers flagged the same root cause. Static version also scored 13/30 (`062eec2`) — removing movement was necessary but not sufficient; chain prediction visibility was also needed.
+
+**Test**: Can the player pause, study the board, and form a plan? If no, the movement is undermining strategy. Movement is acceptable ONLY if the player has a way to freeze/pause before committing (like BounceOut's aim line) or if the movement IS the puzzle (like Mini Metro's demand growth).
+
+---
+
 ## Score Prediction Heuristics
 
 Use these to sanity-check rubric scores before logging. If your score disagrees with the prediction by more than 3 points, re-examine your narration.
