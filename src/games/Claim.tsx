@@ -22,7 +22,7 @@ import { loadStats, recordGame, type Stats } from '../utils/stats';
 /* ─── Constants ─── */
 const SIZE = 5;
 const GAP = 3;
-const DRAIN = 1; // neighbors lose this much per claim
+const DRAIN = 2; // neighbors lose this much per claim
 
 const VAL_COLORS = [
   '#2a2a2c', // 0 (empty)
