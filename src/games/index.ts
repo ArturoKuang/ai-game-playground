@@ -9,6 +9,7 @@ import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
 import Claim from './Claim';
+import Rise from './Rise';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -72,6 +73,13 @@ const games: GameMeta[] = [
     emoji: '\uD83C\uDFC6',
     description: 'Pick cells to score — neighbors shrink!',
     component: Claim,
+  },
+  {
+    id: 'rise',
+    name: 'Rise',
+    emoji: '\uD83D\uDD3A',
+    description: 'Build ascending chains for maximum score',
+    component: Rise,
   },
 ];
 
