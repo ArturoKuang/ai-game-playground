@@ -9,7 +9,6 @@ import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
 import Claim from './Claim';
-import Cross from './Cross';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -73,13 +72,6 @@ const games: GameMeta[] = [
     emoji: '\uD83C\uDFC6',
     description: 'Pick cells to score — neighbors shrink!',
     component: Claim,
-  },
-  {
-    id: 'cross',
-    name: 'Cross',
-    emoji: '\u2716\uFE0F',
-    description: 'Pick one per row — columns get crossed out!',
-    component: Cross,
   },
 ];
 

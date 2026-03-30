@@ -70,3 +70,6 @@ dbfadfa	46	5	6	5	3	3	5	4	5	6	4	0	discard	Shift	New game v1: slide rows/columns t
 f011230	48	7	5	4	5	4	6	4	5	5	3	0	killed	Shift	v2: P1 preview + region highlighting + min threshold. Preview created "scan 20 numbers, pick highest" loop — mechanical, not spatial. KILLED after 2 iterations (46→48).
 abdd807	42	5	5	5	3	3	4	4	5	4	4	0	discard	Shove	New game v1: push blocks to slide + match-3 + clear. Board empties after first big clear, last pushes score 0. d4=3.
 78ec7b7	37	6	6	2	2	3	5	2	5	3	3	0	killed	Shove	v2: added gravity after clears. WORSE — single push scored par (70) in one move, last 3 pushes dead. KILLED after 2 iterations (42→37). Single-push dominance = A5 in disguise.
+370b2f5	45	7	5	4	3	3	5	4	6	4	4	0	discard	Cross	New game v1: assignment puzzle (one per row, forced top-to-bottom). d1=7 d8=6. d3=4 d4=3 — last 2 rows forced, game gets less interesting.
+82566bd	51	7	6	5	4	4	5	5	5	5	5	0	iterate	Cross	v2: free-form picking. d3 improved 4→5, most dimensions +1. But preview cost number makes optimal calculable.
+c246533	43	6	6	4	3	3	5	3	5	5	3	0	killed	Cross	v3: removed cost number from preview. WORSE — removing info didn't add depth. KILLED after 3 iterations (45→51→43). 5x5 assignment problem too tractable for daily puzzle depth.
