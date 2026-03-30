@@ -265,7 +265,7 @@ export default function LinkUp() {
   const handleDone = useCallback(() => {
     if (chain.length === 0 || done) return;
     setDone(true);
-    recordGame('linkup', chain.length, puzzle.par).then((s) => {
+    recordGame('linkup', chain.length, puzzle.par, true).then((s) => {
       setStats(s);
       setShowStats(true);
     });
@@ -378,16 +378,12 @@ export default function LinkUp() {
                         height: cellSize,
                         backgroundColor: inChain
                           ? COLORS[num - 1]
-                          : isValid
-                            ? '#1a2a3e'
-                            : '#1e1e2e',
+                          : '#1e1e2e',
                         borderColor: isLast
                           ? '#ffffff'
-                          : isValid
+                          : inChain
                             ? COLORS[num - 1]
-                            : inChain
-                              ? COLORS[num - 1]
-                              : '#2a2a3c',
+                            : '#2a2a3c',
                         borderWidth: isLast ? 2.5 : 1.5,
                         opacity: done && !inChain ? 0.35 : 1,
                       },
@@ -429,7 +425,7 @@ export default function LinkUp() {
               ? `Beat par! Chain of ${chain.length}`
               : `Chain of ${chain.length} (par: ${puzzle.par})`}
           </Text>
-          <Text style={styles.winScore}>Score: {score}</Text>
+          <Text style={styles.winScore}>Score: {score} {'\u00b7'} Best possible: {puzzle.optimalLen}</Text>
           <ShareButton text={buildShareText()} />
         </View>
       )}

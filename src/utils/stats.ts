@@ -40,7 +40,8 @@ export async function loadStats(gameId: string): Promise<Stats> {
 export async function recordGame(
   gameId: string,
   score: number,
-  par: number
+  par: number,
+  higherIsBetter = false
 ): Promise<Stats> {
   const stats = await loadStats(gameId);
   const today = todayKey();
@@ -49,7 +50,7 @@ export async function recordGame(
   if (stats.lastPlayedDate === today) return stats;
 
   stats.gamesPlayed++;
-  const won = score <= par;
+  const won = higherIsBetter ? score >= par : score <= par;
   if (won) stats.gamesWon++;
 
   // Streak logic: check if last played was yesterday
@@ -71,12 +72,15 @@ export async function recordGame(
   stats.maxStreak = Math.max(stats.maxStreak, stats.currentStreak);
   stats.lastPlayedDate = today;
 
-  if (stats.bestScore === null || score < stats.bestScore) {
+  if (stats.bestScore === null ||
+      (higherIsBetter ? score > stats.bestScore : score < stats.bestScore)) {
     stats.bestScore = score;
   }
 
   // Score distribution buckets
-  const bucket = score <= par ? 'Under par' : 'Over par';
+  const bucket = won
+    ? (higherIsBetter ? 'Beat par' : 'Under par')
+    : (higherIsBetter ? 'Under par' : 'Over par');
   stats.scoreDistribution[bucket] = (stats.scoreDistribution[bucket] || 0) + 1;
 
   await AsyncStorage.setItem(storageKey(gameId), JSON.stringify(stats));
