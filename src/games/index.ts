@@ -8,7 +8,6 @@ import PathWeaver from './PathWeaver';
 import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
-import Ripple from './Ripple';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -65,13 +64,6 @@ const games: GameMeta[] = [
     emoji: '\ud83d\uddbc\ufe0f',
     description: 'Decode the pattern from row & column clues',
     component: BitMap,
-  },
-  {
-    id: 'ripple',
-    name: 'Ripple',
-    emoji: '\uD83C\uDF0A',
-    description: 'Order the seeds to claim the right territory',
-    component: Ripple,
   },
 ];
 
