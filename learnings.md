@@ -281,6 +281,18 @@ Animated.sequence([
 
 ---
 
+### A9: Preview-Outcome Gap Kills Informed Decisions
+
+**What it looks like**: The game shows a preview of the action's first-order effects, but hidden second-order effects (chain reactions, cascading settles) change the outcome dramatically. The player sees "X will happen" but "X + Y + Z" actually happens.
+
+**Why it fails**: P1 (preview) only helps when the preview closely matches the actual outcome. If chain reactions add 50%+ unpreviewable consequences, the player is effectively guessing about the real result. This creates frustration without insight — the player can't learn from mistakes because the causal chain is invisible.
+
+**Evidence**: Tumble killed at 44→53→49/100 (`35a7cb0`, `70c8010`, `1869326`). On a 5×5 grid with match-3 groups + gravity, chain pops after re-settling were unpredictable. The reviewer failed to solve the puzzle in 4+ attempts despite understanding the mechanics. V2 (no preview info) scored d7=7 but d9=4 (too hard). V3 (partial preview) didn't improve overall score.
+
+**Test**: Does the preview show ≥80% of what actually happens? If not, either remove auto-chains (make each step player-triggered) or show the full chain step-by-step in preview. The gap between "what I see" and "what happens" should be small enough for human working memory.
+
+---
+
 ## Score Prediction Heuristics
 
 Use these to sanity-check rubric scores before logging. If your score disagrees with the prediction by more than 3 points, re-examine your narration.
@@ -384,3 +396,4 @@ If a game can't check 8/10 of these at design time, reconsider the mechanic.
 | Date | Entry | Evidence |
 |------|-------|---------|
 | 2026-03-29 | Initial creation from 11-game evaluation + 8 iteration experiments | results.tsv rows e294a89 through 4348c4e |
+| 2026-03-30 | Added A9 (preview-outcome gap) from Tumble kill | Tumble 44→53→49 killed after 3 iterations |

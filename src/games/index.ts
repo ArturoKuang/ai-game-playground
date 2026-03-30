@@ -8,7 +8,6 @@ import PathWeaver from './PathWeaver';
 import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
-import Tumble from './Tumble';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -65,13 +64,6 @@ const games: GameMeta[] = [
     emoji: '\ud83d\uddbc\ufe0f',
     description: 'Decode the pattern from row & column clues',
     component: BitMap,
-  },
-  {
-    id: 'tumble',
-    name: 'Tumble',
-    emoji: '\uD83C\uDFB2',
-    description: 'Flip gravity to match and pop tiles',
-    component: Tumble,
   },
 ];
 
