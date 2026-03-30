@@ -11,13 +11,17 @@ import {
 import ShareButton from '../components/ShareButton';
 import StatsModal from '../components/StatsModal';
 import CelebrationBurst from '../components/CelebrationBurst';
-import { getDailySeed, seededRandom, getPuzzleDay } from '../utils/seed';
+import { getDailySeed, seededRandom, getPuzzleDay, getDayDifficulty } from '../utils/seed';
 import { loadStats, recordGame, type Stats } from '../utils/stats';
 
 /* ─── Constants ���── */
 const N = 5;
 const GAP = 2;
-const PAR_TIME = 90; // seconds
+
+function getParTime(): number {
+  const d = getDayDifficulty();
+  return 120 - d * 10; // Mon=110s, Fri=70s
+}
 
 /* ─── Nonogram logic ─── */
 
@@ -105,16 +109,19 @@ function countSolutions(
 /** Generate a uniquely solvable 5x5 nonogram puzzle */
 function generatePuzzle(seed: number) {
   const rng = seededRandom(seed);
+  const d = getDayDifficulty(); // 1 (Mon) to 5 (Fri)
+  // Monday: sparser (35%), Friday: denser (55%)
+  const fillRate = 0.3 + d * 0.05; // Mon=0.35, Fri=0.55
+  const minFill = 5 + d;           // Mon=6, Fri=10
+  const maxFill = 12 + d * 2;      // Mon=14, Fri=22
 
   for (let attempt = 0; attempt < 500; attempt++) {
-    // Random grid with ~40-60% fill
     const target: boolean[][] = Array.from({ length: N }, () =>
-      Array.from({ length: N }, () => rng() < 0.5)
+      Array.from({ length: N }, () => rng() < fillRate)
     );
 
-    // Count filled cells
     const filled = target.flat().filter(Boolean).length;
-    if (filled < 7 || filled > 18) continue;
+    if (filled < minFill || filled > maxFill) continue;
 
     // Compute clues
     const rowClues = target.map((row) => getClue(row));
@@ -156,6 +163,7 @@ export default function BitMap() {
   const seed = useMemo(() => getDailySeed(), []);
   const puzzleDay = useMemo(() => getPuzzleDay(), []);
   const puzzle = useMemo(() => generatePuzzle(seed), [seed]);
+  const parTime = useMemo(() => getParTime(), []);
 
   const { width: screenWidth } = useWindowDimensions();
   const clueWidth = 55;
@@ -190,7 +198,7 @@ export default function BitMap() {
       ? (Date.now() - startTime) / 1000
       : 0;
   const finalTime = endTime && startTime ? Math.round((endTime - startTime) / 1000) : 0;
-  const underPar = finalTime > 0 && finalTime <= PAR_TIME;
+  const underPar = finalTime > 0 && finalTime <= parTime;
 
   // Timer tick
   const [, setTick] = useState(0);
@@ -237,7 +245,7 @@ export default function BitMap() {
       setEndTime(finish);
       if (timerRef.current) clearInterval(timerRef.current);
       const time = Math.round((finish - (startTime || finish)) / 1000);
-      recordGame('bitmap', time, PAR_TIME).then((s) => {
+      recordGame('bitmap', time, parTime).then((s) => {
         setStats(s);
         setShowStats(true);
       });
@@ -256,7 +264,7 @@ export default function BitMap() {
         row.map((cell) => (cell ? '\u2b1b' : '\u2b1c')).join('')
       )
       .join('\n');
-    return `BitMap Day #${puzzleDay} \ud83d\uddbc\ufe0f\n${finalTime}s / ${PAR_TIME}s\n${rows}\n${
+    return `BitMap Day #${puzzleDay} \ud83d\uddbc\ufe0f\n${finalTime}s / ${parTime}s\n${rows}\n${
       underPar ? '\u2b50 Under par!' : `Solved in ${finalTime}s`
     }`;
   }
@@ -298,7 +306,7 @@ export default function BitMap() {
         >
           {won ? `${finalTime}s` : `${Math.floor(elapsed)}s`}
         </Text>
-        <Text style={styles.timerPar}>Par: {PAR_TIME}s</Text>
+        <Text style={styles.timerPar}>Par: {parTime}s</Text>
       </View>
 
       {/* Puzzle grid with clues */}
@@ -404,7 +412,7 @@ export default function BitMap() {
           <Text style={styles.winText}>
             {underPar
               ? `Under par! ${finalTime}s`
-              : `Solved in ${finalTime}s (par: ${PAR_TIME}s)`}
+              : `Solved in ${finalTime}s (par: ${parTime}s)`}
           </Text>
           <ShareButton text={buildShareText()} />
         </View>
@@ -418,7 +426,7 @@ export default function BitMap() {
           of 1.{'\n\n'}
           Tap to fill a cell. Tap again to mark it empty ({'\u2715'}). Tap a
           third time to clear.{'\n\n'}
-          Solve in under {PAR_TIME}s for a star!
+          Solve in under {parTime}s for a star!
         </Text>
       </View>
 

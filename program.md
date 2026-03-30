@@ -136,43 +136,72 @@ git add -A && git commit -m "experiment: [short description]"
 
 ### Step 6: Evaluate — The Playtest Simulation
 
-Do NOT just read the code and assign scores. **Mentally simulate a complete game session** and narrate it:
+Do NOT just read the code and assign scores. **Mentally simulate a complete game session** and narrate it tap-by-tap:
 
 > "I open the game. I see a 5x5 grid with colored cells. I tap the blue button. The top-left region floods to blue — oh, I see, it absorbs adjacent cells. I try green next. Now I have a bigger region. I need to plan ahead to minimize moves..."
 
-Walk through the session and then ask:
+**Write out the full narration** — at least 10 sentences covering opening, middle, and end. If you can't narrate 10 interesting sentences, the game is boring.
 
-**Concrete checklist (answer yes/no for each):**
+Then evaluate using the rubric below. **Every question uses a graduated scale, not binary yes/no.** A score of 1 is the default for any functional game — you must justify scores of 2 or 3 with specific evidence from your narration.
 
-| # | Question | Points |
-|---|----------|--------|
-| 1 | Can I explain the rules in under 15 words? | +2 |
-| 2 | Does the first tap/interaction produce a visible, satisfying result? | +2 |
-| 3 | Did I face a genuine decision where two choices both seemed reasonable? | +2 |
-| 4 | Did I feel tension at any point (risk of failing, counting moves, etc.)? | +1 |
-| 5 | At the end, did I feel "I could have done better" (motivating, not frustrating)? | +1 |
-| 6 | Would I want to show my result to a friend? | +1 |
-| 7 | Is the share text immediately recognizable and distinctive? | +1 |
-| 8 | Does every tap produce visual feedback within 100ms? | +1 |
+#### Evaluation Rubric (score each question 0-3)
 
-**Score = total points out of 11.** This is more objective than vibes-based 1-10 scoring.
+| # | Dimension | 0 | 1 | 2 | 3 |
+|---|-----------|---|---|---|---|
+| 1 | **Instant clarity** — Can a new player understand the goal without reading instructions? | Confusing, needs a paragraph of explanation | Rules are simple but require reading the how-to-play | Goal is obvious from the UI within 5 seconds | Zero-text onboarding — the first tap teaches you everything |
+| 2 | **First-tap satisfaction** — Does the very first interaction feel good? | Nothing visible happens, or the feedback is delayed/confusing | Something changes on screen but it's bland (color swap, no animation) | Clear visual response with animation or color transition | Visceral delight — sound, haptics, bounce, particle effects that make you want to tap again immediately |
+| 3 | **Meaningful decisions** — Does the player face genuine strategic choices? | No decisions — there's one obvious move at every step, or outcomes are random | Occasional choices but one option is almost always clearly better | Multiple viable strategies; different players would reasonably disagree on the best move | Rich decision space — every move involves tradeoffs, and expert play looks fundamentally different from beginner play |
+| 4 | **Tension arc** — Does the session build emotional tension toward the end? | Flat experience — no difference between move 1 and the last move | Mild awareness of a counter/timer ticking, but no real stakes | Genuine "will I make it?" moments in the final moves; leaning-forward energy | White-knuckle finish — the last 2-3 moves feel high-stakes, heart rate elevated, one wrong move ruins everything |
+| 5 | **The "one more day" pull** — After finishing, do you want to play tomorrow? | No desire to return — once solved, there's nothing new to discover | Mild interest in maintaining a streak, but wouldn't miss it | Active anticipation — thinking about what tomorrow's puzzle might look like | Compulsive pull — the kind of game you check at midnight when the new puzzle drops |
+| 6 | **Shareability** — Would a player screenshot or share their result unprompted? | No reason to share — the result is unremarkable | Share button exists but the shared text is generic or confusing | Share text tells a story (shows your journey, not just a number) and is visually distinctive | Share text is iconic — instantly recognizable in a group chat, provokes reactions and comparisons |
+| 7 | **Skill ceiling** — Is there a visible gap between casual and expert play? | No skill expression — random play and careful play produce similar results | Some skill matters but the gap between beginner and expert scores is small (< 20%) | Clear skill gradient — experts consistently score 40-60% better than beginners | Mastery is aspirational — perfect play is theoretically possible but extremely rare, creating a long-term goal |
+| 8 | **Uniqueness** — Does this game feel distinct from the other games in the collection? | Near-duplicate of another game in the collection (same mechanic, different skin) | Shares a core mechanic with another game but has a twist | Distinct mechanic that fills a unique niche in the collection | Nothing else in the collection (or anywhere) feels like this — it has its own identity |
+| 9 | **Session pacing** — Does the game respect the player's time? | Way too long (> 5 min) or way too short (< 15 sec) with no depth | Appropriate length but has dead time (waiting, obvious moves, repetitive phases) | Tight pacing — every moment is engaged, finishes in 1-3 minutes | Perfect density — not a single wasted second, the player is thinking or acting the entire time |
+| 10 | **The "aha!" test** — Does the game produce moments of insight or surprise? | Pure mechanical execution — no surprises, no discoveries | Occasional small insights ("oh, I should have done X first") | At least one genuine "aha!" per session where the player sees the puzzle differently | The game regularly creates moments players would describe out loud to someone nearby |
+
+**Score = total points out of 30.**
+
+#### Scoring Integrity Rules
+
+**You MUST be brutally honest.** The old rubric produced 11/11 for almost every game, which means it was worthless. Apply these guardrails:
+
+1. **The "default 1" rule.** A score of 1 on any dimension means "functional but unremarkable." This is the baseline for any working game. If you're giving 2s and 3s to everything, you're inflating.
+2. **The 20/30 ceiling.** A score above 20 should be **rare** — reserved for games that genuinely compete with the best daily puzzles on the market (Wordle, Connections, Mini Crossword). If more than 1 in 5 experiments scores above 20, you are grading too generously.
+3. **The comparison test.** Before finalizing a score, ask: "Is this game actually as good as [best game in the collection]?" If it's clearly worse, it cannot score higher.
+4. **No rounding up.** When in doubt between two scores, always take the lower one. It is far more harmful to keep a mediocre game than to discard a decent one.
+5. **Evidence required.** For any dimension scored 3, write one sentence explaining *specifically* what earns the 3. "The trajectory preview creates genuine prediction-vs-reality moments that make you rethink your angle" is evidence. "It feels really good" is not.
+
+#### Red Flags — Automatic Deductions
+
+If any of these are true, subtract 3 points from the total (minimum score 0):
+
+- **The optimal strategy is obvious from move 1** — no exploration or discovery required.
+- **A player could solve it by tapping randomly** within a reasonable number of attempts.
+- **The game has no way to fail or play poorly** — there's no meaningful difference between a good and bad attempt.
+- **The game is essentially a clone** of a well-known existing game (Wordle, 2048, etc.) with no meaningful twist.
 
 ### Step 7: Keep or Discard
 
-- If score **>= previous best for this game** → KEEP.
-- If score **< previous best** → `git reset --hard HEAD~1`. Discard.
+- If score **>= 18 AND >= previous best for this game** → KEEP.
+- If score **15-17** → game has potential. KEEP but flag for iteration — log what specific dimensions scored low and what changes might improve them.
+- If score **< 15** → `git reset --hard HEAD~1`. Discard. The game is not good enough.
 - If the game **crashes** → attempt a fix. If not trivial, discard and log as "crash".
-- **Kill rule:** If a game has been iterated on 3+ times and its score is still below 7, delete the game entirely and log it as "killed — fundamentally boring." Move on to a new concept.
+- **Kill rule:** If a game has been iterated on 3+ times and never reached 18, delete the game entirely and log it as "killed — fundamentally boring." Move on to a new concept.
+- **Cull rule:** If the total game count exceeds 8, kill the lowest-scoring game to make room. A tight collection of great games beats a bloated collection of okay games.
 
 ### Step 8: Log
 
 Append a row to `results.tsv`:
 
 ```
-commit_hash	score	q1	q2	q3	q4	q5	q6	q7	q8	status	game	description
+commit_hash	score	d1	d2	d3	d4	d5	d6	d7	d8	d9	d10	red_flags	status	game	description
 ```
 
-Status is one of: `keep`, `discard`, `crash`, `killed`.
+- `d1`–`d10`: individual dimension scores (0-3 each)
+- `red_flags`: number of red flag deductions applied (0-4)
+- Status is one of: `keep`, `iterate`, `discard`, `crash`, `killed`.
+
+**When logging, also write 1-2 sentences about what the game's weakest dimension is and what would improve it.** This prevents repeating the same mistakes.
 
 ### Step 9: Go to Step 1
 
