@@ -9,22 +9,29 @@ import {
 } from 'react-native';
 import ShareButton from '../components/ShareButton';
 import StatsModal from '../components/StatsModal';
-import { getDailySeed, seededRandom, getPuzzleDay } from '../utils/seed';
+import { getDailySeed, seededRandom, getPuzzleDay, getDayDifficulty } from '../utils/seed';
 import { loadStats, recordGame, type Stats } from '../utils/stats';
 
 const GRID_SIZE = 5;
-const PAR_TAPS = 8;
+
+/** Difficulty-scaled parameters */
+function getDifficultyParams() {
+  const d = getDayDifficulty(); // 1 (Mon) to 5 (Fri)
+  // Mon: 4-6 taps, par 10. Fri: 8-12 taps, par 6
+  const minTaps = 3 + d;      // Mon=4, Fri=8
+  const tapRange = 2 + d;     // Mon=3, Fri=7 → range 4-6 to 8-14
+  const parTaps = 11 - d;     // Mon=10, Fri=6
+  return { minTaps, tapRange, parTaps };
+}
 
 /** Generate a solvable board by working backwards from solved state */
-function generateBoard(seed: number): boolean[][] {
+function generateBoard(seed: number, minTaps: number, tapRange: number): boolean[][] {
   const rng = seededRandom(seed);
   const board = Array.from({ length: GRID_SIZE }, () =>
     Array(GRID_SIZE).fill(false)
   );
 
-  // Apply random taps to a solved board to create the puzzle
-  // This guarantees solvability
-  const numTaps = 6 + Math.floor(rng() * 6);
+  const numTaps = minTaps + Math.floor(rng() * tapRange);
   for (let i = 0; i < numTaps; i++) {
     const r = Math.floor(rng() * GRID_SIZE);
     const c = Math.floor(rng() * GRID_SIZE);
@@ -59,7 +66,8 @@ function isSolved(board: boolean[][]): boolean {
 export default function LightsOut() {
   const seed = useMemo(() => getDailySeed(), []);
   const puzzleDay = useMemo(() => getPuzzleDay(), []);
-  const initialBoard = useMemo(() => generateBoard(seed), [seed]);
+  const { minTaps, tapRange, parTaps } = useMemo(() => getDifficultyParams(), []);
+  const initialBoard = useMemo(() => generateBoard(seed, minTaps, tapRange), [seed, minTaps, tapRange]);
 
   const [board, setBoard] = useState(() =>
     initialBoard.map((row) => [...row])
@@ -84,7 +92,7 @@ export default function LightsOut() {
       setTapHistory((h) => [...h, [r, c]]);
 
       if (isSolved(next)) {
-        recordGame('lightsout', taps + 1, PAR_TAPS).then((s) => {
+        recordGame('lightsout', taps + 1, parTaps).then((s) => {
           setStatsData(s);
           setShowStats(true);
         });
@@ -110,8 +118,8 @@ export default function LightsOut() {
   }, []);
 
   function buildShareText(): string {
-    const under = taps <= PAR_TAPS;
-    return `LightsOut ${taps}/${PAR_TAPS} taps \ud83d\udca1\n${under ? '\u2b1b All lights off!' : `Solved in ${taps} taps`}`;
+    const under = taps <= parTaps;
+    return `LightsOut ${taps}/${parTaps} taps \ud83d\udca1\n${under ? '\u2b1b All lights off!' : `Solved in ${taps} taps`}`;
   }
 
   // Count remaining lights
@@ -135,12 +143,12 @@ export default function LightsOut() {
         <Text
           style={[
             styles.moveCount,
-            solved && taps <= PAR_TAPS && styles.moveCountGood,
+            solved && taps <= parTaps && styles.moveCountGood,
           ]}
         >
           {taps}
         </Text>
-        <Text style={styles.movePar}>Par: {PAR_TAPS}</Text>
+        <Text style={styles.movePar}>Par: {parTaps}</Text>
         <Text style={styles.lightsLeft}>
           {'\ud83d\udca1'} {lightsOn} left
         </Text>
@@ -181,10 +189,10 @@ export default function LightsOut() {
       {solved && (
         <View style={styles.winMessage}>
           <Text style={styles.winEmoji}>
-            {taps <= PAR_TAPS ? '\ud83c\udf1f' : '\ud83d\udca1'}
+            {taps <= parTaps ? '\ud83c\udf1f' : '\ud83d\udca1'}
           </Text>
           <Text style={styles.winText}>
-            {taps <= PAR_TAPS
+            {taps <= parTaps
               ? `Under par! ${taps} taps`
               : `Lights out in ${taps} taps`}
           </Text>
@@ -198,7 +206,7 @@ export default function LightsOut() {
           Tap any cell to toggle it and its 4 neighbors (up, down, left, right).
           Your goal: turn every yellow cell dark.{'\n\n'}
           Looks simple — but finding the optimal sequence is the real challenge.
-          Par: {PAR_TAPS} taps.
+          Par: {parTaps} taps.
         </Text>
       </View>
 
