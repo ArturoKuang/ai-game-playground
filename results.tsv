@@ -1,19 +1,30 @@
-commit_hash	score	q1	q2	q3	q4	q5	q6	q7	q8	status	game	description
-f49ddd0	11	y	y	y	y	y	y	y	y	keep	ColorSort	New game: sort colored balls into matching tubes via pour mechanic
-733cd88	11	y	y	y	y	y	y	y	y	keep	FloodFill	Add bounce animations on picker and win glow effect
-443d955	11	y	y	y	y	y	y	y	y	keep	MirrorGrid	New game: fix symmetry by toggling cells on a 6x6 grid
-8cff011	11	y	y	y	y	y	y	y	y	keep	ChainPop	Slower bubbles + blast radius preview with bubble count
-7f887f0	9	y	y	n	y	y	y	y	y	keep	TapOut	New game: tap numbers 1-25 in order, race the clock
-2c6a187	11	y	y	y	y	y	y	y	y	keep	BounceOut	Trajectory preview dotted line showing predicted bounces
-076cf7c	11	y	y	y	y	y	y	y	y	keep	FloodFill	Share text shows color sequence as emoji rows (Wordle-like)
-7d89086	11	y	y	y	y	y	y	y	y	keep	All	Add Day # puzzle number to all 8 games for social proof
-a914947	11	y	y	y	y	y	y	y	y	keep	IceSlide	New game: slide puck on ice to reach goal via wall bounces
-40f4bc8	11	y	y	y	y	y	y	y	y	keep	DropPop	New game: pop connected color groups with gravity and compaction
-0c0f292	11	y	y	y	y	y	y	y	y	keep	TapOut	Streak multiplier: rapid taps earn time bonuses, adds speed-vs-accuracy tradeoff
-e52fc15	11	y	y	y	y	y	y	y	y	keep	BitMap	New game: 5x5 nonogram/picross deduction puzzle with unique solutions
-28acb39	11	y	y	y	y	y	y	y	y	keep	FloodFill	Day-of-week difficulty: Monday 5 colors/par 24, Friday 6 colors/par 16
-475cc63	11	y	y	y	y	y	y	y	y	keep	LightsOut	Day-of-week difficulty: Monday par 10 (easy), Friday par 6 (hard)
-6564758	11	y	y	y	y	y	y	y	y	keep	IceSlide	Day-of-week difficulty: Monday 3-6 moves, Friday 7-14 moves
-d57199e	11	y	y	y	y	y	y	y	y	keep	LightsOut	Share text shows 5x5 tap heatmap — yellow=1 tap, orange=2+ taps
-207dd84	11	y	y	y	y	y	y	y	y	keep	BounceOut	Share text shows targets hit per shot as emoji rows (🎯🎯 per line)
-765cbcb	11	y	y	y	y	y	y	y	y	keep	All	CelebrationBurst emoji animation on win — IceSlide, BitMap, DropPop
+commit_hash	score	d1	d2	d3	d4	d5	d6	d7	d8	d9	d10	red_flags	status	game	description
+f49ddd0	11	y	y	y	y	y	y	y	y	-	-	0	keep	ColorSort	[OLD RUBRIC] New game: sort colored balls into matching tubes via pour mechanic
+733cd88	11	y	y	y	y	y	y	y	y	-	-	0	keep	FloodFill	[OLD RUBRIC] Add bounce animations on picker and win glow effect
+443d955	11	y	y	y	y	y	y	y	y	-	-	0	keep	MirrorGrid	[OLD RUBRIC] New game: fix symmetry by toggling cells on a 6x6 grid
+8cff011	11	y	y	y	y	y	y	y	y	-	-	0	keep	ChainPop	[OLD RUBRIC] Slower bubbles + blast radius preview with bubble count
+7f887f0	9	y	y	n	y	y	y	y	y	-	-	0	keep	TapOut	[OLD RUBRIC] New game: tap numbers 1-25 in order, race the clock
+2c6a187	11	y	y	y	y	y	y	y	y	-	-	0	keep	BounceOut	[OLD RUBRIC] Trajectory preview dotted line showing predicted bounces
+076cf7c	11	y	y	y	y	y	y	y	y	-	-	0	keep	FloodFill	[OLD RUBRIC] Share text shows color sequence as emoji rows (Wordle-like)
+7d89086	11	y	y	y	y	y	y	y	y	-	-	0	keep	All	[OLD RUBRIC] Add Day # puzzle number to all 8 games for social proof
+a914947	11	y	y	y	y	y	y	y	y	-	-	0	keep	IceSlide	[OLD RUBRIC] New game: slide puck on ice to reach goal via wall bounces
+40f4bc8	11	y	y	y	y	y	y	y	y	-	-	0	keep	DropPop	[OLD RUBRIC] New game: pop connected color groups with gravity and compaction
+0c0f292	11	y	y	y	y	y	y	y	y	-	-	0	keep	TapOut	[OLD RUBRIC] Streak multiplier: rapid taps earn time bonuses
+e52fc15	11	y	y	y	y	y	y	y	y	-	-	0	keep	BitMap	[OLD RUBRIC] New game: 5x5 nonogram/picross deduction puzzle
+28acb39	11	y	y	y	y	y	y	y	y	-	-	0	keep	FloodFill	[OLD RUBRIC] Day-of-week difficulty scaling
+475cc63	11	y	y	y	y	y	y	y	y	-	-	0	keep	LightsOut	[OLD RUBRIC] Day-of-week difficulty scaling
+6564758	11	y	y	y	y	y	y	y	y	-	-	0	keep	IceSlide	[OLD RUBRIC] Day-of-week difficulty scaling
+d57199e	11	y	y	y	y	y	y	y	y	-	-	0	keep	LightsOut	[OLD RUBRIC] Share text shows 5x5 tap heatmap
+207dd84	11	y	y	y	y	y	y	y	y	-	-	0	keep	BounceOut	[OLD RUBRIC] Share text shows targets hit per shot as emoji rows
+765cbcb	11	y	y	y	y	y	y	y	y	-	-	0	keep	All	[OLD RUBRIC] CelebrationBurst emoji animation on win
+e294a89	20	1	2	3	2	2	1	3	2	2	2	0	keep	BitMap	Day-of-week difficulty: Mon fill 35%/par 110s, Fri fill 55%/par 70s. Weakest: shareability — emoji grid is hard to parse in group chats.
+e294a89	19	1	1	3	2	2	2	2	2	2	2	0	keep	LightsOut	Re-eval under new rubric. Weakest: first-tap satisfaction — toggle lacks animation juice. Add cell scale/flash on toggle.
+e294a89	18	2	2	2	2	2	2	2	1	2	1	0	keep	FloodFill	Re-eval. Weakest: uniqueness (flood fill exists everywhere) and aha moments. Could add animated flood wave.
+e294a89	18	2	2	2	2	1	1	2	2	2	2	0	keep	IceSlide	Re-eval. Weakest: shareability and one-more-day pull — once solved, no replay motivation.
+e294a89	17	2	2	1	2	1	2	1	2	2	2	0	iterate	BounceOut	Re-eval. Weakest: trajectory preview reduces both decisions and skill ceiling. Consider removing preview or adding obstacles.
+e294a89	16	2	1	2	2	1	1	2	2	1	2	0	iterate	PathWeaver	Re-eval. Weakest: first-tap satisfaction (no animation) and pacing (dead time when stuck). Critical bug: no solvability validation.
+e294a89	10	2	2	1	1	1	1	1	2	1	1	1	iterate	ChainPop	Re-eval. Red flag: random tap can win. Weakest: decisions (one-shot mechanic) and session pacing (watch chain, done). Needs multi-tap or scoring depth.
+e294a89	9	2	2	1	1	1	1	1	1	1	1	1	iterate	DropPop	Re-eval. Red flag: undo makes failure impossible. Weakest: decisions (obvious biggest group) and skill ceiling. Remove undo or add move limit.
+e294a89	8	2	1	1	1	1	1	1	1	1	1	1	killed	ColorSort	Killed — ball sort clone with no twist. Minimal strategy, no animations, weak share text.
+e294a89	6	2	2	0	1	0	1	1	1	1	0	1	killed	TapOut	Killed — pure reflex, zero strategy. No meaningful decisions, no aha moments. Optimal play is obvious.
+e294a89	1	2	2	0	0	0	1	0	1	1	0	2	killed	MirrorGrid	Killed — red borders solve the puzzle for you. No decisions, no failure possible, trivially solved.

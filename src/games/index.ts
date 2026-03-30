@@ -4,9 +4,7 @@ import BounceOut from './BounceOut';
 import LightsOut from './LightsOut';
 import ChainPop from './ChainPop';
 import PathWeaver from './PathWeaver';
-import ColorSort from './ColorSort';
-import MirrorGrid from './MirrorGrid';
-import TapOut from './TapOut';
+
 import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
@@ -46,27 +44,6 @@ const games: GameMeta[] = [
     emoji: '\ud83e\uddf5',
     description: 'Draw a path through every cell',
     component: PathWeaver,
-  },
-  {
-    id: 'colorsort',
-    name: 'ColorSort',
-    emoji: '\ud83e\udde9',
-    description: 'Sort colored balls into matching tubes',
-    component: ColorSort,
-  },
-  {
-    id: 'mirrorgrid',
-    name: 'MirrorGrid',
-    emoji: '\ud83e\ude9e',
-    description: 'Fix the symmetry by toggling cells',
-    component: MirrorGrid,
-  },
-  {
-    id: 'tapout',
-    name: 'TapOut',
-    emoji: '\u26a1',
-    description: 'Tap numbers in order — race the clock!',
-    component: TapOut,
   },
   {
     id: 'iceslide',

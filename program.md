@@ -258,13 +258,16 @@ The only hard rules:
 
 ## Current Games
 
-| Game | Mechanic | Status |
-|------|----------|--------|
-| FloodFill | Absorb colors from top-left corner, fill entire grid | Active |
-| BounceOut | Aim & fire a ball to hit targets via wall bounces | Active |
-| LightsOut | Toggle cells + neighbors to turn all lights off | Active |
-| ChainPop | One tap triggers chain reaction on floating bubbles | Active |
-| PathWeaver | Draw a Hamiltonian path through a grid | Active |
+| Game | Mechanic | Score | Status |
+|------|----------|-------|--------|
+| BitMap | 5x5 nonogram/picross deduction puzzle | 20/30 | Active |
+| LightsOut | Toggle cells + neighbors to turn all lights off | 19/30 | Active |
+| FloodFill | Absorb colors from top-left corner, fill entire grid | 18/30 | Active |
+| IceSlide | Slide puck on ice to reach goal via wall bounces | 18/30 | Active |
+| BounceOut | Aim & fire a ball to hit targets via wall bounces | 17/30 | Iterate |
+| PathWeaver | Draw a Hamiltonian path through a grid | 16/30 | Iterate |
+| ChainPop | One tap triggers chain reaction on floating bubbles | 10/30 | Iterate |
+| DropPop | Pop connected color groups with gravity | 9/30 | Iterate |
 
 ## Architecture
 
