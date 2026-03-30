@@ -1,0 +1,219 @@
+{
+  "labName": "Pocket Puzzle Lab",
+  "goal": "Design any 2D daily mobile puzzle that captures Wordle's stickiness without copying Wordle's mechanics. Physics is fair game.",
+  "selectedGameId": "trail-weaver",
+  "games": [
+    {
+      "id": "trail-weaver",
+      "title": "Trail Weaver",
+      "tagline": "Shift the streets until a clean route clicks into place.",
+      "mechanic": "Row-and-column shifting path puzzle",
+      "description": "Players tap row and column handles to align a route from the left gate to the right lantern plaza. The objective is instantly readable, but chasing lower move counts gives the game a real mastery curve.",
+      "signatureHook": "Whole streets move at once, so one tap can make the route suddenly snap into place.",
+      "onboardingSeconds": 12,
+      "sessionSeconds": 90,
+      "controlComplexity": 2,
+      "masteryDepth": 5,
+      "dailyReturnStrength": 5,
+      "hookStrength": 5,
+      "delightFactor": 4,
+      "retryImpulse": 5,
+      "screenshotClarity": 4,
+      "languageLoad": 0,
+      "implementationRisk": 3,
+      "familyFriendly": true,
+      "universalSymbols": true,
+      "statsHooks": ["daily streak", "perfect days", "best solve"],
+      "howToPlay": [
+        "Tap a row arrow to shift that row right.",
+        "Tap a column arrow to shift that column down.",
+        "Connect the left gate to the right goal.",
+        "Anyone can clear the board, but hitting par moves is the mastery chase."
+      ],
+      "prototype": {
+        "type": "path-shift",
+        "gridSize": 4,
+        "puzzles": [
+          {
+            "id": "starter-trail",
+            "title": "Starter Trail",
+            "startRow": 1,
+            "goalRow": 2,
+            "parMoves": 6,
+            "baseBoard": [
+              ["dot", "dot", "dot", "dot"],
+              ["hor", "hor", "sw", "dot"],
+              ["dot", "dot", "ne", "hor"],
+              ["dot", "dot", "dot", "dot"]
+            ],
+            "scramble": [
+              { "kind": "row", "index": 1, "steps": 1 },
+              { "kind": "column", "index": 2, "steps": 1 },
+              { "kind": "row", "index": 2, "steps": 2 }
+            ]
+          },
+          {
+            "id": "arcade-hook",
+            "title": "Arcade Hook",
+            "startRow": 0,
+            "goalRow": 1,
+            "parMoves": 5,
+            "baseBoard": [
+              ["hor", "sw", "dot", "dot"],
+              ["dot", "ne", "hor", "hor"],
+              ["dot", "dot", "dot", "dot"],
+              ["dot", "dot", "dot", "dot"]
+            ],
+            "scramble": [
+              { "kind": "column", "index": 0, "steps": 1 },
+              { "kind": "row", "index": 1, "steps": 2 }
+            ]
+          },
+          {
+            "id": "plaza-shuffle",
+            "title": "Plaza Shuffle",
+            "startRow": 2,
+            "goalRow": 1,
+            "parMoves": 6,
+            "baseBoard": [
+              ["dot", "dot", "dot", "dot"],
+              ["dot", "se", "hor", "hor"],
+              ["hor", "nw", "dot", "dot"],
+              ["dot", "dot", "dot", "dot"]
+            ],
+            "scramble": [
+              { "kind": "row", "index": 2, "steps": 1 },
+              { "kind": "column", "index": 1, "steps": 1 },
+              { "kind": "row", "index": 1, "steps": 2 }
+            ]
+          },
+          {
+            "id": "lantern-lane",
+            "title": "Ribbon Merge",
+            "startRow": 1,
+            "goalRow": 2,
+            "parMoves": 6,
+            "baseBoard": [
+              ["dot", "dot", "dot", "dot"],
+              ["hor", "hor", "sw", "dot"],
+              ["dot", "dot", "ne", "hor"],
+              ["dot", "dot", "dot", "dot"]
+            ],
+            "scramble": [
+              { "kind": "row", "index": 2, "steps": 1 },
+              { "kind": "column", "index": 2, "steps": 1 }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "bloom-balance",
+      "title": "Bloom Balance",
+      "tagline": "Rotate terrace petals to water every sprout.",
+      "mechanic": "Ring rotation puzzle",
+      "description": "The player rotates concentric flower terraces so water reaches each seed in sequence. It feels calm and readable, and the best move chase supports daily mastery without any word knowledge.",
+      "signatureHook": "One tap rotates a whole flower ring, turning the board into a living irrigation toy.",
+      "onboardingSeconds": 14,
+      "sessionSeconds": 80,
+      "controlComplexity": 2,
+      "masteryDepth": 4,
+      "dailyReturnStrength": 4,
+      "hookStrength": 4,
+      "delightFactor": 4,
+      "retryImpulse": 4,
+      "screenshotClarity": 5,
+      "languageLoad": 0,
+      "implementationRisk": 4,
+      "familyFriendly": true,
+      "universalSymbols": true,
+      "statsHooks": ["daily streak", "fewest turns", "perfect garden"],
+      "howToPlay": [
+        "Rotate a ring with one tap.",
+        "Guide water through every sprout.",
+        "Finish quickly to earn a perfect garden."
+      ]
+    },
+    {
+      "id": "conveyor-commons",
+      "title": "Conveyor Commons",
+      "tagline": "Shuffle tiny belts until the package reaches the dock.",
+      "mechanic": "Belt-routing logistics puzzle",
+      "description": "Players nudge conveyor rows and columns to deliver one package across a toy warehouse. It is easy to read, has strong replay value, and naturally supports efficiency-based stats.",
+      "signatureHook": "A tiny warehouse comes alive when a single belt change sends the package racing across the map.",
+      "onboardingSeconds": 10,
+      "sessionSeconds": 75,
+      "controlComplexity": 3,
+      "masteryDepth": 4,
+      "dailyReturnStrength": 4,
+      "hookStrength": 3,
+      "delightFactor": 3,
+      "retryImpulse": 4,
+      "screenshotClarity": 4,
+      "languageLoad": 1,
+      "implementationRisk": 3,
+      "familyFriendly": true,
+      "universalSymbols": true,
+      "statsHooks": ["daily streak", "best route", "clean deliveries"],
+      "howToPlay": [
+        "Move a belt lane.",
+        "Guide the package to the dock.",
+        "Use fewer nudges for a cleaner delivery."
+      ]
+    },
+    {
+      "id": "signal-garden",
+      "title": "Signal Garden",
+      "tagline": "Slide mirrors so one beam lights the whole courtyard.",
+      "mechanic": "Mirror sliding light puzzle",
+      "description": "A player shifts mirrors and blockers to reflect a light beam through marked targets. The fantasy is broad and family-friendly, but the interaction layer is slightly harder than the strongest candidates.",
+      "signatureHook": "The moment the whole courtyard lights up from one clean beam path should feel magical.",
+      "onboardingSeconds": 16,
+      "sessionSeconds": 95,
+      "controlComplexity": 3,
+      "masteryDepth": 5,
+      "dailyReturnStrength": 4,
+      "hookStrength": 4,
+      "delightFactor": 4,
+      "retryImpulse": 4,
+      "screenshotClarity": 5,
+      "languageLoad": 0,
+      "implementationRisk": 4,
+      "familyFriendly": true,
+      "universalSymbols": true,
+      "statsHooks": ["daily streak", "perfect light", "best solve"],
+      "howToPlay": [
+        "Slide a mirror lane.",
+        "Bounce the beam through every lantern.",
+        "Aim for a par-clear to master the puzzle."
+      ]
+    },
+    {
+      "id": "gravity-grove",
+      "title": "Gravity Grove",
+      "tagline": "Drop marbles through bumpers until every lantern wakes up.",
+      "mechanic": "Physics-lite gravity routing puzzle",
+      "description": "Players release marbles into a tiny toy machine and let gravity, bumpers, and one-tap flippers do the rest. The goal is readable to all ages, while score chasing and better launch timing create the mastery layer.",
+      "signatureHook": "A single marble run should feel like a pocket pinball moment that begs for one more try.",
+      "onboardingSeconds": 11,
+      "sessionSeconds": 70,
+      "controlComplexity": 2,
+      "masteryDepth": 5,
+      "dailyReturnStrength": 5,
+      "hookStrength": 5,
+      "delightFactor": 5,
+      "retryImpulse": 5,
+      "screenshotClarity": 5,
+      "languageLoad": 0,
+      "implementationRisk": 4,
+      "familyFriendly": true,
+      "universalSymbols": true,
+      "statsHooks": ["daily streak", "best score", "one-ball clears"],
+      "howToPlay": [
+        "Pick a launch lane.",
+        "Watch gravity route the marble.",
+        "Use fewer launches or higher scores to master the board."
+      ]
+    }
+  ]
+}
