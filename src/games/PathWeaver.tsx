@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,15 +6,21 @@ import {
   Pressable,
   ScrollView,
   useWindowDimensions,
+  Animated,
 } from 'react-native';
 import ShareButton from '../components/ShareButton';
 import StatsModal from '../components/StatsModal';
-import { getDailySeed, seededRandom, getPuzzleDay } from '../utils/seed';
+import CelebrationBurst from '../components/CelebrationBurst';
+import { getDailySeed, seededRandom, getPuzzleDay, getDayDifficulty } from '../utils/seed';
 import { loadStats, recordGame, type Stats } from '../utils/stats';
 
 const GRID_SIZE = 5;
 const TOTAL_CELLS = GRID_SIZE * GRID_SIZE;
-const PAR_UNDOS = 3; // finish with <= this many undos to be "under par"
+
+function getParUndos(): number {
+  const d = getDayDifficulty(); // 1 (Mon) to 5 (Fri)
+  return 6 - d; // Mon: 5, Fri: 1
+}
 
 type Cell = { r: number; c: number };
 
@@ -29,28 +35,66 @@ function areAdjacent(a: Cell, b: Cell): boolean {
   );
 }
 
-/** Generate a valid Hamiltonian path, then use its start as the fixed start */
+/** Generate a guaranteed-solvable Hamiltonian path puzzle via randomized DFS */
 function generatePuzzle(seed: number): { start: Cell; end: Cell } {
   const rng = seededRandom(seed);
+  const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
 
-  // Pick random start
-  const startR = Math.floor(rng() * GRID_SIZE);
-  const startC = Math.floor(rng() * GRID_SIZE);
+  // Shuffle helper
+  function shuffle<T>(arr: T[]): T[] {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
 
-  // Pick an end that's far-ish away
-  let endR: number, endC: number;
-  do {
-    endR = Math.floor(rng() * GRID_SIZE);
-    endC = Math.floor(rng() * GRID_SIZE);
-  } while (
-    (endR === startR && endC === startC) ||
-    Math.abs(endR - startR) + Math.abs(endC - startC) < 3
+  // Try random starting positions until we find a Hamiltonian path
+  const starts = shuffle(
+    Array.from({ length: TOTAL_CELLS }, (_, i) => ({
+      r: Math.floor(i / GRID_SIZE),
+      c: i % GRID_SIZE,
+    }))
   );
 
-  return {
-    start: { r: startR, c: startC },
-    end: { r: endR, c: endC },
-  };
+  for (const startCell of starts) {
+    const visited = Array.from({ length: GRID_SIZE }, () =>
+      Array(GRID_SIZE).fill(false)
+    );
+    const path: Cell[] = [startCell];
+    visited[startCell.r][startCell.c] = true;
+
+    function dfs(): boolean {
+      if (path.length === TOTAL_CELLS) return true;
+      const cur = path[path.length - 1];
+      const neighbors = shuffle(dirs).map(([dr, dc]) => ({
+        r: cur.r + dr,
+        c: cur.c + dc,
+      }));
+      for (const n of neighbors) {
+        if (
+          n.r >= 0 && n.r < GRID_SIZE &&
+          n.c >= 0 && n.c < GRID_SIZE &&
+          !visited[n.r][n.c]
+        ) {
+          visited[n.r][n.c] = true;
+          path.push(n);
+          if (dfs()) return true;
+          path.pop();
+          visited[n.r][n.c] = false;
+        }
+      }
+      return false;
+    }
+
+    if (dfs()) {
+      return { start: path[0], end: path[path.length - 1] };
+    }
+  }
+
+  // Fallback (should never happen on 5x5)
+  return { start: { r: 0, c: 0 }, end: { r: 4, c: 4 } };
 }
 
 export default function PathWeaver() {
@@ -58,6 +102,7 @@ export default function PathWeaver() {
   const puzzleDay = useMemo(() => getPuzzleDay(), []);
   const puzzle = useMemo(() => generatePuzzle(seed), [seed]);
 
+  const parUndos = useMemo(() => getParUndos(), []);
   const [path, setPath] = useState<Cell[]>([puzzle.start]);
   const [undos, setUndos] = useState(0);
   const [showStats, setShowStats] = useState(false);
@@ -66,6 +111,11 @@ export default function PathWeaver() {
   const { width: screenWidth } = useWindowDimensions();
   const maxWidth = Math.min(screenWidth - 48, 340);
   const cellSize = Math.floor(maxWidth / GRID_SIZE) - 4;
+
+  // Cell scale animations
+  const cellScales = useRef(
+    Array.from({ length: TOTAL_CELLS }, () => new Animated.Value(1))
+  ).current;
 
   const visited = useMemo(() => {
     const s = new Set<string>();
@@ -93,6 +143,26 @@ export default function PathWeaver() {
       );
     });
 
+  const animateCell = useCallback(
+    (r: number, c: number) => {
+      const idx = r * GRID_SIZE + c;
+      Animated.sequence([
+        Animated.timing(cellScales[idx], {
+          toValue: 1.2,
+          duration: 80,
+          useNativeDriver: true,
+        }),
+        Animated.spring(cellScales[idx], {
+          toValue: 1,
+          friction: 3,
+          tension: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    },
+    [cellScales]
+  );
+
   const handleCellPress = useCallback(
     (r: number, c: number) => {
       if (won) return;
@@ -107,6 +177,7 @@ export default function PathWeaver() {
       ) {
         setPath(path.slice(0, -1));
         setUndos((u) => u + 1);
+        animateCell(r, c);
         return;
       }
 
@@ -114,9 +185,10 @@ export default function PathWeaver() {
       if (!areAdjacent(head, target)) return;
       if (visited.has(cellKey(r, c))) return;
 
+      animateCell(r, c);
       setPath([...path, target]);
     },
-    [path, head, visited, won]
+    [path, head, visited, won, animateCell]
   );
 
   const handleReset = useCallback(() => {
@@ -127,12 +199,12 @@ export default function PathWeaver() {
   // Record stats on win
   React.useEffect(() => {
     if (won) {
-      recordGame('pathweaver', undos, PAR_UNDOS).then((s) => {
+      recordGame('pathweaver', undos, parUndos).then((s) => {
         setStatsData(s);
         setShowStats(true);
       });
     }
-  }, [won, undos]);
+  }, [won, undos, parUndos]);
 
   const handleShowStats = useCallback(async () => {
     const s = await loadStats('pathweaver');
@@ -141,7 +213,29 @@ export default function PathWeaver() {
   }, []);
 
   function buildShareText(): string {
-    return `PathWeaver ${undos <= PAR_UNDOS ? '\ud83c\udf1f' : '\u2705'}\nPath completed${undos === 0 ? ' with NO undos!' : ` (${undos} undos)`}`;
+    // Build path direction grid
+    const grid: string[][] = Array.from({ length: GRID_SIZE }, () =>
+      Array(GRID_SIZE).fill('\u2b1c')
+    );
+    for (let i = 0; i < path.length; i++) {
+      const { r, c } = path[i];
+      if (i === 0) {
+        grid[r][c] = '\ud83d\udfe2'; // green start
+      } else if (i === path.length - 1) {
+        grid[r][c] = '\ud83d\udd34'; // red end
+      } else {
+        // Arrow showing direction to next cell
+        const next = path[i + 1];
+        if (next.r < r) grid[r][c] = '\u2b06\ufe0f';
+        else if (next.r > r) grid[r][c] = '\u2b07\ufe0f';
+        else if (next.c < c) grid[r][c] = '\u2b05\ufe0f';
+        else grid[r][c] = '\u27a1\ufe0f';
+      }
+    }
+    const rows = grid.map((row) => row.join('')).join('\n');
+    return `PathWeaver Day #${puzzleDay} ${undos <= parUndos ? '\ud83c\udf1f' : '\u2705'}\n${rows}\n${
+      undos === 0 ? 'Perfect — 0 undos!' : `${undos} undo${undos > 1 ? 's' : ''} (par: ${parUndos})`
+    }`;
   }
 
   function getCellColor(r: number, c: number): string {
@@ -220,24 +314,29 @@ export default function PathWeaver() {
           <View key={r} style={styles.gridRow}>
             {Array.from({ length: GRID_SIZE }).map((_, c) => {
               const num = getCellNumber(r, c);
+              const idx = r * GRID_SIZE + c;
               return (
-                <Pressable
+                <Animated.View
                   key={c}
-                  onPress={() => handleCellPress(r, c)}
-                  style={[
-                    styles.cell,
-                    {
-                      width: cellSize,
-                      height: cellSize,
-                      backgroundColor: getCellColor(r, c),
-                      borderColor: getCellBorder(r, c),
-                    },
-                  ]}
+                  style={{ transform: [{ scale: cellScales[idx] }] }}
                 >
-                  {num && (
-                    <Text style={styles.cellNum}>{num}</Text>
-                  )}
-                </Pressable>
+                  <Pressable
+                    onPress={() => handleCellPress(r, c)}
+                    style={[
+                      styles.cell,
+                      {
+                        width: cellSize,
+                        height: cellSize,
+                        backgroundColor: getCellColor(r, c),
+                        borderColor: getCellBorder(r, c),
+                      },
+                    ]}
+                  >
+                    {num && (
+                      <Text style={styles.cellNum}>{num}</Text>
+                    )}
+                  </Pressable>
+                </Animated.View>
               );
             })}
           </View>
@@ -260,17 +359,19 @@ export default function PathWeaver() {
         </Pressable>
       )}
 
+      <CelebrationBurst show={won && undos <= parUndos} />
+
       {won && (
         <View style={styles.winMessage}>
           <Text style={styles.winEmoji}>
-            {undos <= PAR_UNDOS ? '\ud83c\udf1f' : '\u2705'}
+            {undos === 0 ? '\ud83c\udf1f' : undos <= parUndos ? '\u2b50' : '\u2705'}
           </Text>
           <Text style={styles.winText}>
             {undos === 0
               ? 'Perfect path! No undos!'
-              : undos <= PAR_UNDOS
-                ? `Great! Only ${undos} undos`
-                : `Path complete (${undos} undos)`}
+              : undos <= parUndos
+                ? `Under par! ${undos} undo${undos > 1 ? 's' : ''}`
+                : `Path complete (${undos} undos, par: ${parUndos})`}
           </Text>
           <ShareButton text={buildShareText()} />
         </View>
@@ -282,7 +383,7 @@ export default function PathWeaver() {
           Start at the green cell and draw a path to the red cell, visiting
           every cell exactly once. Tap adjacent cells to extend your path. Tap
           the previous cell to undo.{'\n\n'}
-          Complete the path with {PAR_UNDOS} or fewer undos for a star!
+          Complete the path with {parUndos} or fewer undos for a star!
         </Text>
       </View>
 
