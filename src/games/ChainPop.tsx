@@ -10,15 +10,21 @@ import {
 } from 'react-native';
 import ShareButton from '../components/ShareButton';
 import StatsModal from '../components/StatsModal';
-import { getDailySeed, seededRandom, getPuzzleDay } from '../utils/seed';
+import { getDailySeed, seededRandom, getPuzzleDay, getDayDifficulty } from '../utils/seed';
 import { loadStats, recordGame, type Stats } from '../utils/stats';
 
 const ARENA_SIZE = 340;
-const NUM_BUBBLES = 20;
 const BUBBLE_RADIUS = 16;
 const EXPLOSION_RADIUS = 48;
-const CHAIN_DELAY = 300;
-const PAR_POPS = 15; // need to pop at least this many to be "under par"
+const CHAIN_DELAY = 250;
+const MAX_TAPS = 3;
+
+function getDifficulty() {
+  const d = getDayDifficulty(); // 1 (Mon) to 5 (Fri)
+  const numBubbles = 15 + d * 2; // Mon: 17, Fri: 25
+  const parPops = numBubbles - 2 - d; // Mon: 14/17, Fri: 18/25
+  return { numBubbles, parPops };
+}
 
 type Bubble = {
   id: number;
@@ -33,18 +39,18 @@ type Bubble = {
 
 const BUBBLE_COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6', '#e67e22'];
 
-function generateBubbles(seed: number): Bubble[] {
+function generateBubbles(seed: number, count: number): Bubble[] {
   const rng = seededRandom(seed);
   const bubbles: Bubble[] = [];
 
-  for (let i = 0; i < NUM_BUBBLES; i++) {
+  for (let i = 0; i < count; i++) {
     const margin = BUBBLE_RADIUS + 10;
     bubbles.push({
       id: i,
       x: margin + rng() * (ARENA_SIZE - 2 * margin),
       y: margin + rng() * (ARENA_SIZE - 2 * margin),
-      vx: (rng() - 0.5) * 0.8,
-      vy: (rng() - 0.5) * 0.8,
+      vx: (rng() - 0.5) * 1.0,
+      vy: (rng() - 0.5) * 1.0,
       color: BUBBLE_COLORS[Math.floor(rng() * BUBBLE_COLORS.length)],
       alive: true,
       popping: false,
@@ -57,10 +63,11 @@ function generateBubbles(seed: number): Bubble[] {
 export default function ChainPop() {
   const seed = useMemo(() => getDailySeed(), []);
   const puzzleDay = useMemo(() => getPuzzleDay(), []);
-  const [bubbles, setBubbles] = useState(() => generateBubbles(seed));
-  const [started, setStarted] = useState(false);
-  const [tapped, setTapped] = useState(false);
+  const diff = useMemo(() => getDifficulty(), []);
+  const [bubbles, setBubbles] = useState(() => generateBubbles(seed, diff.numBubbles));
+  const [tapsLeft, setTapsLeft] = useState(MAX_TAPS);
   const [popped, setPopped] = useState(0);
+  const [popsPerTap, setPopsPerTap] = useState<number[]>([]);
   const [chainRunning, setChainRunning] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [stats, setStatsData] = useState<Stats | null>(null);
@@ -70,8 +77,9 @@ export default function ChainPop() {
 
   const [previewPos, setPreviewPos] = useState<{ x: number; y: number } | null>(null);
 
-  const gameOver = tapped && !chainRunning;
-  const won = popped >= PAR_POPS;
+  const allPopped = bubbles.every((b) => !b.alive);
+  const gameOver = (tapsLeft === 0 || allPopped) && !chainRunning;
+  const won = popped >= diff.parPops;
 
   // Animate bubbles floating around
   useEffect(() => {
@@ -100,32 +108,31 @@ export default function ChainPop() {
     };
   }, []);
 
-  // Chain reaction logic
+  // Chain reaction logic — supports multiple taps
   const triggerChain = useCallback(
     (tapX: number, tapY: number) => {
-      if (tapped) return;
-      setTapped(true);
+      if (tapsLeft <= 0 || chainRunning) return;
+      setTapsLeft((t) => t - 1);
       setChainRunning(true);
 
-      // Work with a mutable copy for the chain
-      let currentBubbles = bubbles.map((b) => ({ ...b }));
-      let poppedIds = new Set<number>();
+      // Track pops for this specific tap
+      const poppedIds = new Set<number>();
 
       // Find bubbles in explosion radius of tap
       const explosionQueue: number[] = [];
-      for (const b of currentBubbles) {
-        if (Math.hypot(b.x - tapX, b.y - tapY) < EXPLOSION_RADIUS) {
+      for (const b of bubbles) {
+        if (b.alive && Math.hypot(b.x - tapX, b.y - tapY) < EXPLOSION_RADIUS) {
           explosionQueue.push(b.id);
           poppedIds.add(b.id);
         }
       }
 
       // Process chain in waves
-      let wave = 0;
       const processWave = () => {
         if (explosionQueue.length === 0) {
           setChainRunning(false);
-          setPopped(poppedIds.size);
+          setPopsPerTap((prev) => [...prev, poppedIds.size]);
+          setPopped((prev) => prev + poppedIds.size);
           return;
         }
 
@@ -161,31 +168,28 @@ export default function ChainPop() {
               }
             }
 
-            setPopped(poppedIds.size);
             return updated;
           });
 
-          wave++;
           setTimeout(processWave, CHAIN_DELAY);
         }, CHAIN_DELAY);
       };
 
       processWave();
     },
-    [bubbles, tapped]
+    [bubbles, tapsLeft, chainRunning]
   );
 
   // Record stats when game over
   useEffect(() => {
     if (gameOver && popped > 0) {
-      // Invert score: more pops = better
-      const score = NUM_BUBBLES - popped; // lower is better
-      recordGame('chainpop', score, NUM_BUBBLES - PAR_POPS).then((s) => {
+      const score = diff.numBubbles - popped; // lower is better
+      recordGame('chainpop', score, diff.numBubbles - diff.parPops).then((s) => {
         setStatsData(s);
         setShowStats(true);
       });
     }
-  }, [gameOver, popped]);
+  }, [gameOver, popped, diff.numBubbles, diff.parPops]);
 
   const handleShowStats = useCallback(async () => {
     const s = await loadStats('chainpop');
@@ -194,7 +198,12 @@ export default function ChainPop() {
   }, []);
 
   function buildShareText(): string {
-    return `ChainPop ${popped}/${NUM_BUBBLES} popped \ud83d\udca5\n${won ? '\ud83c\udf1f Massive chain!' : `Popped ${popped} bubbles`}`;
+    const tapRows = popsPerTap
+      .map((count, i) => `Tap ${i + 1}: ${'💥'.repeat(Math.min(count, 10))} ${count}`)
+      .join('\n');
+    return `ChainPop Day #${puzzleDay} 💥\n${popped}/${diff.numBubbles} popped\n${tapRows}\n${
+      allPopped ? '🌟 Total wipeout!' : won ? '⭐ Chain master!' : `${popped} popped`
+    }`;
   }
 
   return (
@@ -207,32 +216,45 @@ export default function ChainPop() {
         </Pressable>
       </View>
       <Text style={styles.subtitle}>
-        Tap once. Chain reaction pops nearby bubbles. Pop {PAR_POPS}+ to win!
+        {MAX_TAPS} taps. Chain reactions pop nearby bubbles. Pop {diff.parPops}+ to win!
       </Text>
 
-      <View style={styles.moveCounter}>
-        <Text style={styles.moveLabel}>Popped</Text>
-        <Text
-          style={[
-            styles.moveCount,
-            gameOver && won && styles.moveCountGood,
-          ]}
-        >
-          {popped}
-        </Text>
-        <Text style={styles.movePar}>/ {NUM_BUBBLES}</Text>
+      <View style={styles.infoRow}>
+        <View style={styles.infoItem}>
+          <Text style={styles.infoLabel}>Taps</Text>
+          <Text style={[styles.infoValue, tapsLeft === 0 && styles.infoValueDim]}>
+            {'💥'.repeat(tapsLeft)}{'⬛'.repeat(MAX_TAPS - tapsLeft)}
+          </Text>
+        </View>
+        <View style={styles.infoItem}>
+          <Text style={styles.infoLabel}>Popped</Text>
+          <Text style={[styles.infoValue, gameOver && won && styles.infoValueGood]}>
+            {popped}/{diff.numBubbles}
+          </Text>
+        </View>
       </View>
+
+      {/* Per-tap breakdown */}
+      {popsPerTap.length > 0 && (
+        <View style={styles.tapBreakdown}>
+          {popsPerTap.map((count, i) => (
+            <Text key={i} style={styles.tapLine}>
+              Tap {i + 1}: {count} popped
+            </Text>
+          ))}
+        </View>
+      )}
 
       {/* Arena */}
       <Pressable
         onPressIn={(e) => {
-          if (tapped) return;
+          if (tapsLeft <= 0 || chainRunning) return;
           const { locationX, locationY } = e.nativeEvent;
           setPreviewPos({ x: locationX / scale, y: locationY / scale });
         }}
         onPressOut={() => setPreviewPos(null)}
         onPress={(e) => {
-          if (tapped) return;
+          if (tapsLeft <= 0 || chainRunning) return;
           const { locationX, locationY } = e.nativeEvent;
           setPreviewPos(null);
           triggerChain(locationX / scale, locationY / scale);
@@ -247,7 +269,7 @@ export default function ChainPop() {
       >
         <View style={[styles.arenaInner, { transform: [{ scale }], transformOrigin: 'top left' }]}>
           {/* Blast radius preview */}
-          {previewPos && !tapped && (
+          {previewPos && tapsLeft > 0 && !chainRunning && (
             <View
               style={[
                 styles.blastPreview,
@@ -296,19 +318,26 @@ export default function ChainPop() {
         </View>
       </Pressable>
 
-      {!tapped && (
-        <Text style={styles.tapHint}>Tap anywhere in the arena!</Text>
+      {tapsLeft > 0 && !chainRunning && !gameOver && (
+        <Text style={styles.tapHint}>
+          {tapsLeft === MAX_TAPS ? 'Tap anywhere to start!' : `${tapsLeft} tap${tapsLeft > 1 ? 's' : ''} remaining`}
+        </Text>
+      )}
+      {chainRunning && (
+        <Text style={styles.tapHint}>Chain reacting...</Text>
       )}
 
       {gameOver && (
         <View style={styles.winMessage}>
           <Text style={styles.winEmoji}>
-            {won ? '\ud83d\udca5' : '\ud83d\udcad'}
+            {allPopped ? '\ud83c\udf1f' : won ? '\ud83d\udca5' : '\ud83d\udcad'}
           </Text>
           <Text style={styles.winText}>
-            {won
-              ? `Chain reaction! ${popped} popped`
-              : `${popped} popped — try to get ${PAR_POPS}+`}
+            {allPopped
+              ? `Total wipeout! All ${diff.numBubbles} popped!`
+              : won
+                ? `Chain master! ${popped}/${diff.numBubbles} popped`
+                : `${popped}/${diff.numBubbles} — need ${diff.parPops}+ to win`}
           </Text>
           <ShareButton text={buildShareText()} />
         </View>
@@ -317,10 +346,10 @@ export default function ChainPop() {
       <View style={styles.howTo}>
         <Text style={styles.howToTitle}>How to play</Text>
         <Text style={styles.howToText}>
-          Bubbles float around the arena. You get ONE tap — it creates an
-          explosion that pops nearby bubbles. Those bubbles explode too,
-          creating a chain reaction.{'\n\n'}
-          Time your tap to catch the biggest cluster. Pop {PAR_POPS}+ to win!
+          Bubbles float around the arena. You get {MAX_TAPS} taps — each
+          creates an explosion that pops nearby bubbles. Popped bubbles
+          explode too, creating chain reactions.{'\n\n'}
+          Time your taps to catch clusters. Pop {diff.parPops}+ to win!
         </Text>
       </View>
 
@@ -360,16 +389,27 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: 300,
   },
-  moveCounter: {
+  infoRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
-    marginBottom: 12,
+    gap: 24,
+    marginBottom: 8,
+    alignItems: 'center',
   },
-  moveLabel: { color: '#818384', fontSize: 14 },
-  moveCount: { color: '#ffffff', fontSize: 28, fontWeight: '800' },
-  moveCountGood: { color: '#2ecc71' },
-  movePar: { color: '#818384', fontSize: 14 },
+  infoItem: {
+    alignItems: 'center',
+  },
+  infoLabel: { color: '#818384', fontSize: 12 },
+  infoValue: { color: '#ffffff', fontSize: 20, fontWeight: '800' },
+  infoValueGood: { color: '#2ecc71' },
+  infoValueDim: { opacity: 0.5 },
+  tapBreakdown: {
+    marginBottom: 8,
+  },
+  tapLine: {
+    color: '#818384',
+    fontSize: 12,
+    textAlign: 'center',
+  },
   arena: {
     backgroundColor: '#0d1117',
     borderRadius: 12,
