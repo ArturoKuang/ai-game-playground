@@ -281,23 +281,39 @@ export default function BounceOut() {
           ]}
         />
 
-        {/* Aim line */}
-        {aiming && !animating && (
-          <View
-            style={[
-              styles.aimLine,
-              {
-                left: launchPos.x,
-                top: launchPos.y,
-                width: 80,
-                transform: [
-                  { rotate: `${Math.atan2(aimDir.y, aimDir.x)}rad` },
-                ],
-                transformOrigin: 'left center',
-              },
-            ]}
-          />
-        )}
+        {/* Trajectory preview */}
+        {aiming && !animating && (() => {
+          const previewSteps = 80;
+          const dots: { x: number; y: number }[] = [];
+          let px = launchPos.x;
+          let py = launchPos.y;
+          let vx = aimDir.x * BALL_SPEED;
+          let vy = aimDir.y * BALL_SPEED;
+          for (let i = 0; i < previewSteps; i++) {
+            px += vx;
+            py += vy;
+            if (px <= BALL_RADIUS) { px = BALL_RADIUS; vx *= -1; }
+            if (px >= ARENA_SIZE - BALL_RADIUS) { px = ARENA_SIZE - BALL_RADIUS; vx *= -1; }
+            if (py <= BALL_RADIUS) { py = BALL_RADIUS; vy *= -1; }
+            if (py >= ARENA_SIZE - BALL_RADIUS) { py = ARENA_SIZE - BALL_RADIUS; vy *= -1; }
+            if (i % 3 === 0) dots.push({ x: px, y: py });
+          }
+          return dots.map((d, i) => (
+            <View
+              key={`aim-${i}`}
+              style={{
+                position: 'absolute' as const,
+                left: d.x - 2,
+                top: d.y - 2,
+                width: 4,
+                height: 4,
+                borderRadius: 2,
+                backgroundColor: 'rgba(52, 152, 219, 0.5)',
+                opacity: 1 - (i / dots.length) * 0.7,
+              }}
+            />
+          ));
+        })()}
 
         {/* Ball trail (simple dots) */}
         {ballTrail &&
