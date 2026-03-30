@@ -269,6 +269,18 @@ Animated.sequence([
 
 ---
 
+### A8: Low Branching Factor Kills Decision Depth
+
+**What it looks like**: At each decision point, the player has only 1-2 valid options due to tight constraints (e.g., strict sequence matching on adjacent cells).
+
+**Why it fails**: Collapses d3 (decisions) because there's nothing to compare. Even removing previews/highlights doesn't help — the player is scanning for the one valid move, not choosing between strategies. Path is effectively forced.
+
+**Evidence**: LinkUp killed at 14/30 (`738fe10`, `1672266`). Adjacent cells with the right number in a 1→2→3→4→1 cycle yield ~1-2 valid moves per step. Both with and without highlights, d3=1. Two independent reviewers confirmed.
+
+**Test**: At each decision point, how many genuinely different options does the player have? If average < 2.5, the constraint is too tight. Loosen the matching rule (e.g., ±1 instead of exact +1) or increase the grid/neighbor count.
+
+---
+
 ## Score Prediction Heuristics
 
 Use these to sanity-check rubric scores before logging. If your score disagrees with the prediction by more than 3 points, re-examine your narration.
