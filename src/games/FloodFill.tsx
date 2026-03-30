@@ -79,6 +79,7 @@ export default function FloodFill() {
 
   const [grid, setGrid] = useState(() => cloneGrid(initialGrid));
   const [moves, setMoves] = useState(0);
+  const [colorHistory, setColorHistory] = useState<number[]>([]);
   const [gameOver, setGameOver] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -117,6 +118,7 @@ export default function FloodFill() {
       if (colorIdx === grid[0][0]) return;
 
       bounceButton(colorIdx);
+      setColorHistory((h) => [...h, colorIdx]);
 
       const nextGrid = applyFlood(grid, colorIdx);
       const nextMoves = moves + 1;
@@ -154,8 +156,14 @@ export default function FloodFill() {
   const cellSize = Math.floor(maxGridWidth / GRID_SIZE) - 2;
 
   function buildShareText(): string {
-    const result = underPar ? 'under par' : 'over par';
-    return `FloodFill ${moves}/${PAR} (${result}) \ud83c\udfaf\n\n${won ? (underPar ? '\ud83d\udfe9' : '\ud83d\udfe8') : '\ud83d\udfe5'} ${moves} moves on an ${GRID_SIZE}x${GRID_SIZE} grid`;
+    // Show the color sequence as emoji — like Wordle's colored grid
+    const sequence = colorHistory.map((c) => PALETTE[c].emoji).join('');
+    // Break into rows of 6 for readability
+    const rows: string[] = [];
+    for (let i = 0; i < sequence.length; i += 6) {
+      rows.push(sequence.slice(i, i + 6));
+    }
+    return `FloodFill ${moves}/${PAR} ${underPar ? '\ud83c\udf1f' : '\ud83c\udfaf'}\n${rows.join('\n')}`;
   }
 
   return (
