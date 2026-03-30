@@ -24,7 +24,7 @@ const SIZE = 5;
 const GAP = 3;
 
 const VAL_COLORS = [
-  '#2a2a2c', '#4a5568', '#5a6b80', '#6b8299',
+  '#2a2a2c', '#546e7a', '#607d8b', '#78909c',
   '#3498db', '#2ecc71', '#f1c40f', '#e67e22', '#e74c3c', '#9b59b6',
 ];
 
@@ -229,7 +229,7 @@ export default function Claim() {
         });
       }
     },
-    [claimed, locked, picks, score, gameOver, diff.numPicks, par, cellScales, initialGrid],
+    [selectedCell, claimed, locked, picks, score, gameOver, diff.numPicks, par, cellScales, initialGrid],
   );
 
   const handleShowStats = useCallback(async () => {
@@ -370,7 +370,7 @@ export default function Claim() {
         <View style={styles.previewHint}>
           <Text style={styles.previewText}>
             +{initialGrid[Math.floor(selectedCell / SIZE)][selectedCell % SIZE]} pts, locks{' '}
-            {previewLocked.size} cell{previewLocked.size !== 1 ? 's' : ''} — tap again!
+            {[...previewLocked].reduce((sum, k) => sum + initialGrid[Math.floor(k / SIZE)][k % SIZE], 0)} pts — tap again!
           </Text>
         </View>
       )}
