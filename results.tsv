@@ -65,3 +65,4 @@ c5cb095	56	5	6	6	5	4	6	5	6	7	6	0	iterate	Claim	v4: P1 preview (two-tap select+co
 9053eb7	63	6	7	8	6	5	6	7	6	6	6	0	keep	Claim	v5: preview shows lock VALUE not count + deps fix + color contrast. d3=8 (best today!). First KEEP. Gain-vs-cost preview creates genuine comparison-based strategy.
 476a271	36	5	5	3	2	3	4	3	5	3	3	1	killed	Rise	Ascending chain on 5x5. RED FLAG: "start low, go up" is obvious. A5 (one-shot: entire game is one chain) + A8 (1-2 valid moves per step). Session is 2-4 taps. KILLED after 1 iteration.
 f6a6c90	62	6	7	8	5	5	6	7	6	6	6	0	keep	Claim	v6: added minimum score threshold (60% of par). Three-tier outcome. Neutral change — d4 dropped 6→5 (threshold too easy on Monday). Stable at ~63 ±1.
+60530c4	46	5	6	5	4	4	5	5	2	6	4	0	killed	Flip	Pick cells + flip neighbor values. d8=2 — structurally identical to Claim (same grid, same preview, same solver). KILLED after 1 iteration — variant, not a new game.
