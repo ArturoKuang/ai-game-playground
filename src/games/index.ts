@@ -5,6 +5,7 @@ import LightsOut from './LightsOut';
 import ChainPop from './ChainPop';
 import PathWeaver from './PathWeaver';
 import ColorSort from './ColorSort';
+import MirrorGrid from './MirrorGrid';
 
 const games: GameMeta[] = [
   {
@@ -48,6 +49,13 @@ const games: GameMeta[] = [
     emoji: '\ud83e\udde9',
     description: 'Sort colored balls into matching tubes',
     component: ColorSort,
+  },
+  {
+    id: 'mirrorgrid',
+    name: 'MirrorGrid',
+    emoji: '\ud83e\ude9e',
+    description: 'Fix the symmetry by toggling cells',
+    component: MirrorGrid,
   },
 ];
 
