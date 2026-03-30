@@ -8,7 +8,6 @@ import PathWeaver from './PathWeaver';
 import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
-import Reflect from './Reflect';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -65,13 +64,6 @@ const games: GameMeta[] = [
     emoji: '\ud83d\uddbc\ufe0f',
     description: 'Decode the pattern from row & column clues',
     component: BitMap,
-  },
-  {
-    id: 'reflect',
-    name: 'Reflect',
-    emoji: '\uD83D\uDD26',
-    description: 'Bounce the beam through every star',
-    component: Reflect,
   },
 ];
 
