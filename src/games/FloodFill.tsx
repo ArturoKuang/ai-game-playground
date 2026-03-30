@@ -1,0 +1,365 @@
+import React, { useState, useMemo, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  ScrollView,
+  useWindowDimensions,
+} from 'react-native';
+import ShareButton from '../components/ShareButton';
+import { getDailySeed, seededRandom } from '../utils/seed';
+import { loadStats, recordGame, type Stats } from '../utils/stats';
+import StatsModal from '../components/StatsModal';
+
+const PALETTE = [
+  { hex: '#e74c3c', emoji: '\ud83d\udfe5' }, // red
+  { hex: '#3498db', emoji: '\ud83d\udfe6' }, // blue
+  { hex: '#2ecc71', emoji: '\ud83d\udfe9' }, // green
+  { hex: '#f1c40f', emoji: '\ud83d\udfe8' }, // yellow
+  { hex: '#9b59b6', emoji: '\ud83d\udfea' }, // purple
+  { hex: '#e67e22', emoji: '\ud83d\udfe7' }, // orange
+];
+
+const GRID_SIZE = 8;
+const NUM_COLORS = 6;
+const PAR = 20; // par moves — good target for 8x8 with 6 colors
+
+function generateGrid(seed: number): number[][] {
+  const rng = seededRandom(seed);
+  return Array.from({ length: GRID_SIZE }, () =>
+    Array.from({ length: GRID_SIZE }, () => Math.floor(rng() * NUM_COLORS))
+  );
+}
+
+function cloneGrid(grid: number[][]): number[][] {
+  return grid.map((row) => [...row]);
+}
+
+/** Find all cells connected to (0,0) that share its color */
+function getFloodRegion(grid: number[][]): Set<string> {
+  const color = grid[0][0];
+  const visited = new Set<string>();
+  const stack: [number, number][] = [[0, 0]];
+
+  while (stack.length > 0) {
+    const [r, c] = stack.pop()!;
+    const key = `${r},${c}`;
+    if (visited.has(key)) continue;
+    if (r < 0 || r >= GRID_SIZE || c < 0 || c >= GRID_SIZE) continue;
+    if (grid[r][c] !== color) continue;
+    visited.add(key);
+    stack.push([r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]);
+  }
+
+  return visited;
+}
+
+/** Apply a flood move: change all connected cells from (0,0) to newColor */
+function applyFlood(grid: number[][], newColor: number): number[][] {
+  const next = cloneGrid(grid);
+  const region = getFloodRegion(next);
+  for (const key of region) {
+    const [r, c] = key.split(',').map(Number);
+    next[r][c] = newColor;
+  }
+  return next;
+}
+
+function isSolved(grid: number[][]): boolean {
+  const c = grid[0][0];
+  return grid.every((row) => row.every((cell) => cell === c));
+}
+
+export default function FloodFill() {
+  const seed = useMemo(() => getDailySeed(), []);
+  const initialGrid = useMemo(() => generateGrid(seed), [seed]);
+  const { width: screenWidth } = useWindowDimensions();
+
+  const [grid, setGrid] = useState(() => cloneGrid(initialGrid));
+  const [moves, setMoves] = useState(0);
+  const [gameOver, setGameOver] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+  const [stats, setStats] = useState<Stats | null>(null);
+
+  const won = isSolved(grid);
+  const underPar = moves <= PAR;
+
+  const handleColorPick = useCallback(
+    (colorIdx: number) => {
+      if (gameOver) return;
+      // Can't pick the current flood color — it's a no-op
+      if (colorIdx === grid[0][0]) return;
+
+      const nextGrid = applyFlood(grid, colorIdx);
+      const nextMoves = moves + 1;
+      setGrid(nextGrid);
+      setMoves(nextMoves);
+
+      if (isSolved(nextGrid)) {
+        setGameOver(true);
+        // Record stats
+        recordGame('floodfill', nextMoves, PAR).then((s) => {
+          setStats(s);
+          setShowStats(true);
+        });
+      }
+    },
+    [grid, moves, gameOver]
+  );
+
+  const handleShowStats = useCallback(async () => {
+    const s = await loadStats('floodfill');
+    setStats(s);
+    setShowStats(true);
+  }, []);
+
+  // Responsive cell size
+  const maxGridWidth = Math.min(screenWidth - 32, 400);
+  const cellSize = Math.floor(maxGridWidth / GRID_SIZE) - 2;
+
+  function buildShareText(): string {
+    const result = underPar ? 'under par' : 'over par';
+    return `FloodFill ${moves}/${PAR} (${result}) \ud83c\udfaf\n\n${won ? (underPar ? '\ud83d\udfe9' : '\ud83d\udfe8') : '\ud83d\udfe5'} ${moves} moves on an ${GRID_SIZE}x${GRID_SIZE} grid`;
+  }
+
+  return (
+    <ScrollView contentContainerStyle={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>FloodFill</Text>
+        <Pressable onPress={handleShowStats}>
+          <Text style={styles.statsIcon}>{'\ud83d\udcca'}</Text>
+        </Pressable>
+      </View>
+      <Text style={styles.subtitle}>
+        Flood the board with one color from the top-left corner
+      </Text>
+
+      {/* Move counter */}
+      <View style={styles.moveCounter}>
+        <Text style={styles.moveLabel}>Moves</Text>
+        <Text
+          style={[
+            styles.moveCount,
+            gameOver && underPar && styles.moveCountGood,
+            gameOver && !underPar && styles.moveCountOver,
+          ]}
+        >
+          {moves}
+        </Text>
+        <Text style={styles.movePar}>Par: {PAR}</Text>
+      </View>
+
+      {/* Grid */}
+      <View style={styles.gridContainer}>
+        {grid.map((row, r) => (
+          <View key={r} style={styles.gridRow}>
+            {row.map((cell, c) => (
+              <View
+                key={c}
+                style={[
+                  styles.cell,
+                  {
+                    width: cellSize,
+                    height: cellSize,
+                    backgroundColor: PALETTE[cell].hex,
+                  },
+                  r === 0 && c === 0 && styles.originCell,
+                ]}
+              />
+            ))}
+          </View>
+        ))}
+      </View>
+
+      {/* Win message */}
+      {gameOver && (
+        <View style={styles.winMessage}>
+          <Text style={styles.winEmoji}>
+            {underPar ? '\ud83c\udf89' : '\ud83d\udc4d'}
+          </Text>
+          <Text style={styles.winText}>
+            {underPar
+              ? `Under par! ${moves} moves`
+              : `Solved in ${moves} moves (par: ${PAR})`}
+          </Text>
+          <ShareButton text={buildShareText()} />
+        </View>
+      )}
+
+      {/* Color picker */}
+      {!gameOver && (
+        <View style={styles.picker}>
+          <Text style={styles.pickerLabel}>Pick a color to flood:</Text>
+          <View style={styles.pickerRow}>
+            {PALETTE.map((color, i) => {
+              const isCurrentColor = i === grid[0][0];
+              return (
+                <Pressable
+                  key={i}
+                  onPress={() => handleColorPick(i)}
+                  style={[
+                    styles.pickerBtn,
+                    { backgroundColor: color.hex },
+                    isCurrentColor && styles.pickerBtnDisabled,
+                  ]}
+                >
+                  {isCurrentColor && (
+                    <View style={styles.pickerBtnOverlay} />
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      )}
+
+      {/* How to play */}
+      <View style={styles.howTo}>
+        <Text style={styles.howToTitle}>How to play</Text>
+        <Text style={styles.howToText}>
+          The top-left cell is your starting point. Pick a color below to change
+          your region to that color — absorbing all adjacent cells of the new
+          color. Keep flooding until the entire board is one color.{'\n\n'}
+          Try to do it in {PAR} moves or fewer!
+        </Text>
+      </View>
+
+      {/* Stats Modal */}
+      {showStats && stats && (
+        <StatsModal stats={stats} onClose={() => setShowStats(false)} />
+      )}
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flexGrow: 1,
+    alignItems: 'center',
+    backgroundColor: '#121213',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#ffffff',
+    letterSpacing: 2,
+  },
+  statsIcon: {
+    fontSize: 24,
+  },
+  subtitle: {
+    fontSize: 13,
+    color: '#818384',
+    marginTop: 2,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  moveCounter: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+    marginBottom: 12,
+  },
+  moveLabel: {
+    color: '#818384',
+    fontSize: 14,
+  },
+  moveCount: {
+    color: '#ffffff',
+    fontSize: 28,
+    fontWeight: '800',
+  },
+  moveCountGood: {
+    color: '#2ecc71',
+  },
+  moveCountOver: {
+    color: '#e67e22',
+  },
+  movePar: {
+    color: '#818384',
+    fontSize: 14,
+  },
+  gridContainer: {
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#3a3a3c',
+  },
+  gridRow: {
+    flexDirection: 'row',
+  },
+  cell: {
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,0,0,0.15)',
+  },
+  originCell: {
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  winMessage: {
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  winEmoji: {
+    fontSize: 48,
+  },
+  winText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  picker: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  pickerLabel: {
+    color: '#818384',
+    fontSize: 13,
+    marginBottom: 10,
+  },
+  pickerRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  pickerBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pickerBtnDisabled: {
+    opacity: 0.25,
+  },
+  pickerBtnOverlay: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.4)',
+  },
+  howTo: {
+    marginTop: 28,
+    paddingHorizontal: 12,
+    maxWidth: 360,
+  },
+  howToTitle: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  howToText: {
+    color: '#818384',
+    fontSize: 13,
+    lineHeight: 20,
+  },
+});
