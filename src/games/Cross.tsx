@@ -88,10 +88,10 @@ export default function Cross() {
   const cellSize = Math.floor((maxGrid - (SIZE - 1) * GAP) / SIZE);
   const gridWidth = SIZE * cellSize + (SIZE - 1) * GAP;
 
-  const [currentRow, setCurrentRow] = useState(0);
+  const [usedRows, setUsedRows] = useState<Set<number>>(new Set());
   const [usedCols, setUsedCols] = useState<Set<number>>(new Set());
   const [picks, setPicks] = useState<{ r: number; c: number }[]>([]);
-  const [selectedCol, setSelectedCol] = useState<number | null>(null);
+  const [selectedCell, setSelectedCell] = useState<number | null>(null);
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
   const [showStats, setShowStats] = useState(false);
@@ -101,27 +101,34 @@ export default function Cross() {
     Array.from({ length: SIZE * SIZE }, () => new Animated.Value(1)),
   ).current;
 
-  /* ─── P1 preview: cost of eliminating this column ─── */
+  /* ─── P1 preview: cost of eliminating this row+column ─── */
   const previewCost = useMemo(() => {
-    if (selectedCol === null || gameOver) return 0;
+    if (selectedCell === null || gameOver) return 0;
+    const sr = Math.floor(selectedCell / SIZE);
+    const sc = selectedCell % SIZE;
     let cost = 0;
-    for (let r = currentRow + 1; r < SIZE; r++) {
-      cost += grid[r][selectedCol];
+    // Lost values in the eliminated row (excluding picked cell and already-used columns)
+    for (let c = 0; c < SIZE; c++) {
+      if (c !== sc && !usedCols.has(c)) cost += grid[sr][c];
+    }
+    // Lost values in the eliminated column (excluding picked cell and already-used rows)
+    for (let r = 0; r < SIZE; r++) {
+      if (r !== sr && !usedRows.has(r)) cost += grid[r][sc];
     }
     return cost;
-  }, [selectedCol, currentRow, grid, gameOver]);
+  }, [selectedCell, usedRows, usedCols, grid, gameOver]);
 
   /* ─── handle tap (two-tap: select then confirm) ─── */
   const handleTap = useCallback(
     (r: number, c: number) => {
       if (gameOver) return;
-      if (r !== currentRow) return; // can only pick from current row
-      if (usedCols.has(c)) return; // column already used
+      if (usedRows.has(r) || usedCols.has(c)) return;
+
+      const key = r * SIZE + c;
 
       // First tap: select
-      if (selectedCol !== c) {
-        setSelectedCol(c);
-        const key = r * SIZE + c;
+      if (selectedCell !== key) {
+        setSelectedCell(key);
         Animated.sequence([
           Animated.timing(cellScales[key], {
             toValue: 1.15,
@@ -139,7 +146,7 @@ export default function Cross() {
       }
 
       // Second tap: confirm pick
-      const key = r * SIZE + c;
+      setSelectedCell(null);
       Animated.sequence([
         Animated.timing(cellScales[key], {
           toValue: 1.3,
@@ -154,38 +161,40 @@ export default function Cross() {
         }),
       ]).start();
 
-      // Animate eliminated column cells
-      for (let rr = currentRow + 1; rr < SIZE; rr++) {
-        const nk = rr * SIZE + c;
-        Animated.sequence([
-          Animated.timing(cellScales[nk], {
-            toValue: 0.8,
-            duration: 80,
-            useNativeDriver: true,
-          }),
-          Animated.spring(cellScales[nk], {
-            toValue: 1,
-            friction: 4,
-            tension: 200,
-            useNativeDriver: true,
-          }),
-        ]).start();
+      // Animate eliminated row+column cells
+      for (let cc = 0; cc < SIZE; cc++) {
+        if (cc !== c && !usedCols.has(cc)) {
+          const nk = r * SIZE + cc;
+          Animated.sequence([
+            Animated.timing(cellScales[nk], { toValue: 0.8, duration: 80, useNativeDriver: true }),
+            Animated.spring(cellScales[nk], { toValue: 1, friction: 4, tension: 200, useNativeDriver: true }),
+          ]).start();
+        }
+      }
+      for (let rr = 0; rr < SIZE; rr++) {
+        if (rr !== r && !usedRows.has(rr)) {
+          const nk = rr * SIZE + c;
+          Animated.sequence([
+            Animated.timing(cellScales[nk], { toValue: 0.8, duration: 80, useNativeDriver: true }),
+            Animated.spring(cellScales[nk], { toValue: 1, friction: 4, tension: 200, useNativeDriver: true }),
+          ]).start();
+        }
       }
 
       const val = grid[r][c];
       const newScore = score + val;
       const newPicks = [...picks, { r, c }];
+      const newUsedRows = new Set(usedRows);
+      newUsedRows.add(r);
       const newUsedCols = new Set(usedCols);
       newUsedCols.add(c);
-      const newRow = currentRow + 1;
 
       setScore(newScore);
       setPicks(newPicks);
+      setUsedRows(newUsedRows);
       setUsedCols(newUsedCols);
-      setCurrentRow(newRow);
-      setSelectedCol(null);
 
-      if (newRow >= SIZE) {
+      if (newPicks.length >= SIZE) {
         setGameOver(true);
         recordGame('cross', newScore, par, true).then((s) => {
           setStats(s);
@@ -193,7 +202,7 @@ export default function Cross() {
         });
       }
     },
-    [currentRow, usedCols, selectedCol, score, picks, grid, gameOver, par, cellScales],
+    [usedRows, usedCols, selectedCell, score, picks, grid, gameOver, par, cellScales],
   );
 
   const handleShowStats = useCallback(async () => {
@@ -236,9 +245,9 @@ export default function Cross() {
 
       <View style={styles.infoRow}>
         <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Row</Text>
+          <Text style={styles.infoLabel}>Picks</Text>
           <Text style={styles.infoValue}>
-            {Math.min(currentRow + 1, SIZE)}/{SIZE}
+            {picks.length}/{SIZE}
           </Text>
         </View>
         <View style={styles.infoItem}>
@@ -266,12 +275,15 @@ export default function Cross() {
               const key = r * SIZE + c;
               const val = grid[r][c];
               const isPicked = picks.some((p) => p.r === r && p.c === c);
-              const isCurrentRow = r === currentRow && !gameOver;
-              const isEliminated = usedCols.has(c) || r < currentRow;
-              const isAvailable = isCurrentRow && !usedCols.has(c);
-              const isSelected = isAvailable && selectedCol === c;
+              const isEliminated = usedRows.has(r) || usedCols.has(c);
+              const isAvailable = !isEliminated && !gameOver;
+              const isSelected = isAvailable && selectedCell === key;
               const wouldEliminate =
-                selectedCol === c && r > currentRow && !gameOver;
+                selectedCell !== null &&
+                !gameOver &&
+                !isPicked &&
+                !isEliminated &&
+                (Math.floor(selectedCell / SIZE) === r || selectedCell % SIZE === c);
 
               let bg = VAL_COLORS[Math.min(val, 9)];
               let border = '#444';
@@ -291,7 +303,7 @@ export default function Cross() {
                 border = '#e74c3c';
                 bw = 2;
                 opacity = 0.5;
-              } else if (isCurrentRow) {
+              } else if (isAvailable) {
                 border = '#666';
                 bw = 2;
               }
@@ -338,11 +350,11 @@ export default function Cross() {
       </View>
 
       {/* Preview hint */}
-      {selectedCol !== null && !gameOver && (
+      {selectedCell !== null && !gameOver && (
         <View style={styles.previewHint}>
           <Text style={styles.previewText}>
-            +{grid[currentRow][selectedCol]} pts, eliminates{' '}
-            {previewCost} pts in column — tap again!
+            +{grid[Math.floor(selectedCell / SIZE)][selectedCell % SIZE]} pts, eliminates{' '}
+            {previewCost} pts — tap again!
           </Text>
         </View>
       )}
