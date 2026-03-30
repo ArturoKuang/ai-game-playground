@@ -111,7 +111,22 @@ function findGroups(grid: Grid): number[][] {
   return groups;
 }
 
-/* ─── Simulate a push: move block + score groups + clear ─── */
+/* ─── Apply gravity: blocks fall down within each column ─── */
+function applyGravity(grid: Grid): Grid {
+  const g: Grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
+  for (let c = 0; c < SIZE; c++) {
+    const blocks: number[] = [];
+    for (let r = 0; r < SIZE; r++) {
+      if (grid[r][c] !== null) blocks.push(grid[r][c]!);
+    }
+    for (let i = 0; i < blocks.length; i++) {
+      g[SIZE - blocks.length + i][c] = blocks[i];
+    }
+  }
+  return g;
+}
+
+/* ─── Simulate a push: move block + score groups + clear + gravity ─── */
 function simulatePush(
   grid: Grid,
   fromR: number,
@@ -121,7 +136,7 @@ function simulatePush(
   const dest = slideTo(grid, fromR, fromC, dir);
   if (!dest) return null;
 
-  const g: Grid = grid.map((row) => [...row]);
+  let g: Grid = grid.map((row) => [...row]);
   g[dest.r][dest.c] = g[fromR][fromC];
   g[fromR][fromC] = null;
 
@@ -131,6 +146,9 @@ function simulatePush(
     score += group.length * group.length;
     for (const k of group) g[Math.floor(k / SIZE)][k % SIZE] = null;
   }
+
+  // Apply gravity after clearing (blocks settle down, no auto-chain)
+  if (score > 0) g = applyGravity(g);
 
   return { grid: g, score, toR: dest.r, toC: dest.c };
 }
@@ -170,7 +188,7 @@ export default function Shove() {
   const puzzleDay = useMemo(() => getPuzzleDay(), []);
   const diff = useMemo(() => getDifficulty(), []);
   const initialGrid = useMemo(
-    () => generateGrid(seed, diff.numColors, diff.fillRate),
+    () => applyGravity(generateGrid(seed, diff.numColors, diff.fillRate)),
     [seed, diff.numColors, diff.fillRate],
   );
   const par = useMemo(
