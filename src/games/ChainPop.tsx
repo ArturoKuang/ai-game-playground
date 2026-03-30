@@ -6,6 +6,7 @@ import {
   Pressable,
   ScrollView,
   useWindowDimensions,
+  Animated,
 } from 'react-native';
 import ShareButton from '../components/ShareButton';
 import StatsModal from '../components/StatsModal';
@@ -42,8 +43,8 @@ function generateBubbles(seed: number): Bubble[] {
       id: i,
       x: margin + rng() * (ARENA_SIZE - 2 * margin),
       y: margin + rng() * (ARENA_SIZE - 2 * margin),
-      vx: (rng() - 0.5) * 1.5,
-      vy: (rng() - 0.5) * 1.5,
+      vx: (rng() - 0.5) * 0.8,
+      vy: (rng() - 0.5) * 0.8,
       color: BUBBLE_COLORS[Math.floor(rng() * BUBBLE_COLORS.length)],
       alive: true,
       popping: false,
@@ -65,6 +66,8 @@ export default function ChainPop() {
   const animRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { width: screenWidth } = useWindowDimensions();
   const scale = Math.min(screenWidth - 32, ARENA_SIZE) / ARENA_SIZE;
+
+  const [previewPos, setPreviewPos] = useState<{ x: number; y: number } | null>(null);
 
   const gameOver = tapped && !chainRunning;
   const won = popped >= PAR_POPS;
@@ -220,9 +223,16 @@ export default function ChainPop() {
 
       {/* Arena */}
       <Pressable
+        onPressIn={(e) => {
+          if (tapped) return;
+          const { locationX, locationY } = e.nativeEvent;
+          setPreviewPos({ x: locationX / scale, y: locationY / scale });
+        }}
+        onPressOut={() => setPreviewPos(null)}
         onPress={(e) => {
           if (tapped) return;
           const { locationX, locationY } = e.nativeEvent;
+          setPreviewPos(null);
           triggerChain(locationX / scale, locationY / scale);
         }}
         style={[
@@ -234,6 +244,31 @@ export default function ChainPop() {
         ]}
       >
         <View style={[styles.arenaInner, { transform: [{ scale }], transformOrigin: 'top left' }]}>
+          {/* Blast radius preview */}
+          {previewPos && !tapped && (
+            <View
+              style={[
+                styles.blastPreview,
+                {
+                  left: previewPos.x - EXPLOSION_RADIUS,
+                  top: previewPos.y - EXPLOSION_RADIUS,
+                  width: EXPLOSION_RADIUS * 2,
+                  height: EXPLOSION_RADIUS * 2,
+                  borderRadius: EXPLOSION_RADIUS,
+                },
+              ]}
+            >
+              <Text style={styles.blastCount}>
+                {bubbles.filter(
+                  (b) =>
+                    b.alive &&
+                    Math.hypot(b.x - previewPos.x, b.y - previewPos.y) <
+                      EXPLOSION_RADIUS
+                ).length}
+              </Text>
+            </View>
+          )}
+
           {bubbles.map((b) =>
             b.alive ? (
               <View
@@ -247,8 +282,8 @@ export default function ChainPop() {
                     height: BUBBLE_RADIUS * 2,
                     borderRadius: BUBBLE_RADIUS,
                     backgroundColor: b.color,
-                    transform: b.popping ? [{ scale: 1.6 }] : [{ scale: 1 }],
-                    opacity: b.popping ? 0.5 : 1,
+                    transform: b.popping ? [{ scale: 1.8 }] : [{ scale: 1 }],
+                    opacity: b.popping ? 0.3 : 1,
                   },
                 ]}
               >
@@ -343,6 +378,20 @@ const styles = StyleSheet.create({
     width: ARENA_SIZE,
     height: ARENA_SIZE,
     position: 'relative',
+  },
+  blastPreview: {
+    position: 'absolute',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 100, 100, 0.4)',
+    backgroundColor: 'rgba(255, 100, 100, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  blastCount: {
+    color: 'rgba(255, 100, 100, 0.7)',
+    fontSize: 18,
+    fontWeight: '800',
   },
   bubble: {
     position: 'absolute',
