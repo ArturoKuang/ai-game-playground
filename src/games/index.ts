@@ -8,6 +8,7 @@ import PathWeaver from './PathWeaver';
 import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
+import LinkUp from './LinkUp';
 
 const games: GameMeta[] = [
   {
@@ -65,6 +66,13 @@ const games: GameMeta[] = [
     emoji: '\ud83d\uddbc\ufe0f',
     description: 'Decode the pattern from row & column clues',
     component: BitMap,
+  },
+  {
+    id: 'linkup',
+    name: 'LinkUp',
+    emoji: '\ud83d\udd17',
+    description: 'Build the longest number chain',
+    component: LinkUp,
   },
 ];
 
