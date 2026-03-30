@@ -23,6 +23,7 @@ import { loadStats, recordGame, type Stats } from '../utils/stats';
 const GRID = 6;
 const GAP = 1;
 const NUM_COLORS = 4;
+const CONFLICT_PENALTY = 5;
 
 const PALETTE = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f'];
 const COLOR_EMOJI = [
@@ -37,14 +38,11 @@ const BORDER_CONFLICT = '#ff4444';
 
 /* ─── Difficulty ─── */
 function getDifficulty() {
-  const d = getDayDifficulty(); // 1=Mon … 5=Fri, 3=weekend
-  const numRegions = Math.min(6 + d * 2, 15);
-  // Buffer shrinks with difficulty: Mon 4 extra, Fri 1 extra
-  const buffer = Math.max(1, 5 - d);
-  return { numRegions, maxMoves: numRegions + buffer };
+  const d = getDayDifficulty();
+  return { numRegions: Math.min(6 + d * 2, 15) };
 }
 
-/* ─── Region generation (BFS Voronoi on 6x6 grid) ─── */
+/* ─── Region generation ─── */
 type RegionData = {
   regionMap: number[][];
   numRegions: number;
@@ -54,7 +52,6 @@ type RegionData = {
 function generateRegions(seed: number, target: number): RegionData {
   const rng = seededRandom(seed);
   const n = Math.min(target, GRID * GRID);
-
   const seeds: [number, number][] = [];
   const used = new Set<number>();
   let attempts = 0;
@@ -125,21 +122,36 @@ function generateRegions(seed: number, target: number): RegionData {
       }
     }
   }
-
   return { regionMap, numRegions, adj };
 }
 
-/* ─── Quadratic score ─── */
-function quadScore(colors: number[]): number {
+/* ─── Scoring: quadratic - penalty × conflicts ─── */
+function computeScore(
+  colors: number[],
+  adj: boolean[][],
+): { quad: number; conflicts: number; total: number } {
   const counts = [0, 0, 0, 0];
   for (const c of colors) if (c >= 0) counts[c]++;
-  return counts.reduce((s, n) => s + n * n, 0);
+  const quad = counts.reduce((s, n) => s + n * n, 0);
+  let conflicts = 0;
+  for (let i = 0; i < colors.length; i++) {
+    for (let j = i + 1; j < colors.length; j++) {
+      if (adj[i][j] && colors[i] >= 0 && colors[j] >= 0 && colors[i] === colors[j])
+        conflicts++;
+    }
+  }
+  return { quad, conflicts, total: quad - CONFLICT_PENALTY * conflicts };
 }
 
-/* ─── Optimal coloring solver (backtracking + UB pruning) ─── */
+/* ─── Optimal solver (exact for ≤12 regions, greedy+local for >12) ─── */
 function findOptimalScore(numRegions: number, adj: boolean[][]): number {
+  if (numRegions <= 12) return exactSolve(numRegions, adj);
+  return greedyLocalSolve(numRegions, adj);
+}
+
+function exactSolve(numRegions: number, adj: boolean[][]): number {
   const coloring = new Array(numRegions).fill(-1);
-  let best = 0;
+  let best = -Infinity;
 
   const order = Array.from({ length: numRegions }, (_, i) => i);
   order.sort((a, b) => {
@@ -152,19 +164,46 @@ function findOptimalScore(numRegions: number, adj: boolean[][]): number {
     return db - da;
   });
 
-  function ub(assigned: number): number {
+  function objective(): number {
     const counts = [0, 0, 0, 0];
-    for (let i = 0; i < numRegions; i++)
+    let conflicts = 0;
+    for (let i = 0; i < numRegions; i++) {
       if (coloring[i] >= 0) counts[coloring[i]]++;
-    const rem = numRegions - assigned;
+    }
+    for (let i = 0; i < numRegions; i++) {
+      for (let j = i + 1; j < numRegions; j++) {
+        if (adj[i][j] && coloring[i] >= 0 && coloring[j] >= 0 && coloring[i] === coloring[j])
+          conflicts++;
+      }
+    }
+    return counts.reduce((s, n) => s + n * n, 0) - CONFLICT_PENALTY * conflicts;
+  }
+
+  function ub(step: number): number {
+    const counts = [0, 0, 0, 0];
+    let currentConflicts = 0;
+    for (let i = 0; i < numRegions; i++) {
+      if (coloring[i] >= 0) {
+        counts[coloring[i]]++;
+        for (let j = i + 1; j < numRegions; j++) {
+          if (
+            coloring[j] >= 0 &&
+            adj[i][j] &&
+            coloring[i] === coloring[j]
+          )
+            currentConflicts++;
+        }
+      }
+    }
+    const rem = numRegions - step;
     const sorted = [...counts].sort((a, b) => b - a);
     sorted[0] += rem;
-    return sorted.reduce((s, n) => s + n * n, 0);
+    return sorted.reduce((s, n) => s + n * n, 0) - CONFLICT_PENALTY * currentConflicts;
   }
 
   function dfs(step: number) {
     if (step === numRegions) {
-      const s = quadScore(coloring);
+      const s = objective();
       if (s > best) best = s;
       return;
     }
@@ -172,23 +211,71 @@ function findOptimalScore(numRegions: number, adj: boolean[][]): number {
 
     const region = order[step];
     for (let color = 0; color < NUM_COLORS; color++) {
-      let valid = true;
-      for (let j = 0; j < numRegions; j++) {
-        if (adj[region][j] && coloring[j] === color) {
-          valid = false;
-          break;
-        }
-      }
-      if (valid) {
-        coloring[region] = color;
-        dfs(step + 1);
-        coloring[region] = -1;
-      }
+      coloring[region] = color;
+      dfs(step + 1);
+      coloring[region] = -1;
     }
   }
 
   dfs(0);
   return best;
+}
+
+function greedyLocalSolve(numRegions: number, adj: boolean[][]): number {
+  const coloring = new Array(numRegions).fill(-1);
+  const counts = [0, 0, 0, 0];
+
+  const order = Array.from({ length: numRegions }, (_, i) => i);
+  order.sort((a, b) => {
+    let da = 0,
+      db = 0;
+    for (let j = 0; j < numRegions; j++) {
+      if (adj[a][j]) da++;
+      if (adj[b][j]) db++;
+    }
+    return db - da;
+  });
+
+  // Greedy pass
+  for (const region of order) {
+    let bestC = 0,
+      bestDelta = -Infinity;
+    for (let c = 0; c < NUM_COLORS; c++) {
+      let delta = 2 * counts[c] + 1;
+      for (let j = 0; j < numRegions; j++) {
+        if (adj[region][j] && coloring[j] === c) delta -= CONFLICT_PENALTY;
+      }
+      if (delta > bestDelta) {
+        bestDelta = delta;
+        bestC = c;
+      }
+    }
+    coloring[region] = bestC;
+    counts[bestC]++;
+  }
+
+  // Local search
+  function obj(): number {
+    return computeScore(coloring, adj).total;
+  }
+  let improved = true;
+  while (improved) {
+    improved = false;
+    for (let i = 0; i < numRegions; i++) {
+      const old = coloring[i];
+      const oldObj = obj();
+      for (let c = 0; c < NUM_COLORS; c++) {
+        if (c === old) continue;
+        coloring[i] = c;
+        if (obj() > oldObj) {
+          improved = true;
+          break;
+        }
+        coloring[i] = old;
+      }
+    }
+  }
+  return obj();
 }
 
 /* ═══════════════════════════════════════════ */
@@ -215,67 +302,90 @@ export default function Tint() {
   const [regionColors, setRegionColors] = useState<number[]>(
     () => new Array(data.numRegions).fill(-1),
   );
-  const [activeColor, setActiveColor] = useState(0);
-  const [movesUsed, setMovesUsed] = useState(0);
+  const [selectedRegion, setSelectedRegion] = useState<number | null>(null);
+  const [painted, setPainted] = useState(0);
   const [gameOver, setGameOver] = useState(false);
-  const [won, setWon] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
 
   const cellScales = useRef(
     Array.from({ length: GRID * GRID }, () => new Animated.Value(1)),
   ).current;
-  const movesScale = useRef(new Animated.Value(1)).current;
 
-  const score = useMemo(() => quadScore(regionColors), [regionColors]);
-  const movesLeft = diff.maxMoves - movesUsed;
+  const scoreInfo = useMemo(
+    () => computeScore(regionColors, data.adj),
+    [regionColors, data.adj],
+  );
 
-  const conflicts = useMemo(() => {
-    let c = 0;
-    for (let i = 0; i < data.numRegions; i++) {
-      for (let j = i + 1; j < data.numRegions; j++) {
-        if (
-          data.adj[i][j] &&
-          regionColors[i] >= 0 &&
-          regionColors[j] >= 0 &&
-          regionColors[i] === regionColors[j]
-        )
-          c++;
+  const regionsLeft = data.numRegions - painted;
+
+  /* P1 preview: delta for each color on the selected region */
+  const colorDeltas = useMemo(() => {
+    if (selectedRegion === null) return [0, 0, 0, 0];
+    const counts = [0, 0, 0, 0];
+    for (const c of regionColors) if (c >= 0) counts[c]++;
+    return [0, 1, 2, 3].map((c) => {
+      let delta = 2 * counts[c] + 1; // quadratic marginal
+      for (let j = 0; j < data.numRegions; j++) {
+        if (data.adj[selectedRegion][j] && regionColors[j] === c)
+          delta -= CONFLICT_PENALTY;
       }
-    }
-    return c;
-  }, [regionColors, data]);
+      return delta;
+    });
+  }, [selectedRegion, regionColors, data]);
 
+  /* Tap a cell → select its region */
   const handleTapCell = useCallback(
     (r: number, c: number) => {
       if (gameOver) return;
-      if (movesLeft <= 0) return;
-
       const reg = data.regionMap[r][c];
-      const newColors = [...regionColors];
-      const wasColor = regionColors[reg];
+      if (regionColors[reg] >= 0) return; // already painted
+      setSelectedRegion(reg === selectedRegion ? null : reg);
 
-      if (wasColor === activeColor) {
-        newColors[reg] = -1; // erase
-      } else {
-        newColors[reg] = activeColor;
-      }
-
-      // If nothing actually changed, don't cost a move
-      if (newColors[reg] === wasColor) return;
-
-      const newMoves = movesUsed + 1;
-      const newMovesLeft = diff.maxMoves - newMoves;
-
-      // Animate the region
+      // Bounce animation on selection
       for (let rr = 0; rr < GRID; rr++) {
         for (let cc = 0; cc < GRID; cc++) {
           if (data.regionMap[rr][cc] === reg) {
             const idx = rr * GRID + cc;
             Animated.sequence([
               Animated.timing(cellScales[idx], {
-                toValue: 1.12,
-                duration: 60,
+                toValue: 1.08,
+                duration: 50,
+                useNativeDriver: true,
+              }),
+              Animated.spring(cellScales[idx], {
+                toValue: 1,
+                friction: 4,
+                tension: 200,
+                useNativeDriver: true,
+              }),
+            ]).start();
+          }
+        }
+      }
+    },
+    [gameOver, data, regionColors, selectedRegion, cellScales],
+  );
+
+  /* Tap palette → paint selected region (irreversible) */
+  const handlePaint = useCallback(
+    (color: number) => {
+      if (gameOver || selectedRegion === null) return;
+      if (regionColors[selectedRegion] >= 0) return;
+
+      const newColors = [...regionColors];
+      newColors[selectedRegion] = color;
+      const newPainted = painted + 1;
+
+      // Animate the painted region
+      for (let rr = 0; rr < GRID; rr++) {
+        for (let cc = 0; cc < GRID; cc++) {
+          if (data.regionMap[rr][cc] === selectedRegion) {
+            const idx = rr * GRID + cc;
+            Animated.sequence([
+              Animated.timing(cellScales[idx], {
+                toValue: 1.2,
+                duration: 80,
                 useNativeDriver: true,
               }),
               Animated.spring(cellScales[idx], {
@@ -289,75 +399,21 @@ export default function Tint() {
         }
       }
 
-      // Pulse moves counter when getting low
-      if (newMovesLeft <= 2) {
-        Animated.sequence([
-          Animated.timing(movesScale, {
-            toValue: 1.3,
-            duration: 80,
-            useNativeDriver: true,
-          }),
-          Animated.spring(movesScale, {
-            toValue: 1,
-            friction: 3,
-            tension: 200,
-            useNativeDriver: true,
-          }),
-        ]).start();
-      }
-
       setRegionColors(newColors);
-      setMovesUsed(newMoves);
+      setPainted(newPainted);
+      setSelectedRegion(null);
 
-      // Check for win: all colored, no conflicts
-      const nowAllColored = newColors.every((cc) => cc >= 0);
-      if (nowAllColored) {
-        let nowConflicts = 0;
-        for (let i = 0; i < data.numRegions; i++) {
-          for (let j = i + 1; j < data.numRegions; j++) {
-            if (
-              data.adj[i][j] &&
-              newColors[i] >= 0 &&
-              newColors[j] >= 0 &&
-              newColors[i] === newColors[j]
-            )
-              nowConflicts++;
-          }
-        }
-        if (nowConflicts === 0) {
-          const finalScore = quadScore(newColors);
-          setGameOver(true);
-          setWon(true);
-          recordGame('tint', finalScore, par, true).then((s) => {
-            setStats(s);
-            setShowStats(true);
-          });
-          return;
-        }
-      }
-
-      // Check for loss: out of moves and not complete
-      if (newMovesLeft <= 0) {
+      // Check completion
+      if (newPainted === data.numRegions) {
+        const finalInfo = computeScore(newColors, data.adj);
         setGameOver(true);
-        setWon(false);
-        recordGame('tint', 0, par, true).then((s) => {
+        recordGame('tint', finalInfo.total, par, true).then((s) => {
           setStats(s);
           setShowStats(true);
         });
       }
     },
-    [
-      gameOver,
-      activeColor,
-      regionColors,
-      movesUsed,
-      data,
-      par,
-      diff.maxMoves,
-      cellScales,
-      movesScale,
-      movesLeft,
-    ],
+    [gameOver, selectedRegion, regionColors, painted, data, par, cellScales],
   );
 
   const handleShowStats = useCallback(async () => {
@@ -399,14 +455,18 @@ export default function Tint() {
       }
       rows.push(row);
     }
-    const finalScore = won ? quadScore(regionColors) : 0;
-    return [
-      `Tint Day #${puzzleDay} \uD83C\uDFA8`,
-      rows.join('\n'),
-      won
-        ? `Score: ${finalScore} / ${par}${finalScore >= par ? ' \u2B50' : ''} (${movesUsed} moves)`
-        : `\uD83D\uDCA8 Out of moves!`,
-    ].join('\n');
+    const info = computeScore(regionColors, data.adj);
+    const parts = [`Tint Day #${puzzleDay} \uD83C\uDFA8`, rows.join('\n')];
+    if (info.conflicts > 0) {
+      parts.push(
+        `${info.quad} \u2212 ${CONFLICT_PENALTY * info.conflicts} = ${info.total} / ${par}${info.total >= par ? ' \u2B50' : ''}`,
+      );
+    } else {
+      parts.push(
+        `Score: ${info.total} / ${par}${info.total >= par ? ' \u2B50' : ''}`,
+      );
+    }
+    return parts.join('\n');
   }
 
   const colorCounts = useMemo(() => {
@@ -426,21 +486,21 @@ export default function Tint() {
       </View>
 
       <Text style={styles.subtitle}>
-        Paint {data.numRegions} regions — no matching neighbors — plan your
-        moves!
+        Select a region, then pick a color. Each paint is final!
+        {'\n'}Matching neighbors cost {CONFLICT_PENALTY} pts each.
       </Text>
 
-      {/* Info row */}
+      {/* Score display */}
       <View style={styles.infoRow}>
         <View style={styles.infoItem}>
           <Text style={styles.infoLabel}>Score</Text>
           <Text
             style={[
               styles.infoValue,
-              gameOver && won && score >= par && styles.infoValueGood,
+              gameOver && scoreInfo.total >= par && styles.infoValueGood,
             ]}
           >
-            {score}
+            {scoreInfo.total}
           </Text>
         </View>
         <View style={styles.infoItem}>
@@ -448,23 +508,14 @@ export default function Tint() {
           <Text style={styles.infoPar}>{par}</Text>
         </View>
         <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Moves</Text>
-          <Animated.Text
-            style={[
-              styles.infoValue,
-              movesLeft <= 2 && styles.infoValueWarn,
-              movesLeft <= 0 && styles.infoValueBad,
-              { transform: [{ scale: movesScale }] },
-            ]}
-          >
-            {movesLeft}
-          </Animated.Text>
+          <Text style={styles.infoLabel}>Left</Text>
+          <Text style={styles.infoValue}>{regionsLeft}</Text>
         </View>
-        {conflicts > 0 && (
+        {scoreInfo.conflicts > 0 && (
           <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Conflicts</Text>
+            <Text style={styles.infoLabel}>Clashes</Text>
             <Text style={[styles.infoValue, styles.infoValueBad]}>
-              {conflicts}
+              {scoreInfo.conflicts}
             </Text>
           </View>
         )}
@@ -494,7 +545,13 @@ export default function Tint() {
             {Array.from({ length: GRID }).map((_, c) => {
               const reg = data.regionMap[r][c];
               const col = regionColors[reg];
-              const bg = col >= 0 ? PALETTE[col] : UNCOLORED_BG;
+              const isSelected = selectedRegion === reg;
+              const bg =
+                col >= 0
+                  ? PALETTE[col]
+                  : isSelected
+                    ? '#555'
+                    : UNCOLORED_BG;
 
               const [btw, btc] = cellBorder(r, c, -1, 0);
               const [bbw, bbc] = cellBorder(r, c, 1, 0);
@@ -525,12 +582,9 @@ export default function Tint() {
                         borderRightWidth: brw,
                         borderRightColor: brc,
                       },
+                      isSelected && styles.cellSelected,
                     ]}
-                  >
-                    {col < 0 && (
-                      <Text style={styles.regionLabel}>{reg + 1}</Text>
-                    )}
-                  </Pressable>
+                  />
                 </Animated.View>
               );
             })}
@@ -538,40 +592,63 @@ export default function Tint() {
         ))}
       </View>
 
-      {/* Color palette */}
+      {/* Color palette with P1 deltas */}
       {!gameOver && (
         <View style={styles.palette}>
-          {PALETTE.map((color, i) => (
-            <Pressable
-              key={i}
-              onPress={() => setActiveColor(i)}
-              style={[
-                styles.paletteSwatch,
-                { backgroundColor: color },
-                activeColor === i && styles.paletteSelected,
-              ]}
-            />
-          ))}
+          {PALETTE.map((color, i) => {
+            const delta = selectedRegion !== null ? colorDeltas[i] : null;
+            return (
+              <Pressable
+                key={i}
+                onPress={() => handlePaint(i)}
+                disabled={selectedRegion === null}
+                style={[
+                  styles.paletteSwatch,
+                  { backgroundColor: color },
+                  selectedRegion === null && styles.paletteDisabled,
+                ]}
+              >
+                {delta !== null && (
+                  <Text
+                    style={[
+                      styles.deltaText,
+                      delta > 0 && styles.deltaPositive,
+                      delta <= 0 && styles.deltaNegative,
+                    ]}
+                  >
+                    {delta > 0 ? '+' : ''}
+                    {delta}
+                  </Text>
+                )}
+              </Pressable>
+            );
+          })}
         </View>
       )}
 
-      <CelebrationBurst show={gameOver && won && score >= par} />
+      {selectedRegion !== null && !gameOver && (
+        <Text style={styles.hint}>
+          Tap a color to paint \u2014 higher is better!
+        </Text>
+      )}
+      {selectedRegion === null && !gameOver && regionsLeft > 0 && (
+        <Text style={styles.hint}>Tap an unpainted region to select it</Text>
+      )}
+
+      <CelebrationBurst show={gameOver && scoreInfo.total >= par} />
 
       {gameOver && (
         <View style={styles.endMessage}>
           <Text style={styles.endEmoji}>
-            {won
-              ? score >= par
-                ? '\u2B50'
-                : '\uD83C\uDFA8'
-              : '\uD83D\uDCA8'}
+            {scoreInfo.total >= par ? '\u2B50' : '\uD83C\uDFA8'}
           </Text>
           <Text style={styles.endText}>
-            {won
-              ? score >= par
-                ? `Score ${score} \u2014 beat par (${par})!`
-                : `Score ${score} / ${par} \u2014 completed in ${movesUsed} moves`
-              : `Out of moves! ${conflicts > 0 ? `${conflicts} conflict${conflicts > 1 ? 's' : ''} remain` : 'Not all regions painted'}`}
+            {scoreInfo.conflicts > 0
+              ? `${scoreInfo.quad} \u2212 ${CONFLICT_PENALTY * scoreInfo.conflicts} penalty = ${scoreInfo.total}`
+              : `Score: ${scoreInfo.total}`}
+            {scoreInfo.total >= par
+              ? ` \u2014 beat par (${par})!`
+              : ` / ${par}`}
           </Text>
           <ShareButton text={buildShareText()} />
         </View>
@@ -580,12 +657,12 @@ export default function Tint() {
       <View style={styles.howTo}>
         <Text style={styles.howToTitle}>How to play</Text>
         <Text style={styles.howToText}>
-          Select a color, then tap regions to paint. Adjacent regions
-          can't share a color. Every paint (or repaint) costs a move.
+          Tap a region to select it, then tap a color to lock it in.
+          Each paint is irreversible \u2014 think before you commit!
           {'\n\n'}
-          Score = sum of (count per color){'\u00B2'}. Concentrate
-          colors to score big! Plan carefully \u2014 you have{' '}
-          {diff.maxMoves} moves for {data.numRegions} regions.
+          Score = sum of (count per color){'\u00B2'}, minus{' '}
+          {CONFLICT_PENALTY} for each pair of matching neighbors.
+          Sometimes a clash is worth the bigger group!
         </Text>
       </View>
 
@@ -632,7 +709,6 @@ const styles = StyleSheet.create({
   infoLabel: { color: '#818384', fontSize: 12 },
   infoValue: { color: '#ffffff', fontSize: 24, fontWeight: '800' },
   infoValueGood: { color: '#2ecc71' },
-  infoValueWarn: { color: '#f1c40f' },
   infoValueBad: { color: '#e74c3c' },
   infoPar: {
     color: '#818384',
@@ -640,11 +716,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 2,
   },
-  breakdownRow: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 12,
-  },
+  breakdownRow: { flexDirection: 'row', gap: 16, marginBottom: 12 },
   breakdownItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   breakdownSwatch: { width: 12, height: 12, borderRadius: 3 },
   breakdownText: { color: '#aaa', fontSize: 12, fontFamily: 'monospace' },
@@ -655,18 +727,35 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 3,
   },
-  regionLabel: { color: '#666', fontSize: 11, fontWeight: '600' },
+  cellSelected: {
+    borderColor: '#f1c40f',
+    borderWidth: 2,
+  },
   palette: { flexDirection: 'row', gap: 16, marginTop: 16 },
   paletteSwatch: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     borderWidth: 3,
     borderColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  paletteSelected: {
-    borderColor: '#ffffff',
-    transform: [{ scale: 1.15 }],
+  paletteDisabled: { opacity: 0.4 },
+  deltaText: {
+    fontSize: 16,
+    fontWeight: '900',
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  deltaPositive: { color: '#ffffff' },
+  deltaNegative: { color: '#ffaaaa' },
+  hint: {
+    color: '#818384',
+    fontSize: 13,
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   endMessage: { alignItems: 'center', marginTop: 20 },
   endEmoji: { fontSize: 48 },
