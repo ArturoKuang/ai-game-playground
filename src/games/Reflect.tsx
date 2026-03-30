@@ -264,9 +264,11 @@ export default function Reflect() {
         }),
       ]).start();
 
+      const maxMirrors = puzzle.solutionMirrors.size;
       const next = new Map(mirrors);
       const cur = next.get(key);
       if (cur === undefined) {
+        if (next.size >= maxMirrors) return; // at limit
         next.set(key, '/');
       } else if (cur === '/') {
         next.set(key, '\\');
@@ -342,13 +344,15 @@ export default function Reflect() {
       </View>
 
       <Text style={styles.subtitle}>
-        Place mirrors to bounce the beam through every star!
+        Use exactly {puzzle.solutionMirrors.size} mirrors to hit every star!
       </Text>
 
       <View style={styles.infoRow}>
         <View style={styles.infoItem}>
           <Text style={styles.infoLabel}>Mirrors</Text>
-          <Text style={styles.infoValue}>{mirrorsPlaced}</Text>
+          <Text style={styles.infoValue}>
+            {mirrorsPlaced}/{puzzle.solutionMirrors.size}
+          </Text>
         </View>
         <View style={styles.infoItem}>
           <Text style={styles.infoLabel}>Targets</Text>
