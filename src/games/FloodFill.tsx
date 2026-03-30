@@ -12,6 +12,7 @@ import ShareButton from '../components/ShareButton';
 import { getDailySeed, seededRandom, getPuzzleDay, getDayDifficulty } from '../utils/seed';
 import { loadStats, recordGame, type Stats } from '../utils/stats';
 import StatsModal from '../components/StatsModal';
+import CelebrationBurst from '../components/CelebrationBurst';
 
 const PALETTE = [
   { hex: '#e74c3c', emoji: '\ud83d\udfe5' }, // red
@@ -79,6 +80,23 @@ function isSolved(grid: number[][]): boolean {
   return grid.every((row) => row.every((cell) => cell === c));
 }
 
+/** Count how many NEW cells each color option would gain */
+function countGains(grid: number[][], numColors: number): number[] {
+  const currentRegion = getFloodRegion(grid);
+  const currentSize = currentRegion.size;
+  const gains: number[] = [];
+  for (let color = 0; color < numColors; color++) {
+    if (color === grid[0][0]) {
+      gains.push(0);
+    } else {
+      const nextGrid = applyFlood(grid, color);
+      const nextRegion = getFloodRegion(nextGrid);
+      gains.push(nextRegion.size - currentSize);
+    }
+  }
+  return gains;
+}
+
 export default function FloodFill() {
   const seed = useMemo(() => getDailySeed(), []);
   const puzzleDay = useMemo(() => getPuzzleDay(), []);
@@ -95,6 +113,9 @@ export default function FloodFill() {
 
   const won = isSolved(grid);
   const underPar = moves <= par;
+
+  // Calculate gains for each color option
+  const gains = useMemo(() => countGains(grid, numColors), [grid, numColors]);
 
   // Bounce animations for picker buttons
   const pickerScales = useRef(
@@ -241,6 +262,8 @@ export default function FloodFill() {
         ))}
       </Animated.View>
 
+      <CelebrationBurst show={gameOver && underPar} />
+
       {/* Win message */}
       {gameOver && (
         <View style={styles.winMessage}>
@@ -263,6 +286,7 @@ export default function FloodFill() {
           <View style={styles.pickerRow}>
             {PALETTE.slice(0, numColors).map((color, i) => {
               const isCurrentColor = i === grid[0][0];
+              const gain = gains[i];
               return (
                 <Animated.View
                   key={i}
@@ -276,8 +300,10 @@ export default function FloodFill() {
                       isCurrentColor && styles.pickerBtnDisabled,
                     ]}
                   >
-                    {isCurrentColor && (
+                    {isCurrentColor ? (
                       <View style={styles.pickerBtnOverlay} />
+                    ) : (
+                      <Text style={styles.gainText}>+{gain}</Text>
                     )}
                   </Pressable>
                 </Animated.View>
@@ -423,6 +449,14 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     backgroundColor: 'rgba(255,255,255,0.4)',
+  },
+  gainText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '800',
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowRadius: 2,
+    textShadowOffset: { width: 0, height: 1 },
   },
   howTo: {
     marginTop: 28,
