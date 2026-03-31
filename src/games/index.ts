@@ -8,7 +8,6 @@ import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
 import Claim from './Claim';
-import Seek from './Seek';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -72,13 +71,6 @@ const games: GameMeta[] = [
     emoji: '\uD83C\uDFC6',
     description: 'Pick cells to score — neighbors shrink!',
     component: Claim,
-  },
-  {
-    id: 'seek',
-    name: 'Seek',
-    emoji: '\uD83D\uDC8E',
-    description: 'Find hidden gems using distance clues',
-    component: Seek,
   },
 ];
 export default games;
