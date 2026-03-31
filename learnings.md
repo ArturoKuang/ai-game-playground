@@ -305,6 +305,8 @@ Animated.sequence([
 
 **Extended evidence**: A10 also applies to constraint satisfaction puzzles, not just optimization. Fit (polyomino packing + row/col clues) scored 47→39 because tight uniqueness constraints pruned the theoretical search space (100k+ positions) to ~2-3 valid options per shape. The player solved the puzzle entirely through pre-play analysis. **Key insight**: the effective branching factor (after constraint propagation) matters, not the theoretical one.
 
+**Hidden-info extension**: A10 also applies to hidden-info games where probing FULLY reveals the hidden state. Dial (31, `119bcb4`) had hidden couplings between dials, but tapping a dial revealed ALL its couplings instantly. After 3-4 probing taps, the player had the complete coupling graph and the remaining puzzle was a system of linear equations mod 4 — pure computation. **Key insight**: hidden information defeats A10 ONLY if revelation is PARTIAL (Wordle's green/yellow/gray) or LOSSY (Minesweeper's count hides exact positions). If probing fully reveals the hidden state, the game becomes A10 after the probing phase.
+
 ---
 
 ### A11: Information Asymmetry Between Solver and Player

@@ -553,6 +553,7 @@ These mechanic families have been tried multiple times without reaching 60. Do N
 | Small Latin square deduction | Prism (47→39) | 47 | Hidden info works but 4×4 too small. Auto-deduce killed agency (regression). Manual deduction IS the fun. |
 | Minesweeper-style adjacency deduction | Probe (51→50→50) | 51 | Deduction works (d10=6) but strategy becomes formulaic once learned. Same technique on every puzzle = d5 capped at 4. |
 | Hidden boundary discovery + painting | Fence (39→50→46) | 50 | Edge-by-edge scanning too low info density. Paint phase = guessing when scan budget tight. |
+| Hidden coupling discovery (toggle variant) | Dial (31) | 31 | A10 after probing: hidden couplings fully revealed in 3-4 taps, then puzzle = linear algebra mod 4. Full revelation = A10. |
 
 ### Mental Model Calibration
 
