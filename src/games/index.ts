@@ -8,7 +8,6 @@ import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
 import Claim from './Claim';
-import Turn from './Turn';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -72,13 +71,6 @@ const games: GameMeta[] = [
     emoji: '\uD83C\uDFC6',
     description: 'Pick cells to score — neighbors shrink!',
     component: Claim,
-  },
-  {
-    id: 'turn',
-    name: 'Turn',
-    emoji: '🔄',
-    description: 'Rotate arrows — they affect what they point at',
-    component: Turn,
   },
 ];
 export default games;
