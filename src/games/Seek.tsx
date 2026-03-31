@@ -45,9 +45,9 @@ function manhattan(r1: number, c1: number, r2: number, c2: number): number {
 /* ─── Difficulty ─── */
 function getDifficulty() {
   const d = getDayDifficulty();
-  const numGems = 1 + d;          // Mon: 2, Fri: 6
-  const maxGuesses = numGems * 3 + 2; // Mon: 8, Fri: 20
-  const par = numGems * 2;        // Mon: 4, Fri: 12
+  const numGems = 2 + d;          // Mon: 3, Fri: 7
+  const maxGuesses = numGems * 3;  // Mon: 9, Fri: 21
+  const par = numGems * 2;        // Mon: 6, Fri: 14
   return { numGems, maxGuesses, par };
 }
 
@@ -67,9 +67,9 @@ function generatePuzzle(seed: number) {
 
       if (used.has(key)) continue;
 
-      // Ensure minimum distance between gems (at least 2 Manhattan)
+      // Ensure minimum distance between gems (at least 3 Manhattan) — prevents coin-flip symmetry
       const tooClose = gems.some(
-        ([gr, gc]) => manhattan(r, c, gr, gc) < 2,
+        ([gr, gc]) => manhattan(r, c, gr, gc) < 3,
       );
       if (tooClose) continue;
 
@@ -91,7 +91,7 @@ function generatePuzzle(seed: number) {
 /* ─── Cell state ─── */
 type CellState =
   | { type: 'hidden' }
-  | { type: 'miss'; distance: number }
+  | { type: 'miss'; distance: number; foundAtTime: number }
   | { type: 'gem' };
 
 /* ═══════════════════════════════════════════ */
@@ -175,7 +175,7 @@ export default function Seek() {
           const d = manhattan(r, c, gr, gc);
           if (d < minDist) minDist = d;
         }
-        newCells.set(key, { type: 'miss', distance: minDist });
+        newCells.set(key, { type: 'miss', distance: minDist, foundAtTime: foundGems.size });
 
         // Subtle bounce
         scale.setValue(0.7);
@@ -306,11 +306,13 @@ export default function Seek() {
               const isHidden = !state || state.type === 'hidden';
               const isGem = state?.type === 'gem';
               const isMiss = state?.type === 'miss';
-              const dist = isMiss ? (state as { type: 'miss'; distance: number }).distance : 0;
+              const missState = isMiss ? (state as { type: 'miss'; distance: number; foundAtTime: number }) : null;
+              const dist = missState?.distance ?? 0;
+              const isStale = missState ? missState.foundAtTime < foundGems.size : false;
 
               let bgColor = '#2a2a2c'; // hidden
               if (isGem) bgColor = '#9b59b6';
-              else if (isMiss) bgColor = distColor(dist) + '33'; // translucent tint
+              else if (isMiss) bgColor = isStale ? '#1a1a1c' : distColor(dist) + '33';
 
               return (
                 <Pressable
@@ -326,7 +328,7 @@ export default function Seek() {
                         height: cellSize,
                         backgroundColor: bgColor,
                         borderColor: isMiss
-                          ? distColor(dist)
+                          ? (isStale ? '#444' : distColor(dist))
                           : isGem
                             ? '#9b59b6'
                             : '#3a3a3c',
@@ -339,8 +341,11 @@ export default function Seek() {
                       <Text style={styles.gemEmoji}>{'\uD83D\uDC8E'}</Text>
                     )}
                     {isMiss && (
-                      <Text style={[styles.distText, { color: distColor(dist) }]}>
-                        {dist}
+                      <Text style={[
+                        styles.distText,
+                        { color: isStale ? '#555' : distColor(dist) },
+                      ]}>
+                        {dist}{isStale ? '?' : ''}
                       </Text>
                     )}
                     {isHidden && !gameOver && (
@@ -354,8 +359,8 @@ export default function Seek() {
         ))}
       </View>
 
-      {/* Distance legend */}
-      <View style={styles.legend}>
+      {/* Distance legend — hide when game is over to make room for end message */}
+      {!gameOver && <View style={styles.legend}>
         <Text style={styles.legendTitle}>Distance</Text>
         <View style={styles.legendRow}>
           {[1, 2, 3, 4, 5].map((d) => (
@@ -374,7 +379,7 @@ export default function Seek() {
             </View>
           ))}
         </View>
-      </View>
+      </View>}
 
       <CelebrationBurst show={won} />
 
