@@ -95,7 +95,7 @@ function allConnectedPatterns(patternSize: number): Set<number>[] {
 /* ─── Difficulty ─── */
 function getPatternSize(): number {
   const d = getDayDifficulty();
-  return 3 + Math.min(d, 4); // Mon:4, Tue:5, Wed:5, Thu:6, Fri:7
+  return 4 + Math.min(d, 3); // Mon:5, Tue:6, Wed:7, Thu:7, Fri:7
 }
 
 /* ─── Generate daily puzzle ─── */
@@ -255,17 +255,28 @@ export default function Trace() {
   /* ── Share text ── */
   function buildShareText() {
     const lines: string[] = [`Trace Day #${puzzleDay} \ud83d\udd0d`];
-    for (const g of guesses) {
-      let greenCount = 0;
-      let yellowCount = 0;
-      for (const fb of g.feedback.values()) {
-        if (fb === 'green') greenCount++;
-        else if (fb === 'yellow') yellowCount++;
+    // Spatial 5x5 grid showing final feedback state
+    for (let r = 0; r < SIZE; r++) {
+      let row = '';
+      for (let c = 0; c < SIZE; c++) {
+        const idx = r * SIZE + c;
+        if (answer.has(idx)) {
+          row += '\ud83d\udfe9'; // green for answer cells
+        } else if (accFeedback.get(idx) === 'yellow') {
+          row += '\ud83d\udfe8'; // yellow for probed adjacent
+        } else {
+          row += '\u2b1b'; // dark
+        }
       }
+      lines.push(row);
+    }
+    // Guess summary
+    for (const g of guesses) {
+      let greens = 0;
+      for (const fb of g.feedback.values()) if (fb === 'green') greens++;
       lines.push(
-        '\ud83d\udfe9'.repeat(greenCount) +
-          '\ud83d\udfe8'.repeat(yellowCount) +
-          '\u2b1b'.repeat(patternSize - greenCount - yellowCount),
+        '\ud83d\udfe9'.repeat(greens) +
+          '\u2b1c'.repeat(patternSize - greens),
       );
     }
     lines.push(
@@ -333,14 +344,42 @@ export default function Trace() {
         </Text>
       </View>
 
-      {/* Selection info */}
+      {/* Selection info + clear */}
       {!gameOver && (
-        <Text style={styles.selInfo}>
-          {currentGuess.size}/{patternSize} cells
-          {currentGuess.size === patternSize && !isConnected(currentGuess)
-            ? ' \u26a0 not connected'
-            : ''}
-        </Text>
+        <View style={styles.selRow}>
+          <Text style={styles.selInfo}>
+            {currentGuess.size}/{patternSize} cells
+            {currentGuess.size === patternSize && !isConnected(currentGuess)
+              ? ' \u26a0 not connected'
+              : ''}
+          </Text>
+          {currentGuess.size > 0 && (
+            <Pressable
+              onPress={() => setCurrentGuess(new Set())}
+              style={styles.clearBtn}
+            >
+              <Text style={styles.clearText}>Clear</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
+
+      {/* Feedback legend */}
+      {guesses.length === 0 && !gameOver && (
+        <View style={styles.legend}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: FB_GREEN }]} />
+            <Text style={styles.legendLabel}>= in shape</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: FB_YELLOW }]} />
+            <Text style={styles.legendLabel}>= next to shape</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: FB_GRAY }]} />
+            <Text style={styles.legendLabel}>= far away</Text>
+          </View>
+        </View>
       )}
 
       {/* Grid */}
@@ -489,7 +528,28 @@ const styles = StyleSheet.create({
   guessDotUsed: { backgroundColor: '#818384' },
   guessDotWin: { backgroundColor: FB_GREEN },
   guessText: { color: '#818384', fontSize: 13, marginLeft: 8 },
-  selInfo: { color: '#818384', fontSize: 13, marginBottom: 8 },
+  selRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
+  selInfo: { color: '#818384', fontSize: 13 },
+  clearBtn: {
+    backgroundColor: '#3a3a3c',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  clearText: { color: '#ffffff', fontSize: 12, fontWeight: '600' },
+  legend: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 8,
+  },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  legendDot: { width: 12, height: 12, borderRadius: 3 },
+  legendLabel: { color: '#818384', fontSize: 11 },
   grid: { gap: GAP },
   gridRow: { flexDirection: 'row', gap: GAP },
   cell: { borderRadius: 6, justifyContent: 'center', alignItems: 'center' },
