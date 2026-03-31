@@ -110,50 +110,37 @@ function generatePuzzle(seed: number) {
 }
 
 /* ─── BFS solver: find minimum taps to clear board ─── */
+function boardKey(b: number[]): string {
+  return b.join(',');
+}
+
 function solvePar(board: number[]): number {
-  // Since chip-firing is abelian, we need to find tap counts per cell
-  // that clear the board. Use BFS over total tap count.
-  // State: board values (each 0-3 after settling). Max states: 4^16 = too large.
-  // Instead, use iterative deepening with heuristics.
+  if (isSolved(board)) return 0;
+  const startKey = boardKey(board);
+  const visited = new Set<string>([startKey]);
+  let frontier: number[][] = [board];
 
-  // Simple greedy + limited search
-  function tryTaps(maxTaps: number): number {
-    // Try adding taps greedily to cells with highest values
-    const b = [...board];
-    let totalTaps = 0;
-
-    for (let round = 0; round < maxTaps; round++) {
-      // Find cell where tapping causes most overflows
-      let bestCell = -1;
-      let bestOverflows = -1;
-
-      for (let i = 0; i < CELLS; i++) {
-        const test = [...b];
-        test[i]++;
-        const { overflows } = simulate(test);
-        if (overflows > bestOverflows) {
-          bestOverflows = overflows;
-          bestCell = i;
+  for (let depth = 1; depth <= 12; depth++) {
+    const next: number[][] = [];
+    for (const b of frontier) {
+      for (let cell = 0; cell < CELLS; cell++) {
+        const nb = [...b];
+        nb[cell]++;
+        const { result } = simulate(nb);
+        if (isSolved(result)) return depth;
+        const key = boardKey(result);
+        if (!visited.has(key)) {
+          visited.add(key);
+          next.push(result);
         }
       }
-
-      if (bestCell === -1) break;
-      b[bestCell]++;
-      totalTaps++;
-      const { result } = simulate(b);
-      for (let i = 0; i < CELLS; i++) b[i] = result[i];
-
-      if (isSolved(b)) return totalTaps;
     }
-    return -1;
+    frontier = next;
+    if (frontier.length === 0) break;
+    // Safety: limit BFS size
+    if (visited.size > 50000) break;
   }
-
-  // Try increasing tap limits
-  for (let maxT = 1; maxT <= 15; maxT++) {
-    const result = tryTaps(maxT);
-    if (result > 0) return result;
-  }
-  return 5; // fallback par
+  return 5; // fallback
 }
 
 /* ═══════════════════════════════════════════ */
@@ -164,14 +151,21 @@ export default function Spill() {
   const puzzleDay = useMemo(() => getPuzzleDay(), []);
   const { initialBoard, par } = useMemo(() => generatePuzzle(seed), [seed]);
 
+  const moveLimit = par + Math.max(4, par);
   const [board, setBoard] = useState(() => [...initialBoard]);
   const [taps, setTaps] = useState(0);
   const [tapHistory, setTapHistory] = useState<number[]>([]);
+  const [boardHistory, setBoardHistory] = useState<number[][]>(() => [
+    [...initialBoard],
+  ]);
   const [showStats, setShowStats] = useState(false);
   const [stats, setStatsData] = useState<Stats | null>(null);
   const [lastOverflows, setLastOverflows] = useState(0);
+  const [gameRecorded, setGameRecorded] = useState(false);
 
   const solved = isSolved(board);
+  const failed = !solved && taps >= moveLimit;
+  const gameOver = solved || failed;
   const { width: screenWidth } = useWindowDimensions();
   const maxWidth = Math.min(screenWidth - 48, 320);
   const cellSize = Math.floor(maxWidth / GRID) - GAP;
@@ -222,7 +216,7 @@ export default function Spill() {
   /* ── Tap handler ── */
   const handleTap = useCallback(
     (idx: number) => {
-      if (solved) return;
+      if (gameOver) return;
       bounceCell(idx);
 
       const next = [...board];
@@ -238,20 +232,40 @@ export default function Spill() {
         }
       }
 
+      const nextTaps = taps + 1;
       setBoard(result);
-      setTaps((t) => t + 1);
+      setTaps(nextTaps);
       setTapHistory((h) => [...h, idx]);
+      setBoardHistory((h) => [...h, result]);
       setLastOverflows(overflows);
 
-      if (isSolved(result)) {
-        recordGame('spill', taps + 1, par).then((s) => {
+      if (isSolved(result) && !gameRecorded) {
+        setGameRecorded(true);
+        recordGame('spill', nextTaps, par).then((s) => {
+          setStatsData(s);
+          setShowStats(true);
+        });
+      } else if (nextTaps >= moveLimit && !isSolved(result) && !gameRecorded) {
+        setGameRecorded(true);
+        recordGame('spill', moveLimit + 1, par).then((s) => {
           setStatsData(s);
           setShowStats(true);
         });
       }
     },
-    [board, solved, taps, par, bounceCell, shakeCell],
+    [board, gameOver, taps, par, moveLimit, gameRecorded, bounceCell, shakeCell],
   );
+
+  /* ── Undo ── */
+  const handleUndo = useCallback(() => {
+    if (boardHistory.length <= 1 || gameOver) return;
+    const prev = boardHistory[boardHistory.length - 2];
+    setBoard([...prev]);
+    setTaps((t) => t - 1);
+    setTapHistory((h) => h.slice(0, -1));
+    setBoardHistory((h) => h.slice(0, -1));
+    setLastOverflows(0);
+  }, [boardHistory, gameOver]);
 
   const handleShowStats = useCallback(async () => {
     const s = await loadStats('spill');
@@ -314,10 +328,15 @@ export default function Spill() {
           {taps}
         </Text>
         <Text style={styles.tapPar}>Par: {par}</Text>
-        <Text style={styles.fillLeft}>
-          {'\ud83d\udca7'} {totalFill}
+        <Text
+          style={[
+            styles.movesLeft,
+            moveLimit - taps <= 3 && !gameOver && styles.movesLeftDanger,
+          ]}
+        >
+          {moveLimit - taps} left
         </Text>
-        {lastOverflows > 0 && !solved && (
+        {lastOverflows > 0 && !gameOver && (
           <Text style={styles.cascadeText}>
             {'\ud83d\udca5'} {lastOverflows}
           </Text>
@@ -364,6 +383,13 @@ export default function Spill() {
         ))}
       </View>
 
+      {/* Undo */}
+      {!gameOver && taps > 0 && (
+        <Pressable style={styles.undoBtn} onPress={handleUndo}>
+          <Text style={styles.undoText}>Undo</Text>
+        </Pressable>
+      )}
+
       <CelebrationBurst show={solved && taps <= par} />
 
       {solved && (
@@ -380,13 +406,23 @@ export default function Spill() {
         </View>
       )}
 
+      {failed && (
+        <View style={styles.endMsg}>
+          <Text style={styles.endEmoji}>{'\ud83d\udca7'}</Text>
+          <Text style={styles.endText}>Out of taps!</Text>
+          <Text style={styles.endSub}>
+            {totalFill} liquid remaining
+          </Text>
+        </View>
+      )}
+
       <View style={styles.howTo}>
         <Text style={styles.howToTitle}>How to play</Text>
         <Text style={styles.howToText}>
           Each cell holds liquid (0-3). Tap to add 1. When a cell reaches 4, it
           overflows — emptying itself and adding 1 to each neighbor.{'\n\n'}
-          Overflows can chain! One tap can cascade across the whole board.{'\n'}
-          Clear every cell to 0. Par: {par} taps.
+          Overflows chain! One tap can cascade across the board.{'\n'}
+          Clear every cell to 0 within {moveLimit} taps. Par: {par}.
         </Text>
       </View>
 
@@ -432,7 +468,8 @@ const styles = StyleSheet.create({
   tapCount: { color: '#ffffff', fontSize: 28, fontWeight: '800' },
   tapCountGood: { color: '#2ecc71' },
   tapPar: { color: '#818384', fontSize: 14 },
-  fillLeft: { color: '#5dade2', fontSize: 14, marginLeft: 8 },
+  movesLeft: { color: '#818384', fontSize: 14, marginLeft: 8 },
+  movesLeftDanger: { color: '#e74c3c' },
   cascadeText: { color: '#f39c12', fontSize: 14, fontWeight: '600' },
   grid: { gap: GAP },
   gridRow: { flexDirection: 'row', gap: GAP },
@@ -450,7 +487,16 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     backgroundColor: 'rgba(243, 156, 18, 0.2)',
   },
+  undoBtn: {
+    backgroundColor: '#3a3a3c',
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginTop: 12,
+  },
+  undoText: { color: '#ffffff', fontWeight: '600', fontSize: 14 },
   endMsg: { alignItems: 'center', marginTop: 20 },
+  endSub: { color: '#818384', fontSize: 13, marginTop: 4 },
   endEmoji: { fontSize: 48 },
   endText: {
     color: '#ffffff',
