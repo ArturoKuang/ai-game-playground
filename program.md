@@ -534,7 +534,7 @@ This log tracks how the design PROCESS performs across sessions. Updated by Step
 |---|---|---|---|---|---|---|---|
 | 2026-03-30 | 6 | 16 | 6 | 0 | A10 (fully-visible optimization) | 12 | Added: Design Introspection section, Step 2.5 litmus tests, Step 9.5 process retrospective, tighter kill rules, optimization vs constraint classification |
 | 2026-03-30b | 4 | 10 | 4 | 0 | A10 (fully-visible) then signal-per-action too weak (hidden info) | 6 | Fully-visible constraint satisfaction always A10. Hidden info defeats A10 but needs rich signal (Seek plateaued at 55). Next: rich multi-dimensional feedback per action. |
-| 2026-03-30c | 3 | 8 | 3 | 0 | Hidden-info deduction plateaus at 50 | 5 | ALL 3 games were hidden-info deduction with probing. Ceiling at 51. Scan phase = low tension, deduction becomes formulaic, info density too low. Direction change: try visible-consequence games with incommensurable costs (like LightsOut/Claim). |
+| 2026-03-30c | 5 | 12 | 5 | 0 | Deduction plateaus at 50; A10 kills linear puzzles; non-inverse ops = unsolvable | 8 | 5 kills: (1) deduction plateaus at 50 (Prism/Probe/Fence), (2) linear constraints = A10 (Scale), (3) non-self-inverse ops = unsolvable (Turn). Next: ONLY self-inverse toggle ops on grids (like LightsOut), or pure optimization with incommensurable costs (like Claim). |
 
 ### Explored & Exhausted Families
 
