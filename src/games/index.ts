@@ -9,7 +9,6 @@ import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
 import Claim from './Claim';
-import Bloom from './Bloom';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -73,13 +72,6 @@ const games: GameMeta[] = [
     emoji: '\uD83C\uDFC6',
     description: 'Pick cells to score — neighbors shrink!',
     component: Claim,
-  },
-  {
-    id: 'bloom',
-    name: 'Bloom',
-    emoji: '\uD83C\uDF3B',
-    description: 'Grow cells to bloom \u2014 chain reactions!',
-    component: Bloom,
   },
 ];
 
