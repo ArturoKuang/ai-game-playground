@@ -507,6 +507,7 @@ The only hard rules:
 | Span  | 48   | 2     | Claim variant in Claim's territory | Binary blocking but same mechanic family |
 | Stack | 36   | 1     | A4: 2048 clone, d8=2 | Optimization on shrinking board = shallow |
 | Prism | 47   | 2     | Regression 47→39: auto-deduce killed agency | 4×4 Latin square too small; never automate the deduction |
+| Probe | 51   | 3     | 3-strike (51→50→50, never 60) | Minesweeper deduction becomes formulaic once technique learned |
 
 ## Architecture
 
@@ -548,6 +549,7 @@ These mechanic families have been tried multiple times without reaching 60. Do N
 | Path deduction (adjacency clues) | Coil (23) | 23 | A10 + solver bug. Fully-visible path constraints solvable by staring |
 | Distance-based hidden object hunt | Seek (53→56→54→55) | 56 | No A10! But single distance per probe = weak signal. Plateaued at ~55 after 4 iterations |
 | Small Latin square deduction | Prism (47→39) | 47 | Hidden info works but 4×4 too small. Auto-deduce killed agency (regression). Manual deduction IS the fun. |
+| Minesweeper-style adjacency deduction | Probe (51→50→50) | 51 | Deduction works (d10=6) but strategy becomes formulaic once learned. Same technique on every puzzle = d5 capped at 4. |
 
 ### Mental Model Calibration
 
