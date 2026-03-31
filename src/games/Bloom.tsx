@@ -37,11 +37,11 @@ const BLOOM_COLOR = '#f1c40f';
 /* ─── Difficulty ─── */
 function getDifficulty() {
   const d = getDayDifficulty(); // 1..5
-  // More taps + lower initial values on easy days (more room to bloom)
-  // Fewer taps + higher initial values on hard days (tighter optimization)
-  const taps = 14 + d * 2; // Mon:16, Fri:24
-  const minInit = 0;
-  const maxInit = 2 + Math.floor(d / 2); // Mon:2, Fri:4
+  // Cells start HIGH (3-4) so the puzzle is about chain SEQUENCE, not building.
+  // Taps are tight — every tap must contribute to a chain.
+  const taps = 8 + d; // Mon:9, Fri:13
+  const minInit = 2;
+  const maxInit = 4;
   return { taps, minInit, maxInit };
 }
 
@@ -192,6 +192,9 @@ export default function Bloom() {
   const [showStats, setShowStats] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
   const [lastBloomed, setLastBloomed] = useState<Set<string>>(new Set());
+  const [selectedCell, setSelectedCell] = useState<[number, number] | null>(
+    null,
+  );
 
   const cellScales = useRef(
     Array.from({ length: SIZE * SIZE }, () => new Animated.Value(1)),
@@ -199,10 +202,83 @@ export default function Bloom() {
 
   const tapsLeft = diff.taps - tapsUsed;
 
+  /* P1 preview: which cells would be affected if selected cell is tapped */
+  const previewAffected = useMemo(() => {
+    if (!selectedCell) return new Set<string>();
+    const [sr, sc] = selectedCell;
+    const val = grid[sr][sc] + 1;
+    const affected = new Set<string>();
+    if (val >= BLOOM_AT) {
+      // Would bloom — neighbors get +1
+      for (const [dr, dc] of [
+        [0, 1],
+        [0, -1],
+        [1, 0],
+        [-1, 0],
+      ]) {
+        const nr = sr + dr;
+        const nc = sc + dc;
+        if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE) {
+          affected.add(`${nr},${nc}`);
+        }
+      }
+    }
+    return affected;
+  }, [selectedCell, grid]);
+
+  /* Would tapping selected cell trigger a chain? */
+  const previewChainCount = useMemo(() => {
+    if (!selectedCell) return 0;
+    const [sr, sc] = selectedCell;
+    if (grid[sr][sc] + 1 < BLOOM_AT) return 0;
+    let chains = 0;
+    for (const [dr, dc] of [
+      [0, 1],
+      [0, -1],
+      [1, 0],
+      [-1, 0],
+    ]) {
+      const nr = sr + dr;
+      const nc = sc + dc;
+      if (
+        nr >= 0 &&
+        nr < SIZE &&
+        nc >= 0 &&
+        nc < SIZE &&
+        grid[nr][nc] + 1 >= BLOOM_AT
+      )
+        chains++;
+    }
+    return chains;
+  }, [selectedCell, grid]);
+
   const handleTap = useCallback(
     (r: number, c: number) => {
       if (gameOver || tapsLeft <= 0) return;
 
+      // Two-tap: first tap selects and previews, second tap confirms
+      if (!selectedCell || selectedCell[0] !== r || selectedCell[1] !== c) {
+        setSelectedCell([r, c]);
+        // Bounce on select
+        const idx = r * SIZE + c;
+        Animated.sequence([
+          Animated.timing(cellScales[idx], {
+            toValue: 1.08,
+            duration: 50,
+            useNativeDriver: true,
+          }),
+          Animated.spring(cellScales[idx], {
+            toValue: 1,
+            friction: 4,
+            tension: 200,
+            useNativeDriver: true,
+          }),
+        ]).start();
+        return;
+      }
+
+      // Second tap — confirm
+      setSelectedCell(null);
       const newGrid = grid.map((row) => [...row]);
       let newBlooms = 0;
       const bloomed = new Set<string>();
@@ -365,7 +441,8 @@ export default function Bloom() {
       </View>
 
       <Text style={styles.subtitle}>
-        Tap to grow. At {BLOOM_AT}, cells bloom and boost their neighbors!
+        Select a cell, then tap again to grow it. At {BLOOM_AT}, it
+        blooms!
       </Text>
 
       <View style={styles.infoRow}>
@@ -406,6 +483,13 @@ export default function Bloom() {
               const val = grid[r][c];
               const isReady = val === BLOOM_AT - 1;
               const justBloomed = lastBloomed.has(`${r},${c}`);
+              const isSelected =
+                selectedCell !== null &&
+                selectedCell[0] === r &&
+                selectedCell[1] === c;
+              const isAffected = previewAffected.has(`${r},${c}`);
+              const wouldChainBloom =
+                isAffected && val + 1 >= BLOOM_AT;
               const bg =
                 val < VALUE_COLORS.length
                   ? VALUE_COLORS[val]
@@ -429,6 +513,9 @@ export default function Bloom() {
                       },
                       isReady && styles.cellReady,
                       justBloomed && styles.cellBloomed,
+                      isSelected && styles.cellSelected,
+                      isAffected && styles.cellAffected,
+                      wouldChainBloom && styles.cellChainPreview,
                     ]}
                   >
                     <Text
@@ -439,8 +526,14 @@ export default function Bloom() {
                     >
                       {val}
                     </Text>
-                    {isReady && (
+                    {isReady && !isSelected && (
                       <Text style={styles.readyDot}>{'\uD83C\uDF3C'}</Text>
+                    )}
+                    {isAffected && (
+                      <Text style={styles.plusOne}>+1</Text>
+                    )}
+                    {wouldChainBloom && (
+                      <Text style={styles.chainIcon}>{'\uD83D\uDCA5'}</Text>
                     )}
                   </Pressable>
                 </Animated.View>
@@ -449,6 +542,17 @@ export default function Bloom() {
           </View>
         ))}
       </View>
+
+      {/* Preview hint */}
+      {selectedCell && !gameOver && (
+        <View style={styles.previewHint}>
+          <Text style={styles.previewText}>
+            {grid[selectedCell[0]][selectedCell[1]] + 1 >= BLOOM_AT
+              ? `\uD83C\uDF3B Bloom!${previewChainCount > 0 ? ` +${previewChainCount} chain${previewChainCount > 1 ? 's' : ''}! \uD83D\uDCA5` : ''} \u2014 tap again`
+              : `${grid[selectedCell[0]][selectedCell[1]]} \u2192 ${grid[selectedCell[0]][selectedCell[1]] + 1} \u2014 tap again`}
+          </Text>
+        </View>
+      )}
 
       <CelebrationBurst show={gameOver && blooms >= par} />
 
@@ -544,6 +648,18 @@ const styles = StyleSheet.create({
     borderColor: '#ff6b00',
     borderWidth: 2,
   },
+  cellSelected: {
+    borderColor: '#fff',
+    borderWidth: 3,
+  },
+  cellAffected: {
+    borderColor: '#f1c40f',
+    borderWidth: 2,
+  },
+  cellChainPreview: {
+    borderColor: '#ff6b00',
+    borderWidth: 2,
+  },
   cellValue: {
     fontSize: 22,
     fontWeight: '800',
@@ -560,6 +676,33 @@ const styles = StyleSheet.create({
     top: 1,
     right: 3,
     fontSize: 10,
+  },
+  plusOne: {
+    position: 'absolute',
+    bottom: 1,
+    left: 3,
+    fontSize: 10,
+    color: '#f1c40f',
+    fontWeight: '800',
+  },
+  chainIcon: {
+    position: 'absolute',
+    top: 1,
+    left: 3,
+    fontSize: 10,
+  },
+  previewHint: {
+    marginTop: 10,
+    backgroundColor: '#2c2c2e',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  previewText: {
+    color: '#f1c40f',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   endMessage: { alignItems: 'center', marginTop: 20 },
   endEmoji: { fontSize: 48 },
