@@ -530,7 +530,7 @@ This log tracks how the design PROCESS performs across sessions. Updated by Step
 | Session Date | Games Designed | Iterations | Kills | Keeps | Most Common Failure | Wasted Iters | Process Change Made |
 |---|---|---|---|---|---|---|---|
 | 2026-03-30 | 6 | 16 | 6 | 0 | A10 (fully-visible optimization) | 12 | Added: Design Introspection section, Step 2.5 litmus tests, Step 9.5 process retrospective, tighter kill rules, optimization vs constraint classification |
-| 2026-03-30b | 3 | 4 | 3 | 0 | A10 (fully-visible constraint satisfaction) | 4 | Added: effective branching factor test, spatial packing + loop/network to exhausted families, hidden-info requirement for new games |
+| 2026-03-30b | 4 | 10 | 4 | 0 | A10 (fully-visible) then signal-per-action too weak (hidden info) | 6 | Fully-visible constraint satisfaction always A10. Hidden info defeats A10 but needs rich signal (Seek plateaued at 55). Next: rich multi-dimensional feedback per action. |
 
 ### Explored & Exhausted Families
 
@@ -545,6 +545,7 @@ These mechanic families have been tried multiple times without reaching 60. Do N
 | Spatial packing + clues | Fit (47→39) | 47 | Tight clues prune search space to ~3 valid options; A10 despite large theoretical space |
 | Edge-based constraint (Slitherlink) | Walls (24) | 24 | A4: well-known Nikoli puzzle clone |
 | Path deduction (adjacency clues) | Coil (23) | 23 | A10 + solver bug. Fully-visible path constraints solvable by staring |
+| Distance-based hidden object hunt | Seek (53→56→54→55) | 56 | No A10! But single distance per probe = weak signal. Plateaued at ~55 after 4 iterations |
 
 ### Mental Model Calibration
 
@@ -553,4 +554,4 @@ Track prediction accuracy to improve your design intuition.
 | Session | Average Prediction | Average Actual | Delta | What Was Overvalued | What Was Undervalued |
 |---|---|---|---|---|---|
 | 2026-03-30 | ~58 | ~43 | -15 | P1 preview (assumed it always helps — it hurts when costs are calculable), mechanic novelty (unique ≠ deep) | Strategic transparency (the "one sentence strategy" test), importance of constraint satisfaction vs optimization |
-| 2026-03-30b | ~50 | ~30 | -20 | Full-visibility constraint satisfaction (assumed cascading clues prevent staring — they don't), path-based mechanics (still solvable by pre-play analysis) | A10 is the dominant failure mode for ALL fully-visible puzzles (optimization AND constraint satisfaction). Hidden information is the only reliable A10 defense. |
+| 2026-03-30b | ~52 | ~42 | -10 | Full-visibility constraint satisfaction, weak signal-per-action in hidden info games | A10 dominates ALL fully-visible puzzles. Hidden info defeats A10 but needs RICH per-action feedback (multi-dimensional, like Wordle's 5 letters × 3 states). Single-dimension feedback (one distance number) plateaus at ~55. |
