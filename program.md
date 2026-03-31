@@ -506,6 +506,7 @@ The only hard rules:
 | Rift  | 33   | 1     | A10+P10: calculable halving | Numerical preview → scan for max |
 | Span  | 48   | 2     | Claim variant in Claim's territory | Binary blocking but same mechanic family |
 | Stack | 36   | 1     | A4: 2048 clone, d8=2 | Optimization on shrinking board = shallow |
+| Prism | 47   | 2     | Regression 47→39: auto-deduce killed agency | 4×4 Latin square too small; never automate the deduction |
 
 ## Architecture
 
@@ -546,6 +547,7 @@ These mechanic families have been tried multiple times without reaching 60. Do N
 | Edge-based constraint (Slitherlink) | Walls (24) | 24 | A4: well-known Nikoli puzzle clone |
 | Path deduction (adjacency clues) | Coil (23) | 23 | A10 + solver bug. Fully-visible path constraints solvable by staring |
 | Distance-based hidden object hunt | Seek (53→56→54→55) | 56 | No A10! But single distance per probe = weak signal. Plateaued at ~55 after 4 iterations |
+| Small Latin square deduction | Prism (47→39) | 47 | Hidden info works but 4×4 too small. Auto-deduce killed agency (regression). Manual deduction IS the fun. |
 
 ### Mental Model Calibration
 
