@@ -8,6 +8,7 @@ import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
 import Claim from './Claim';
+import Coil from './Coil';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -71,6 +72,13 @@ const games: GameMeta[] = [
     emoji: '\uD83C\uDFC6',
     description: 'Pick cells to score — neighbors shrink!',
     component: Claim,
+  },
+  {
+    id: 'coil',
+    name: 'Coil',
+    emoji: '\uD83D\uDC0D',
+    description: 'Mark cells to trace a path using number clues',
+    component: Coil,
   },
 ];
 export default games;
