@@ -91,7 +91,7 @@ function generatePuzzle(seed: number) {
 /* ─── Cell state ─── */
 type CellState =
   | { type: 'hidden' }
-  | { type: 'miss'; distance: number; foundAtTime: number }
+  | { type: 'miss'; distance: number }
   | { type: 'gem' };
 
 /* ═══════════════════════════════════════════ */
@@ -119,26 +119,22 @@ export default function Seek() {
   const gemsLeft = puzzle.numGems - foundGems.size;
 
   /* Candidate cells: unrevealed cells that COULD contain an unfound gem
-     based on fresh distance readings (not stale). Shows search space shrinking. */
+     based on ALL distance readings (distances are recalculated after each gem find). */
   const candidates = useMemo(() => {
     if (gameOver) return new Set<string>();
     const valid = new Set<string>();
-    // Collect fresh misses (recorded after most recent gem find)
-    const freshMisses: { r: number; c: number; dist: number }[] = [];
+    const allMisses: { r: number; c: number; dist: number }[] = [];
     for (const [mk, state] of cells) {
       if (state.type !== 'miss') continue;
-      if (state.foundAtTime < foundGems.size) continue; // stale
       const [mr, mc] = mk.split(',').map(Number);
-      freshMisses.push({ r: mr, c: mc, dist: state.distance });
+      allMisses.push({ r: mr, c: mc, dist: state.distance });
     }
     for (let r = 0; r < GRID; r++) {
       for (let c = 0; c < GRID; c++) {
         const key = cellKey(r, c);
         if (cells.has(key)) continue; // already revealed
-        // Check: could this cell have a gem?
-        // For each fresh miss, the gem must be at least dist away from miss position
         let possible = true;
-        for (const miss of freshMisses) {
+        for (const miss of allMisses) {
           if (manhattan(r, c, miss.r, miss.c) < miss.dist) {
             possible = false;
             break;
@@ -187,6 +183,23 @@ export default function Seek() {
           useNativeDriver: true,
         }).start();
 
+        // Recalculate ALL miss distances to nearest REMAINING unfound gem
+        // This preserves info instead of marking stale
+        for (const [mk, state] of newCells) {
+          if (state.type !== 'miss') continue;
+          const [mr, mc] = mk.split(',').map(Number);
+          let minD = Infinity;
+          for (const [gr, gc] of puzzle.gems) {
+            const gk = cellKey(gr, gc);
+            if (newFound.has(gk)) continue;
+            const d = manhattan(mr, mc, gr, gc);
+            if (d < minD) minD = d;
+          }
+          if (minD !== Infinity && minD !== state.distance) {
+            newCells.set(mk, { type: 'miss', distance: minD });
+          }
+        }
+
         setCells(newCells);
         setFoundGems(newFound);
         setGuessCount(newGuessCount);
@@ -209,7 +222,7 @@ export default function Seek() {
           const d = manhattan(r, c, gr, gc);
           if (d < minDist) minDist = d;
         }
-        newCells.set(key, { type: 'miss', distance: minDist, foundAtTime: foundGems.size });
+        newCells.set(key, { type: 'miss', distance: minDist });
 
         // Subtle bounce
         scale.setValue(0.7);
@@ -348,16 +361,14 @@ export default function Seek() {
               const isHidden = !state || state.type === 'hidden';
               const isGem = state?.type === 'gem';
               const isMiss = state?.type === 'miss';
-              const missState = isMiss ? (state as { type: 'miss'; distance: number; foundAtTime: number }) : null;
-              const dist = missState?.distance ?? 0;
-              const isStale = missState ? missState.foundAtTime < foundGems.size : false;
+              const dist = isMiss ? (state as { type: 'miss'; distance: number }).distance : 0;
 
               const isCandidate = isHidden && candidates.has(key);
               const isEliminated = isHidden && !candidates.has(key) && candidates.size > 0;
 
               let bgColor = '#2a2a2c'; // hidden default
               if (isGem) bgColor = '#9b59b6';
-              else if (isMiss) bgColor = isStale ? '#1a1a1c' : distColor(dist) + '33';
+              else if (isMiss) bgColor = distColor(dist) + '33';
               else if (isCandidate) bgColor = '#1a2a3a'; // subtle blue tint
               else if (isEliminated) bgColor = '#181818'; // dimmed
 
@@ -375,7 +386,7 @@ export default function Seek() {
                         height: cellSize,
                         backgroundColor: bgColor,
                         borderColor: isMiss
-                          ? (isStale ? '#444' : distColor(dist))
+                          ? distColor(dist)
                           : isGem
                             ? '#9b59b6'
                             : isCandidate
@@ -392,11 +403,8 @@ export default function Seek() {
                       <Text style={styles.gemEmoji}>{'\uD83D\uDC8E'}</Text>
                     )}
                     {isMiss && (
-                      <Text style={[
-                        styles.distText,
-                        { color: isStale ? '#555' : distColor(dist) },
-                      ]}>
-                        {dist}{isStale ? '?' : ''}
+                      <Text style={[styles.distText, { color: distColor(dist) }]}>
+                        {dist}
                       </Text>
                     )}
                     {isHidden && !gameOver && (
