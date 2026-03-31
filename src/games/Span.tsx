@@ -27,7 +27,7 @@ const GAP = 3;
 function getDifficulty() {
   const d = getDayDifficulty(); // 1..5
   return {
-    spans: 2 + Math.ceil(d / 2), // Mon:3, Fri:5
+    spans: 3 + Math.ceil(d / 2), // Mon:4, Fri:6
     maxVal: 5 + d,               // Mon:6, Fri:10
   };
 }
@@ -485,7 +485,7 @@ export default function Span() {
         <View style={styles.previewHint}>
           <Text style={styles.previewText}>
             {hoverCell
-              ? `+${grid[selectedCell[0]][selectedCell[1]] + grid[hoverCell[0]][hoverCell[1]]} pts, blocks ${previewBlocked.size} cells (${previewBlockedValue} pts)`
+              ? `+${grid[selectedCell[0]][selectedCell[1]] + grid[hoverCell[0]][hoverCell[1]]} pts, blocks ${previewBlocked.size} cells \u2014 tap to place!`
               : `Selected ${grid[selectedCell[0]][selectedCell[1]]} \u2014 tap an adjacent cell`}
           </Text>
         </View>
