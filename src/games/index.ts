@@ -4,12 +4,10 @@ import BounceOut from './BounceOut';
 import LightsOut from './LightsOut';
 import ChainPop from './ChainPop';
 import PathWeaver from './PathWeaver';
-
 import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
 import Claim from './Claim';
-import Stack from './Stack';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -74,13 +72,5 @@ const games: GameMeta[] = [
     description: 'Pick cells to score — neighbors shrink!',
     component: Claim,
   },
-  {
-    id: 'stack',
-    name: 'Stack',
-    emoji: '\uD83E\uDDF1',
-    description: 'Swipe to merge \u2014 no new tiles, pure strategy!',
-    component: Stack,
-  },
 ];
-
 export default games;
