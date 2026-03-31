@@ -410,8 +410,11 @@ Before building a new game, verify it has:
 - [ ] **Animated tap feedback** — spring animation on every state change (P5)
 - [ ] **Iconic share text** — emoji grid showing game state (P6)
 - [ ] **Scoring that rewards mastery** — super-linear or par-based (P8)
+- [ ] **Not A10** — player cannot solve by staring before touching (Design Introspection Stare Test)
+- [ ] **No dominant strategy** — best approach cannot be described in one sentence (Design Introspection Test 1)
+- [ ] **Correct puzzle type** — if optimization, costs are incommensurable per P10; if constraint satisfaction, constraints couple non-trivially
 
-If a game can't check 8/10 of these at design time, reconsider the mechanic.
+If a game can't check 10/13 of these at design time, reconsider the mechanic. The last 3 items are the most important — they predict the 40-vs-60 split that the first 10 cannot.
 
 ---
 

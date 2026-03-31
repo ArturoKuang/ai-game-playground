@@ -67,6 +67,101 @@ If a player taps something and nothing visually happens for 200ms, the game feel
 
 ---
 
+## Design Introspection — Choosing the Right Mechanic
+
+The patterns (P1-P8) and anti-patterns (A1-A11) in `learnings.md` tell you how to IMPLEMENT a game well. This section tells you how to CHOOSE a mechanic that's worth implementing. **The biggest failures happen at the concept level, not during polish.** Six games were killed in a single session (Tint, Dig, Bloom, Rift, Span, Stack) — all passed the 10-point design checklist, all had animations and share text and day-of-week difficulty. They died because the underlying mechanic was strategically shallow.
+
+### The Two Types of Daily Puzzle
+
+Every puzzle game is one of these. Know which you're building.
+
+| | Constraint Satisfaction | Optimization |
+|---|---|---|
+| **Goal** | Find a solution that satisfies rules | Maximize a score |
+| **Player reward** | Insight ("oh, THAT's how it works!") | A number |
+| **Aha source** | Deduction — constraints interact | Calculation — compare options |
+| **Examples (ours)** | LightsOut (67), BitMap (67), PathWeaver (67) | Claim (63), FloodFill (67) |
+| **Examples (world)** | Wordle, Sudoku, Picross, Connections | 2048, Threes!, Mini Metro |
+| **Failure mode** | Too easy if constraints don't couple (A8) | Strategy transparent if costs are calculable (A10) |
+
+**Default to constraint satisfaction.** Of 6 optimization games designed in one session, 0 reached 60. Optimization only works when the cost of each action is INCOMMENSURABLE — it depends on your future plan, which you haven't decided yet (see Claim's locking mechanic). If you can show the exact point delta of each option, the game becomes "scan for max number" and dies.
+
+### Three Litmus Tests (Before Writing Any Code)
+
+Run these mentally. If any fails, redesign the concept before implementing.
+
+#### Test 1: The "Dominant Strategy" Test
+
+Ask: "What does a smart player do on turn 1?"
+
+- **FAIL**: "Pick the highest value." "Tap the cell nearest to 5." "Choose non-overlapping rows." → Strategy is describable in one sentence. The game is a solved problem wearing a puzzle costume. (Killed: Tint, Rift, Span, Stack, Bloom)
+- **PASS**: "It depends on the specific board — you need to trace how constraints interact across multiple cells, and your first move constrains your options 3 moves later in ways you can't easily predict." → Genuine depth. (Survived: LightsOut, Claim, BitMap)
+
+#### Test 2: The "Stare Test" (Anti-A10)
+
+Ask: "Can a player solve this puzzle optimally by staring at the board for 60 seconds before touching anything?"
+
+- **FAIL**: The board is fully visible, costs are calculable, and a patient player computes the optimal plan before acting. Execution is rote confirmation. (Killed: Tint, Rift, Span — all fully-visible optimization)
+- **PASS**: The player must ACT to make progress — either because information is revealed through play (Wordle, Minesweeper), or because the interaction space is too large to simulate mentally (LightsOut's cross-toggle creates 2^25 states). The game should be too complex to hold in working memory, forcing the player to commit and adapt.
+
+#### Test 3: The "Mechanical Family" Test
+
+Ask: "Does this occupy the same design space as a game already in the collection?"
+
+Check the occupied families:
+- Toggle/constraint (LightsOut)
+- Region painting (FloodFill)
+- Routing/pathing (PathWeaver)
+- Physics/aiming (BounceOut)
+- Chain/collapse (DropPop)
+- Push/slide (IceSlide)
+- Chain timing (ChainPop)
+- Deduction (BitMap)
+- Territory claiming (Claim)
+
+**Unoccupied families** worth exploring: grouping/categorization, spatial packing, sequencing/ordering, loop/network drawing, constraint propagation.
+
+If your new game is a variant of an occupied family (e.g., another grid-based pick-for-points game in Claim's space), it will score d8 ≤ 3 and likely die. The collection needs DIVERSITY, not depth in one family.
+
+### Why Games Fail: The Decision Depth Hierarchy
+
+From 87 experiments, here's what separates the score tiers:
+
+| Score Range | What's Missing | Example |
+|---|---|---|
+| **< 35** | Red flag triggered + shallow mechanic | Stack (36): 2048 clone, d8=2 |
+| **35-45** | Transparent strategy (A10) or luck-based (A11) | Tint (49), Dig (41), Rift (33) |
+| **45-55** | Right direction but costs are calculable (P10) | Span (48), Bloom (53), Cross (51) |
+| **55-65** | Genuine depth but missing polish or replay hook | Claim v3-v4 (56), Tumble v2 (53) |
+| **65+** | Constraint coupling + animation + share text | LightsOut (67), PathWeaver (67), Claim (63) |
+
+The jump from 45 to 60 is NOT about adding more features. It's about the MECHANIC having irreducible complexity — consequences that couple in ways the player can see but can't easily evaluate. This cannot be patched onto a shallow mechanic.
+
+### The Incommensurable Cost Principle
+
+The single most important design insight from all experiments:
+
+> **The cost of an action must depend on the player's FUTURE plan — which they haven't decided yet.**
+
+- **Calculable cost** (fails): "Picking this cell gives +7 points and halves 4 neighbors worth 20 total" → Player computes net delta, picks max. (Rift, Cross, Shift)
+- **Partially visible cost** (marginal): "Picking this cell blocks 6 neighbors" → Player sees WHICH cells are blocked but can count their values. (Span: d3=5)
+- **Incommensurable cost** (works): "Picking this cell locks neighbors — and whether those neighbors MATTER depends on which cells you plan to pick next, which depends on what's still available after this pick" → Player sees the lock, knows the values, but CAN'T evaluate significance without solving a recursive planning problem. (Claim: d3=8)
+
+When designing a new mechanic, verify that the cost of each action creates this recursive dependency. If the cost can be computed independently of future moves, the game will score d3 ≤ 5.
+
+### Session Pattern Check
+
+After killing 2+ games in the same session, STOP the loop and ask:
+
+1. What mechanic family did all the killed games share?
+2. What anti-pattern recurred?
+3. Am I building optimization or constraint satisfaction?
+4. What is the frozen collection MISSING that I haven't tried?
+
+Update `learnings.md` BEFORE designing the next game. Don't add the same anti-pattern evidence 3 times — recognize the pattern and change direction.
+
+---
+
 ## What Makes a Game BORING (Anti-patterns)
 
 Avoid these at all costs:
@@ -113,6 +208,20 @@ Propose **one** experiment. This can be:
 | **Kill a game**      | Remove a game that's fundamentally boring despite iterations             |
 
 Write a short hypothesis: _"I expect [change] will [improve metric] because [reason]."_
+
+### Step 2.5: Stress Test (New Games Only)
+
+**Before writing any code**, run the three litmus tests from the Design Introspection section:
+
+1. **Dominant Strategy Test**: What does a smart player do on turn 1? If the answer is one sentence ("pick the highest…", "always start at the corner…"), the game is A10. Redesign.
+2. **Stare Test**: Can a player solve this by staring at the board for 60 seconds? If yes, the game lacks execution uncertainty. Add information that's revealed through play, or ensure the interaction space exceeds working memory.
+3. **Mechanic Family Test**: Does this game occupy the same family as an existing game in the collection? If yes, verify d8 will be ≥ 5 — otherwise kill the concept.
+
+Also verify:
+- Is this **constraint satisfaction** or **optimization**? If optimization, confirm the costs are incommensurable per the Incommensurable Cost Principle.
+- **Play 5 turns mentally.** Narrate what a smart player thinks. If their reasoning is purely arithmetic ("7 > 5, pick 7"), the decisions are too shallow.
+
+If any test fails, go back to Step 2 with a different concept. Do NOT proceed to implementation.
 
 ### Step 3: Implement
 
@@ -222,7 +331,12 @@ If any of these are true, subtract 10 points from the total (minimum score 0):
 - If score **50–59** → game has potential. KEEP but flag for iteration — log what specific dimensions scored low and what changes might improve them.
 - If score **< 50** → `git reset --hard HEAD~1`. Discard. The game is not good enough.
 - If the game **crashes** → attempt a fix. If not trivial, discard and log as "crash".
-- **Kill rule:** If a game has been iterated on 3+ times and never reached 60, delete the game entirely and log it as "killed — fundamentally boring." Move on to a new concept.
+
+**Kill rules (any triggers deletion):**
+- **3-strike rule:** 3+ iterations and never reached 60 → kill.
+- **Mercy kill:** v1 scores < 40 OR triggers a red flag → kill immediately. The core mechanic is broken; iteration won't fix it.
+- **Regression kill:** v(N) scores lower than v(N-1) → kill. Regression means you've hit the mechanic's ceiling and over-correction is making it worse.
+- **Session pattern kill:** If 2+ games have been killed for the SAME anti-pattern in one session, stop and run the Session Pattern Check (see Design Introspection) before designing the next game.
 - **Cull rule:** If the total game count exceeds 8, kill the lowest-scoring game to make room. A tight collection of great games beats a bloated collection of okay games.
 
 ### Step 8: Log
@@ -251,7 +365,67 @@ After every experiment, ask these questions about `learnings.md`:
 
 **Do NOT add trivial or game-specific learnings.** Only add insights that apply to future games — things another designer would benefit from knowing.
 
-### Step 9: Go to Step 0
+### Step 9: Check if Process Retrospective is Needed
+
+Before looping back, check whether the PROCESS itself needs updating. A retrospective is triggered by any of these:
+
+- **2+ kills with the same root cause** in this session
+- **3+ consecutive discards** (no keep or iterate)
+- **A game passed the design checklist (10+/13) but scored < 40** — the checklist has a blind spot
+- **Score prediction was off by > 15 points** — your mental model is miscalibrated
+
+If none triggered → go to Step 0.
+If any triggered → proceed to Step 9.5.
+
+### Step 9.5: Update program.md (Recursive Process Improvement)
+
+Step 8.5 improves `learnings.md` — WHAT makes games good (content knowledge).
+This step improves `program.md` — WHAT makes the design process effective (meta knowledge).
+
+#### 1. Log process metrics
+
+Append to the Process Log section at the bottom of this file (or create it):
+
+```
+session_date | games_designed | total_iterations | kills | keeps | most_common_failure | wasted_iterations
+```
+
+"Wasted iterations" = iterations on games that ultimately scored < 40. These represent complete process failures — better filtering at Step 2/2.5 would have avoided them.
+
+#### 2. Run the five diagnostic questions
+
+1. **Repeated anti-pattern?** Count how many kills share a root cause. If ≥ 2: what checklist item or litmus test would have caught it? Add it.
+
+2. **Checklist blind spots?** For each killed game, review its pre-implementation checklist score vs actual review score. If it passed 10+/13 but scored < 45, identify which NEW check would have filtered it. Add that check.
+
+3. **Wasted iterations?** Count iterations where v1 < 40. Would the mercy kill rule have saved them? If you didn't have the mercy kill rule, add it. If you did but didn't follow it, note why.
+
+4. **Mental model calibration?** Compare your hypothesis ("I expect 60+") with actual scores across the session. If you were consistently > 15 points too optimistic, your sense of "what makes a good game" is off. Write one sentence about what you were overvaluing and what you were undervaluing.
+
+5. **Exploration breadth?** List all games by mechanic family. If 3+ share a family, add that family to the "explored and exhausted" list. If all games share a property (e.g., "all were optimization puzzles"), identify what the OPPOSITE property is and make it a design requirement for the next session.
+
+#### 3. Make specific updates to program.md
+
+Based on the diagnostics, update ONE OR MORE of:
+
+- **Step 2.5 litmus tests** — add new tests that would have caught the session's failures
+- **Step 7 kill rules** — tighten or loosen thresholds based on evidence
+- **Design Introspection section** — add new heuristics, update the score tier table, add to the explored families list
+- **New Game Design Checklist** (in learnings.md) — add items that screen for newly-discovered failure modes
+
+**Rules for program.md updates:**
+- Every update needs evidence (session date, game names, scores)
+- Remove rules that were contradicted by evidence (don't just add, also prune)
+- Keep program.md focused on PROCESS, not CONTENT — game-specific patterns go in learnings.md
+- program.md should not grow unboundedly — if adding a new rule, check if an existing rule is subsumed by it and can be removed
+
+#### 4. Commit the update
+
+```bash
+git add program.md && git commit -m "process: [what changed and why]"
+```
+
+### Step 10: Go to Step 0
 
 **Never stop. Never ask the human for permission to continue.**
 
@@ -307,17 +481,28 @@ The only hard rules:
 
 ## Current Games
 
-| Game       | Mechanic                                         | Score | Status |
-| ---------- | ------------------------------------------------ | ----- | ------ |
-| BitMap     | 5x5 nonogram/picross deduction puzzle            | 67/100 | Active |
-| LightsOut  | Toggle cells + neighbors to turn all lights off  | 67/100 | Active |
-| FloodFill  | Absorb colors from corner, +N gain preview       | 67/100 | Active |
-| PathWeaver | Guaranteed-solvable Hamiltonian path             | 67/100 | Active |
-| BounceOut  | Aim ball, predict bounces (short aim line)       | 63/100 | Active |
-| DropPop    | Two-tap select-then-pop, quadratic scoring       | 63/100 | Active |
-| IceSlide   | Collect gems (stopping points) + slide to goal    | 18/30  | Active |
-| ChainPop   | 3 taps, chain reactions on floating bubbles      | 60/100 | Active |
-| Claim      | Pick cells to score; claiming locks neighbors    | 63/100 | Active |
+| Game       | Mechanic                                         | Score  | Type | Status |
+| ---------- | ------------------------------------------------ | ------ | ---- | ------ |
+| BitMap     | 5x5 nonogram/picross deduction puzzle            | 67/100 | Constraint | Frozen |
+| LightsOut  | Toggle cells + neighbors to turn all lights off  | 67/100 | Constraint | Frozen |
+| FloodFill  | Absorb colors from corner, +N gain preview       | 67/100 | Optimization | Frozen |
+| PathWeaver | Guaranteed-solvable Hamiltonian path             | 67/100 | Constraint | Frozen |
+| BounceOut  | Aim ball, predict bounces (short aim line)       | 63/100 | Optimization | Frozen |
+| DropPop    | Two-tap select-then-pop, quadratic scoring       | 63/100 | Optimization | Frozen |
+| IceSlide   | Collect gems (stopping points) + slide to goal   | 18/30  | Constraint | Frozen |
+| ChainPop   | 3 taps, chain reactions on floating bubbles      | 60/100 | Optimization | Frozen |
+| Claim      | Pick cells to score; claiming locks neighbors    | 63/100 | Optimization (incommensurable) | Frozen |
+
+**Killed this session (design learnings):**
+
+| Game  | Best | Iters | Fatal Flaw | Lesson |
+| ----- | ---- | ----- | ---------- | ------ |
+| Tint  | 49   | 3     | A10: fully-visible graph coloring | Calculable costs kill insight |
+| Dig   | 41   | 2     | A11: hidden random values | Luck ≠ skill; par must use player info |
+| Bloom | 53   | 3     | Transparent greedy strategy | "Tap 4s near 4s" = one-sentence strategy |
+| Rift  | 33   | 1     | A10+P10: calculable halving | Numerical preview → scan for max |
+| Span  | 48   | 2     | Claim variant in Claim's territory | Binary blocking but same mechanic family |
+| Stack | 36   | 1     | A4: 2048 clone, d8=2 | Optimization on shrinking board = shallow |
 
 ## Architecture
 
@@ -328,7 +513,36 @@ src/
   utils/          ← seeding, scoring, stats persistence
   types.ts        ← shared types
 App.tsx           ← navigation shell with game menu
-program.md        ← this file (agent instructions + design loop)
+program.md        ← this file (agent instructions + design loop — UPDATED BY STEP 9.5)
 results.tsv       ← experiment log (scored per-dimension)
-learnings.md      ← recursive self-improvement knowledge base (READ AT STEP 0)
+learnings.md      ← recursive self-improvement knowledge base (READ AT STEP 0, UPDATED BY STEP 8.5)
 ```
+
+---
+
+## Process Log
+
+This log tracks how the design PROCESS performs across sessions. Updated by Step 9.5.
+
+| Session Date | Games Designed | Iterations | Kills | Keeps | Most Common Failure | Wasted Iters | Process Change Made |
+|---|---|---|---|---|---|---|---|
+| 2026-03-30 | 6 | 16 | 6 | 0 | A10 (fully-visible optimization) | 12 | Added: Design Introspection section, Step 2.5 litmus tests, Step 9.5 process retrospective, tighter kill rules, optimization vs constraint classification |
+
+### Explored & Exhausted Families
+
+These mechanic families have been tried multiple times without reaching 60. Do NOT design new games in these families unless you have a genuinely novel twist verified by the litmus tests.
+
+| Family | Games Tried | Best Score | Why It Failed |
+|---|---|---|---|
+| Grid pick-for-points with blocking | Claim (63 KEPT), Flip (46), Span (48), Rift (33) | 63 (Claim) | Claim occupies this space. Variants score d8 ≤ 3 |
+| Fully-visible graph optimization | Tint (49), Cross (51), Shift (48) | 51 | A10: solvable by staring, calculable costs |
+| 2048/merge variants | Stack (36) | 36 | A4: too close to existing well-known games |
+| Hidden random values | Dig (41) | 41 | A11: luck not skill, unfair par |
+
+### Mental Model Calibration
+
+Track prediction accuracy to improve your design intuition.
+
+| Session | Average Prediction | Average Actual | Delta | What Was Overvalued | What Was Undervalued |
+|---|---|---|---|---|---|
+| 2026-03-30 | ~58 | ~43 | -15 | P1 preview (assumed it always helps — it hurts when costs are calculable), mechanic novelty (unique ≠ deep) | Strategic transparency (the "one sentence strategy" test), importance of constraint satisfaction vs optimization |
