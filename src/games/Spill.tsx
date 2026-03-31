@@ -39,7 +39,7 @@ function neighbors(idx: number): number[] {
   return res;
 }
 
-/* ─── Simulate overflow cascades ─── */
+/* ─── Simulate overflow cascades (instant, for solver) ─── */
 function simulate(board: number[]): { result: number[]; overflows: number } {
   const b = [...board];
   let overflows = 0;
@@ -58,6 +58,39 @@ function simulate(board: number[]): { result: number[]; overflows: number } {
     }
   }
   return { result: b, overflows };
+}
+
+/* ─── Step-by-step cascade (for animation) ─── */
+function simulateSteps(
+  board: number[],
+): { states: number[][]; overflowCells: number[][] } {
+  const b = [...board];
+  const states: number[][] = [[...b]];
+  const overflowCells: number[][] = [];
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const waveOverflows: number[] = [];
+    // Find all cells that overflow this wave
+    for (let i = 0; i < CELLS; i++) {
+      if (b[i] >= OVERFLOW) {
+        waveOverflows.push(i);
+      }
+    }
+    if (waveOverflows.length === 0) break;
+    changed = true;
+    // Apply all overflows in this wave simultaneously
+    for (const i of waveOverflows) {
+      b[i] -= OVERFLOW;
+      for (const nb of neighbors(i)) {
+        b[nb]++;
+      }
+    }
+    overflowCells.push(waveOverflows);
+    states.push([...b]);
+  }
+  return { states, overflowCells };
 }
 
 function isSolved(board: number[]): boolean {
@@ -162,6 +195,7 @@ export default function Spill() {
   const [stats, setStatsData] = useState<Stats | null>(null);
   const [lastOverflows, setLastOverflows] = useState(0);
   const [gameRecorded, setGameRecorded] = useState(false);
+  const [animating, setAnimating] = useState(false);
 
   const solved = isSolved(board);
   const failed = !solved && taps >= moveLimit;
@@ -213,47 +247,98 @@ export default function Spill() {
     [cellScales],
   );
 
-  /* ── Tap handler ── */
+  /* ── Tap handler with animated cascades ── */
   const handleTap = useCallback(
     (idx: number) => {
-      if (gameOver) return;
+      if (gameOver || animating) return;
       bounceCell(idx);
 
       const next = [...board];
       next[idx]++;
-      const { result, overflows } = simulate(next);
+      const nextTaps = taps + 1;
 
-      // Animate overflow cells
-      if (overflows > 0) {
-        for (let i = 0; i < CELLS; i++) {
-          if (result[i] !== board[i] && i !== idx) {
-            shakeCell(i);
+      // Get step-by-step cascade
+      const { states, overflowCells } = simulateSteps(next);
+      const finalBoard = states[states.length - 1];
+      const totalOverflows = overflowCells.reduce(
+        (s, w) => s + w.length,
+        0,
+      );
+
+      if (overflowCells.length > 0) {
+        // Animate each wave with delays
+        setAnimating(true);
+        setBoard(states[0]); // show initial +1
+
+        let wave = 0;
+        const playWave = () => {
+          if (wave >= overflowCells.length) {
+            // All waves done
+            setAnimating(false);
+            setBoard(finalBoard);
+            setLastOverflows(totalOverflows);
+
+            // Check win/loss after animation
+            if (isSolved(finalBoard) && !gameRecorded) {
+              setGameRecorded(true);
+              recordGame('spill', nextTaps, par).then((s) => {
+                setStatsData(s);
+                setShowStats(true);
+              });
+            } else if (
+              nextTaps >= moveLimit &&
+              !isSolved(finalBoard) &&
+              !gameRecorded
+            ) {
+              setGameRecorded(true);
+              recordGame('spill', moveLimit + 1, par).then((s) => {
+                setStatsData(s);
+                setShowStats(true);
+              });
+            }
+            return;
           }
+
+          // Animate this wave: shake overflowing cells
+          for (const cell of overflowCells[wave]) {
+            shakeCell(cell);
+          }
+          // Show the state AFTER this wave
+          setBoard(states[wave + 1]);
+          wave++;
+          setTimeout(playWave, 250); // 250ms between waves
+        };
+
+        setTimeout(playWave, 150); // initial delay
+      } else {
+        // No overflows — just update
+        setBoard(finalBoard);
+        setLastOverflows(0);
+
+        if (isSolved(finalBoard) && !gameRecorded) {
+          setGameRecorded(true);
+          recordGame('spill', nextTaps, par).then((s) => {
+            setStatsData(s);
+            setShowStats(true);
+          });
+        } else if (
+          nextTaps >= moveLimit &&
+          !isSolved(finalBoard) &&
+          !gameRecorded
+        ) {
+          setGameRecorded(true);
+          recordGame('spill', moveLimit + 1, par).then((s) => {
+            setStatsData(s);
+            setShowStats(true);
+          });
         }
       }
 
-      const nextTaps = taps + 1;
-      setBoard(result);
       setTaps(nextTaps);
       setTapHistory((h) => [...h, idx]);
-      setBoardHistory((h) => [...h, result]);
-      setLastOverflows(overflows);
-
-      if (isSolved(result) && !gameRecorded) {
-        setGameRecorded(true);
-        recordGame('spill', nextTaps, par).then((s) => {
-          setStatsData(s);
-          setShowStats(true);
-        });
-      } else if (nextTaps >= moveLimit && !isSolved(result) && !gameRecorded) {
-        setGameRecorded(true);
-        recordGame('spill', moveLimit + 1, par).then((s) => {
-          setStatsData(s);
-          setShowStats(true);
-        });
-      }
+      setBoardHistory((h) => [...h, finalBoard]);
     },
-    [board, gameOver, taps, par, moveLimit, gameRecorded, bounceCell, shakeCell],
+    [board, gameOver, animating, taps, par, moveLimit, gameRecorded, bounceCell, shakeCell],
   );
 
   /* ── Undo ── */
@@ -413,6 +498,7 @@ export default function Spill() {
           <Text style={styles.endSub}>
             {totalFill} liquid remaining
           </Text>
+          <ShareButton text={buildShareText()} />
         </View>
       )}
 
