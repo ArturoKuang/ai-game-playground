@@ -305,6 +305,18 @@ Animated.sequence([
 
 ---
 
+### A11: Information Asymmetry Between Solver and Player
+
+**What it looks like**: Par/optimal is computed using information the player doesn't have (hidden values, full board knowledge). The player must guess, making the skill gap feel luck-dependent.
+
+**Why it fails**: Collapses d7 (skill ceiling — player can't approach par through skill alone) and d10 (aha — no deducible insights, just lucky/unlucky reveals). Creates a FAIRNESS problem: par feels unachievable.
+
+**Evidence**: Dig killed after 2 iterations (38→41). Par used full underground knowledge, but player only had column sum clues. Reviewer: "improvement feels luck-dependent" and "a human can never approach this since underground values are hidden until revealed."
+
+**Test**: Can a perfectly-playing human (given infinite time but only player-visible information) reliably reach par? If not, the information asymmetry is too large. Either give the player DEDUCIBLE clues (like Minesweeper numbers) or compute par based on player-available information.
+
+---
+
 ## Score Prediction Heuristics
 
 Use these to sanity-check rubric scores before logging. If your score disagrees with the prediction by more than 3 points, re-examine your narration.
@@ -412,3 +424,4 @@ If a game can't check 8/10 of these at design time, reconsider the mechanic.
 | 2026-03-30 | Claim kept at 63/100 — locking + P1 value preview = d3=8 | Claim v1→v6: 41→38→56→56→63→62 |
 | 2026-03-30 | Killed 10 games, key learnings: (1) variants of same template get d8=2, (2) small combinatorial spaces are exhaustible, (3) P1 with all options scannable creates brute-force not insight, (4) single-push clearing = A5 in disguise | Flip d8=2, Cross 45→51→43, Shift 46→48, Shove 42→37 |
 | 2026-03-30 | Added A10 (fully-visible optimization = planning puzzle trap) from Tint kill. P10 caveat updated with Tint evidence. | Tint 42→49→46, killed after 3 iterations |
+| 2026-03-30 | Added A11 (information asymmetry between solver and player) from Dig kill. Hidden random values = luck not skill. | Dig 38→41, killed after 2 iterations |
