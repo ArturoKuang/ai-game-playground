@@ -40,7 +40,7 @@ const REGION_EMOJI = ['🔴', '🔵', '🟢', '🟡', '🟣'];
 function getDifficulty() {
   const d = getDayDifficulty(); // 1 (Mon) – 5 (Fri)
   return {
-    maxScans: 20 - d * 2, // Mon: 18, Fri: 10
+    maxScans: 13 - d, // Mon: 12, Fri: 8 (tighter than v2)
   };
 }
 
@@ -517,8 +517,8 @@ export default function Fence() {
     >
       <Text style={styles.dayLabel}>Day #{puzzleDay}</Text>
       <Text style={styles.subtitle}>
-        🔍 Scan: tap two neighbors — same region reveals color!{'\n'}
-        🎨 Paint: assign remaining cells. {NUM_REGIONS} regions of {REGION_SIZE}.
+        Find {NUM_REGIONS} hidden regions ({REGION_SIZE} cells each).{'\n'}
+        Scan neighbors to discover boundaries & colors.
       </Text>
 
       {/* Score bar */}
@@ -640,6 +640,20 @@ export default function Fence() {
               const leftEdge = getEdgeBorder(r, c, 0, -1);
               const rightEdge = getEdgeBorder(r, c, 0, 1);
 
+              // Frontier hint: in paint mode, highlight unpainted cells
+              // adjacent to painted cells of the selected color
+              const isFrontier =
+                mode === 'paint' &&
+                !isPainted &&
+                !isWrong &&
+                !isSelected &&
+                getOrthNeighbors(key).some(
+                  (n) =>
+                    paintedCells.has(n) &&
+                    paintedCells.get(n) === selectedColor &&
+                    !wrongPaints.has(n),
+                );
+
               const bgColor = isPainted
                 ? REGION_COLORS[paintColor]
                 : isWrong
@@ -648,7 +662,9 @@ export default function Fence() {
                     ? mode === 'scan'
                       ? '#2a3a4a'
                       : REGION_COLORS_DIM[selectedColor]
-                    : '#1a1a1b';
+                    : isFrontier
+                      ? REGION_COLORS_DIM[selectedColor]
+                      : '#1a1a1b';
 
               return (
                 <Animated.View
