@@ -8,6 +8,7 @@ import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
 import Claim from './Claim';
+import Dial from './Dial';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -71,6 +72,13 @@ const games: GameMeta[] = [
     emoji: '\uD83C\uDFC6',
     description: 'Pick cells to score — neighbors shrink!',
     component: Claim,
+  },
+  {
+    id: 'dial',
+    name: 'Dial',
+    emoji: '\ud83d\udd04',
+    description: 'Discover hidden links between dials',
+    component: Dial,
   },
 ];
 export default games;
