@@ -85,3 +85,4 @@ e511e42	46	5	6	5	4	3	4	4	5	5	5	0	killed	Bloom	v3: more taps + par adjustment. WO
 a6f9549	48	7	6	5	4	3	5	4	5	5	4	0	discard	Span	New game v1: domino placement + neighbor blocking. d1=7 (best!), binary blocking helps d3. Fix: remove "blocks X pts" from preview (P10), add more spans to tighten grid.
 e7b56c8	48	7	6	5	4	3	5	4	5	5	4	0	killed	Span	v2: 4 spans + removed pts from preview. Score unchanged (48→48). KILLED — Claim variant without Claim's key ingredient. Must try a different mechanic family entirely.
 bc0873a	36	7	5	3	3	2	4	3	2	4	3	0	killed	Stack	New game v1: 2048 without spawning + move limit. KILLED after 1 iteration. d8=2 — clone without twist. Decision space collapses as board shrinks. Need CONSTRAINT SATISFACTION, not optimization.
+f6bbcee	24	4	2	4	2	2	3	3	1	3	3	1	killed	Walls	Slitherlink clone (A4). Hidden win condition (target wall count not shown). No animations, no unique solution guarantee. Mercy kill: v1 < 40 + A4 red flag.
