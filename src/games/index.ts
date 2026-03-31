@@ -8,6 +8,7 @@ import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
 import Claim from './Claim';
+import Scale from './Scale';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -71,6 +72,13 @@ const games: GameMeta[] = [
     emoji: '\uD83C\uDFC6',
     description: 'Pick cells to score — neighbors shrink!',
     component: Claim,
+  },
+  {
+    id: 'scale',
+    name: 'Scale',
+    emoji: '⚖️',
+    description: 'Balance the beam with weights',
+    component: Scale,
   },
 ];
 export default games;
