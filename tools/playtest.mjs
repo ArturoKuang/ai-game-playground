@@ -88,7 +88,7 @@ async function cmdStart(gameId) {
 
   const browser = await puppeteer.launch({
     headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'],
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu', '--disable-singleton-lock'],
   });
 
   // Save WebSocket endpoint for reconnection

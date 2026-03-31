@@ -35,7 +35,7 @@ function getDifficulty() {
   const d = getDayDifficulty(); // 1 (Mon) – 5 (Fri)
   return {
     numTargets: 3 + d,    // Mon: 4, Fri: 8
-    maxProbes: 14 - d,    // Mon: 13, Fri: 9
+    maxProbes: 12 - d,    // Mon: 11, Fri: 7 (tighter than v1)
   };
 }
 
@@ -461,6 +461,48 @@ export default function Probe() {
 
   const probesLeft = diff.maxProbes - probesUsed;
 
+  /* ─── Row/column target counts (nonogram-style clues) ─── */
+  const rowCounts = useMemo(() => {
+    return Array.from({ length: SIZE }, (_, r) => {
+      let count = 0;
+      for (let c = 0; c < SIZE; c++) {
+        if (targets.has(r * SIZE + c)) count++;
+      }
+      return count;
+    });
+  }, [targets]);
+
+  const colCounts = useMemo(() => {
+    return Array.from({ length: SIZE }, (_, c) => {
+      let count = 0;
+      for (let r = 0; r < SIZE; r++) {
+        if (targets.has(r * SIZE + c)) count++;
+      }
+      return count;
+    });
+  }, [targets]);
+
+  /* Row solved status (flagged targets = row count) */
+  const rowSolved = useMemo(() => {
+    return Array.from({ length: SIZE }, (_, r) => {
+      let flagCount = 0;
+      for (let c = 0; c < SIZE; c++) {
+        if (flagged.has(r * SIZE + c)) flagCount++;
+      }
+      return flagCount >= rowCounts[r];
+    });
+  }, [flagged, rowCounts]);
+
+  const colSolved = useMemo(() => {
+    return Array.from({ length: SIZE }, (_, c) => {
+      let flagCount = 0;
+      for (let r = 0; r < SIZE; r++) {
+        if (flagged.has(r * SIZE + c)) flagCount++;
+      }
+      return flagCount >= colCounts[c];
+    });
+  }, [flagged, colCounts]);
+
   return (
     <ScrollView
       style={styles.scroll}
@@ -469,7 +511,7 @@ export default function Probe() {
       {/* Header */}
       <Text style={styles.dayLabel}>Day #{puzzleDay}</Text>
       <Text style={styles.subtitle}>
-        Probe to reveal clues. Flag the {diff.numTargets} hidden targets.
+        Probe cells for clues. Flag the {diff.numTargets} hidden targets.
       </Text>
 
       {/* Score bar */}
@@ -536,8 +578,9 @@ export default function Probe() {
         </Pressable>
       </View>
 
-      {/* Grid */}
-      <View style={[styles.gridContainer, { width: gridWidth }]}>
+      {/* Grid with row/col clues */}
+      <View style={[styles.gridOuter, { width: gridWidth + 28 }]}>
+        {/* Grid rows */}
         {Array.from({ length: SIZE }, (_, r) => (
           <View key={r} style={styles.gridRow}>
             {Array.from({ length: SIZE }, (_, c) => {
@@ -613,8 +656,34 @@ export default function Probe() {
                 </Animated.View>
               );
             })}
+            {/* Row target count */}
+            <View style={[styles.rowClue, { height: cellSize }]}>
+              <Text
+                style={[
+                  styles.rowClueText,
+                  rowSolved[r] && styles.clueSolved,
+                ]}
+              >
+                {rowCounts[r]}
+              </Text>
+            </View>
           </View>
         ))}
+        {/* Column target counts */}
+        <View style={styles.colClueRow}>
+          {Array.from({ length: SIZE }, (_, c) => (
+            <View key={c} style={[styles.colClue, { width: cellSize }]}>
+              <Text
+                style={[
+                  styles.colClueText,
+                  colSolved[c] && styles.clueSolved,
+                ]}
+              >
+                {colCounts[c]}
+              </Text>
+            </View>
+          ))}
+        </View>
       </View>
 
       {/* Game over */}
@@ -720,10 +789,40 @@ const styles = StyleSheet.create({
   modeBtnTextActive: {
     color: '#ffffff',
   },
-  gridContainer: { alignSelf: 'center' },
+  gridOuter: { alignSelf: 'center' },
   gridRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: GAP,
+  },
+  rowClue: {
+    width: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 4,
+  },
+  rowClueText: {
+    color: '#e67e22',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  colClueRow: {
+    flexDirection: 'row',
+    marginTop: 2,
+  },
+  colClue: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 22,
+    marginRight: GAP,
+  },
+  colClueText: {
+    color: '#e67e22',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  clueSolved: {
+    color: '#2ecc71',
   },
   cell: {
     borderRadius: 6,
