@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -169,9 +169,9 @@ function solve(
 /* ─── Puzzle generation ─── */
 function generatePuzzle(seed: number) {
   const d = getDayDifficulty();
-  const size = d <= 3 ? 5 : 6; // Mon-Wed:5, Thu-Fri:6
+  const size = d <= 2 ? 6 : 7; // Mon-Tue:6, Wed-Fri:7
 
-  for (let attempt = 0; attempt < 200; attempt++) {
+  for (let attempt = 0; attempt < 500; attempt++) {
     const rng = seededRandom(seed + attempt * 997);
     const regions = generateRegions(rng, size);
 
@@ -210,9 +210,22 @@ export default function Star() {
   const totalCells = size * size;
 
   const [placed, setPlaced] = useState<Set<number>>(() => new Set());
+  const [marks, setMarks] = useState<Set<number>>(() => new Set()); // pencil X marks
+  const [markMode, setMarkMode] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [stats, setStatsData] = useState<Stats | null>(null);
   const [locked, setLocked] = useState(false);
+  const [moveCount, setMoveCount] = useState(0);
+  const [startTime] = useState(() => Date.now());
+  const [solveTime, setSolveTime] = useState<number | null>(null);
+
+  /* ── Timer display ── */
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (locked) return;
+    const iv = setInterval(() => setElapsed(Math.floor((Date.now() - startTime) / 1000)), 1000);
+    return () => clearInterval(iv);
+  }, [startTime, locked]);
 
   /* ── Check solution ── */
   const solved = useMemo(() => {
@@ -282,7 +295,7 @@ export default function Star() {
 
   /* ── Animations ── */
   const cellScales = useRef(
-    Array.from({ length: 36 }, () => new Animated.Value(1)),
+    Array.from({ length: 49 }, () => new Animated.Value(1)),
   ).current;
 
   const bounce = useCallback(
@@ -310,25 +323,57 @@ export default function Star() {
     (idx: number) => {
       if (locked) return;
       bounce(idx);
-      setPlaced((prev) => {
-        const next = new Set(prev);
-        if (next.has(idx)) {
-          next.delete(idx);
-        } else {
-          next.add(idx);
-        }
-        return next;
-      });
+      setMoveCount((m) => m + 1);
+
+      if (markMode) {
+        // Pencil mode: toggle X mark
+        setMarks((prev) => {
+          const next = new Set(prev);
+          if (next.has(idx)) next.delete(idx);
+          else next.add(idx);
+          return next;
+        });
+        // Remove star if present
+        setPlaced((prev) => {
+          if (prev.has(idx)) {
+            const next = new Set(prev);
+            next.delete(idx);
+            return next;
+          }
+          return prev;
+        });
+      } else {
+        // Star mode: toggle star
+        setPlaced((prev) => {
+          const next = new Set(prev);
+          if (next.has(idx)) next.delete(idx);
+          else next.add(idx);
+          return next;
+        });
+        // Remove mark if present
+        setMarks((prev) => {
+          if (prev.has(idx)) {
+            const next = new Set(prev);
+            next.delete(idx);
+            return next;
+          }
+          return prev;
+        });
+      }
     },
-    [locked, bounce],
+    [locked, bounce, markMode],
   );
 
   /* ── Auto-record on solve ── */
   const prevSolved = useRef(false);
   if (solved && !prevSolved.current && !locked) {
     prevSolved.current = true;
+    const time = Math.floor((Date.now() - startTime) / 1000);
+    setSolveTime(time);
     setLocked(true);
-    recordGame('star', placed.size, size).then((s) => {
+    // Par time: 30s for 6x6, 60s for 7x7
+    const parTime = size <= 6 ? 30 : 60;
+    recordGame('star', time, parTime).then((s) => {
       setStatsData(s);
       setShowStats(true);
     });
@@ -354,21 +399,32 @@ export default function Star() {
 
   /* ── Share text ── */
   function buildShareText() {
+    const time = solveTime ?? elapsed;
+    const mins = Math.floor(time / 60);
+    const secs = time % 60;
+    const timeStr = mins > 0 ? `${mins}m${secs}s` : `${secs}s`;
+    // Show region pattern (no solution spoiler)
     const rows: string[] = [];
     for (let r = 0; r < size; r++) {
       let row = '';
       for (let c = 0; c < size; c++) {
-        const idx = r * size + c;
-        row += placed.has(idx) ? '\u2b50' : '\u2b1b';
+        const reg = regions[r * size + c];
+        row += ['\ud83d\udfe5', '\ud83d\udfe6', '\ud83d\udfe9', '\ud83d\udfe8', '\ud83d\udfe3', '\u2b1b', '\ud83d\udfe7', '\u2b1c'][reg % 8];
       }
       rows.push(row);
     }
     return [
       `Star Day #${puzzleDay} \u2b50`,
-      `${size}\u00d7${size} \u2022 ${size} regions`,
+      `${size}\u00d7${size} \u2022 ${timeStr} \u2022 ${moveCount} moves`,
       ...rows,
       solved ? '\u2b50 Solved!' : '',
     ].join('\n');
+  }
+
+  function formatTime(s: number): string {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return m > 0 ? `${m}:${String(sec).padStart(2, '0')}` : `${sec}s`;
   }
 
   return (
@@ -385,18 +441,37 @@ export default function Star() {
         Place 1 star per row, column, and region. Stars can&apos;t touch.
       </Text>
 
-      {/* Progress */}
+      {/* Progress + timer + mode toggle */}
       <View style={styles.progressBar}>
         <Text style={styles.progressText}>
           {'\u2b50'} {placed.size}/{size}
         </Text>
+        <Text style={styles.timerText}>
+          {'\u23f1'} {formatTime(locked ? (solveTime ?? elapsed) : elapsed)}
+        </Text>
         {conflicts.size > 0 && (
           <Text style={styles.conflictText}>
-            {'\u26a0'} {conflicts.size} conflict
-            {conflicts.size > 1 ? 's' : ''}
+            {'\u26a0'} {conflicts.size}
           </Text>
         )}
       </View>
+      {/* Pencil mode toggle */}
+      {!locked && (
+        <View style={styles.modeBar}>
+          <Pressable
+            onPress={() => setMarkMode(false)}
+            style={[styles.modeBtn, !markMode && styles.modeBtnActive]}
+          >
+            <Text style={styles.modeBtnText}>{'\u2b50'} Star</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setMarkMode(true)}
+            style={[styles.modeBtn, markMode && styles.modeBtnActive]}
+          >
+            <Text style={styles.modeBtnText}>{'\u2716'} Mark</Text>
+          </Pressable>
+        </View>
+      )}
 
       {/* Grid */}
       <View style={styles.grid}>
@@ -458,6 +533,9 @@ export default function Star() {
                         {'\u2b50'}
                       </Text>
                     )}
+                    {marks.has(idx) && !hasStar && (
+                      <Text style={styles.mark}>{'\u2716'}</Text>
+                    )}
                   </Pressable>
                 </Animated.View>
               );
@@ -471,7 +549,10 @@ export default function Star() {
       {solved && (
         <View style={styles.endMsg}>
           <Text style={styles.endEmoji}>{'\ud83c\udf1f'}</Text>
-          <Text style={styles.endText}>All stars placed!</Text>
+          <Text style={styles.endText}>
+            Solved in {formatTime(solveTime ?? elapsed)}!
+          </Text>
+          <Text style={styles.endSub}>{moveCount} moves</Text>
           <ShareButton text={buildShareText()} />
         </View>
       )}
@@ -526,7 +607,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   progressText: { color: '#f1c40f', fontSize: 16, fontWeight: '700' },
+  timerText: { color: '#818384', fontSize: 14, fontWeight: '600' },
   conflictText: { color: '#e74c3c', fontSize: 14, fontWeight: '600' },
+  modeBar: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  modeBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#2a2a2c',
+    borderWidth: 2,
+    borderColor: '#3a3a3c',
+  },
+  modeBtnActive: { borderColor: '#6aaa64', backgroundColor: '#1e331e' },
+  modeBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   grid: { gap: 0 },
   gridRow: { flexDirection: 'row', gap: 0 },
   cell: {
@@ -535,6 +628,8 @@ const styles = StyleSheet.create({
   },
   star: { fontSize: 22 },
   starConflict: { opacity: 0.5 },
+  mark: { fontSize: 14, color: 'rgba(255,255,255,0.4)' },
+  endSub: { color: '#818384', fontSize: 13, marginTop: 4 },
   endMsg: { alignItems: 'center', marginTop: 20 },
   endEmoji: { fontSize: 48 },
   endText: {
