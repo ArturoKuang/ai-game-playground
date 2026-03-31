@@ -8,7 +8,6 @@ import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
 import Claim from './Claim';
-import Flow from './Flow';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -72,13 +71,6 @@ const games: GameMeta[] = [
     emoji: '\uD83C\uDFC6',
     description: 'Pick cells to score — neighbors shrink!',
     component: Claim,
-  },
-  {
-    id: 'flow',
-    name: 'Flow',
-    emoji: '\ud83c\udf0a',
-    description: 'Connect matching dots — fill every cell',
-    component: Flow,
   },
 ];
 export default games;
