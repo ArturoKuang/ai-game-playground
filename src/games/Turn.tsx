@@ -36,7 +36,7 @@ const DIR_COLORS = ['#3498db', '#2ecc71', '#e67e22', '#e74c3c'];
 function getDifficulty() {
   const d = getDayDifficulty(); // 1 (Mon) – 5 (Fri)
   return {
-    scrambleMoves: 2 + d * 2, // Mon: 4, Fri: 12
+    scrambleMoves: 1 + d, // Mon: 2, Fri: 6 (much easier than v1)
   };
 }
 
@@ -120,6 +120,7 @@ export default function Turn() {
 
   /* State */
   const [grid, setGrid] = useState<number[]>(() => [...puzzle.grid]);
+  const [history, setHistory] = useState<number[][]>(() => []);
   const [moves, setMoves] = useState(0);
   const [gameOver, setGameOver] = useState(false);
   const [showStats, setShowStats] = useState(false);
@@ -150,6 +151,7 @@ export default function Turn() {
       const allAffected = [key, ...targets];
 
       // Apply tap
+      setHistory([...history, grid]);
       const newGrid = applyTap(grid, key);
       setGrid(newGrid);
       setMoves(moves + 1);
@@ -183,8 +185,17 @@ export default function Turn() {
         });
       }
     },
-    [gameOver, grid, moves, puzzle.par, cellScales],
+    [gameOver, grid, history, moves, puzzle.par, cellScales],
   );
+
+  /* ─── Undo ─── */
+  const handleUndo = useCallback(() => {
+    if (gameOver || history.length === 0) return;
+    const prev = history[history.length - 1];
+    setGrid(prev);
+    setHistory(history.slice(0, -1));
+    setMoves(moves + 1); // Undo costs a move
+  }, [gameOver, history, moves]);
 
   const handleShowStats = useCallback(async () => {
     const s = await loadStats('turn');
@@ -194,11 +205,14 @@ export default function Turn() {
 
   /* ─── Share text ─── */
   function buildShareText(): string {
+    const ARROW_EMOJI = ['⬆️', '➡️', '⬇️', '⬅️'];
     const status = moves <= puzzle.par ? '⚡' : '';
-    return `🔄 Turn — Day #${puzzleDay} ${status}\n${moves} moves (par ${puzzle.par})\n\n${Array.from({ length: SIZE }, (_, r) =>
-      Array.from({ length: SIZE }, (_, c) => '↑')
-        .join('')
-    ).join('\n')}\n\nAll arrows aligned!`;
+    const puzzleGrid = Array.from({ length: SIZE }, (_, r) =>
+      Array.from({ length: SIZE }, (_, c) =>
+        ARROW_EMOJI[puzzle.grid[r * SIZE + c]],
+      ).join(''),
+    ).join('\n');
+    return `🔄 Turn — Day #${puzzleDay} ${status}\n${moves} moves (par ${puzzle.par})\n\n${puzzleGrid}`;
   }
 
   const handleShowStats2 = handleShowStats;
@@ -239,6 +253,13 @@ export default function Turn() {
           <Text style={styles.statsBtnText}>📊</Text>
         </Pressable>
       </View>
+
+      {/* Undo button */}
+      {!gameOver && history.length > 0 && (
+        <Pressable style={styles.undoBtn} onPress={handleUndo}>
+          <Text style={styles.undoBtnText}>↩ Undo (+1 move)</Text>
+        </Pressable>
+      )}
 
       {/* Grid */}
       <View style={[styles.gridContainer, { width: gridWidth }]}>
@@ -357,6 +378,20 @@ const styles = StyleSheet.create({
   scoreValue: { color: '#ffffff', fontSize: 20, fontWeight: '700' },
   statsBtn: { padding: 6 },
   statsBtnText: { fontSize: 18 },
+  undoBtn: {
+    backgroundColor: '#2a2a2c',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#3a3a3c',
+  },
+  undoBtnText: {
+    color: '#818384',
+    fontSize: 13,
+    fontWeight: '600',
+  },
   gridContainer: { alignSelf: 'center' },
   gridRow: {
     flexDirection: 'row',
