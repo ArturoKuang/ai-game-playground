@@ -119,7 +119,9 @@ Check the occupied families:
 - Deduction (BitMap)
 - Territory claiming (Claim)
 
-**Unoccupied families** worth exploring: grouping/categorization, spatial packing, sequencing/ordering, loop/network drawing, constraint propagation.
+**Unoccupied families** worth exploring: grouping/categorization, sequencing/ordering, loop/network drawing, constraint propagation.
+
+**Tried and failed**: spatial packing (Fit: 47→39, fully-visible constraints = A10 on tight-clue puzzles).
 
 If your new game is a variant of an occupied family (e.g., another grid-based pick-for-points game in Claim's space), it will score d8 ≤ 3 and likely die. The collection needs DIVERSITY, not depth in one family.
 
@@ -220,6 +222,7 @@ Write a short hypothesis: _"I expect [change] will [improve metric] because [rea
 Also verify:
 - Is this **constraint satisfaction** or **optimization**? If optimization, confirm the costs are incommensurable per the Incommensurable Cost Principle.
 - **Play 5 turns mentally.** Narrate what a smart player thinks. If their reasoning is purely arithmetic ("7 > 5, pick 7"), the decisions are too shallow.
+- **Effective branching factor test (constraint satisfaction only)**: When clues are tight enough for a unique solution, most theoretical positions are invalid. Count ACTUAL valid options at each step after constraint propagation. If average < 3, the puzzle is A10 in disguise despite a large theoretical space. (Evidence: Fit 6×6 with 3 shapes had 100k+ theoretical positions but ~2-3 valid positions per shape after clue pruning. Scored 39.)
 
 If any test fails, go back to Step 2 with a different concept. Do NOT proceed to implementation.
 
@@ -527,6 +530,7 @@ This log tracks how the design PROCESS performs across sessions. Updated by Step
 | Session Date | Games Designed | Iterations | Kills | Keeps | Most Common Failure | Wasted Iters | Process Change Made |
 |---|---|---|---|---|---|---|---|
 | 2026-03-30 | 6 | 16 | 6 | 0 | A10 (fully-visible optimization) | 12 | Added: Design Introspection section, Step 2.5 litmus tests, Step 9.5 process retrospective, tighter kill rules, optimization vs constraint classification |
+| 2026-03-30b | 2 | 3 | 2 | 0 | A10 (fully-visible constraint satisfaction) + A4 (clone) | 3 | Added: effective branching factor test for constraint satisfaction, spatial packing to exhausted families |
 
 ### Explored & Exhausted Families
 
@@ -538,6 +542,8 @@ These mechanic families have been tried multiple times without reaching 60. Do N
 | Fully-visible graph optimization | Tint (49), Cross (51), Shift (48) | 51 | A10: solvable by staring, calculable costs |
 | 2048/merge variants | Stack (36) | 36 | A4: too close to existing well-known games |
 | Hidden random values | Dig (41) | 41 | A11: luck not skill, unfair par |
+| Spatial packing + clues | Fit (47→39) | 47 | Tight clues prune search space to ~3 valid options; A10 despite large theoretical space |
+| Edge-based constraint (Slitherlink) | Walls (24) | 24 | A4: well-known Nikoli puzzle clone |
 
 ### Mental Model Calibration
 
@@ -546,3 +552,4 @@ Track prediction accuracy to improve your design intuition.
 | Session | Average Prediction | Average Actual | Delta | What Was Overvalued | What Was Undervalued |
 |---|---|---|---|---|---|
 | 2026-03-30 | ~58 | ~43 | -15 | P1 preview (assumed it always helps — it hurts when costs are calculable), mechanic novelty (unique ≠ deep) | Strategic transparency (the "one sentence strategy" test), importance of constraint satisfaction vs optimization |
+| 2026-03-30b | ~50 | ~35 | -15 | Theoretical search space (100k positions ≠ 100k valid positions), combination novelty (A+B ≠ novel if both A and B are well-known) | Effective branching factor after constraint propagation, A10 applies to constraint satisfaction too (not just optimization) |

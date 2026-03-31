@@ -303,6 +303,8 @@ Animated.sequence([
 
 **Test**: Can the player solve the puzzle by staring at the board before touching anything? If yes, the game lacks execution uncertainty. Good games reveal information THROUGH play (Wordle: guess → feedback, Minesweeper: click → revealed, Claim: pick → lock cascade).
 
+**Extended evidence**: A10 also applies to constraint satisfaction puzzles, not just optimization. Fit (polyomino packing + row/col clues) scored 47→39 because tight uniqueness constraints pruned the theoretical search space (100k+ positions) to ~2-3 valid options per shape. The player solved the puzzle entirely through pre-play analysis. **Key insight**: the effective branching factor (after constraint propagation) matters, not the theoretical one.
+
 ---
 
 ### A11: Information Asymmetry Between Solver and Player
@@ -413,8 +415,9 @@ Before building a new game, verify it has:
 - [ ] **Not A10** — player cannot solve by staring before touching (Design Introspection Stare Test)
 - [ ] **No dominant strategy** — best approach cannot be described in one sentence (Design Introspection Test 1)
 - [ ] **Correct puzzle type** — if optimization, costs are incommensurable per P10; if constraint satisfaction, constraints couple non-trivially
+- [ ] **Effective branching factor > 3** — for constraint satisfaction, count ACTUAL valid options per step after constraint propagation, not theoretical positions. Tight uniqueness clues can prune 99% of options, making A10 apply despite large boards (Fit: 6×6 grid, 100k+ theoretical positions, ~3 actual valid options per shape = A10)
 
-If a game can't check 10/13 of these at design time, reconsider the mechanic. The last 3 items are the most important — they predict the 40-vs-60 split that the first 10 cannot.
+If a game can't check 11/14 of these at design time, reconsider the mechanic. The last 4 items are the most important — they predict the 40-vs-60 split that the first 10 cannot.
 
 ---
 
