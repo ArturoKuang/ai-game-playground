@@ -118,6 +118,40 @@ export default function Seek() {
   const guessesLeft = puzzle.maxGuesses - guessCount;
   const gemsLeft = puzzle.numGems - foundGems.size;
 
+  /* Candidate cells: unrevealed cells that COULD contain an unfound gem
+     based on fresh distance readings (not stale). Shows search space shrinking. */
+  const candidates = useMemo(() => {
+    if (gameOver) return new Set<string>();
+    const valid = new Set<string>();
+    // Collect fresh misses (recorded after most recent gem find)
+    const freshMisses: { r: number; c: number; dist: number }[] = [];
+    for (const [mk, state] of cells) {
+      if (state.type !== 'miss') continue;
+      if (state.foundAtTime < foundGems.size) continue; // stale
+      const [mr, mc] = mk.split(',').map(Number);
+      freshMisses.push({ r: mr, c: mc, dist: state.distance });
+    }
+    for (let r = 0; r < GRID; r++) {
+      for (let c = 0; c < GRID; c++) {
+        const key = cellKey(r, c);
+        if (cells.has(key)) continue; // already revealed
+        // Check: could this cell have a gem?
+        // For each fresh miss, the gem must be at least dist away from miss position
+        let possible = true;
+        for (const miss of freshMisses) {
+          if (manhattan(r, c, miss.r, miss.c) < miss.dist) {
+            possible = false;
+            break;
+          }
+        }
+        if (possible) valid.add(key);
+      }
+    }
+    return valid;
+  }, [cells, foundGems.size, gameOver]);
+
+  const candidateCount = candidates.size;
+
   // Animation refs
   const scaleRefs = useRef<Map<string, Animated.Value>>(new Map());
   function getScale(key: string): Animated.Value {
@@ -293,6 +327,14 @@ export default function Seek() {
           <Text style={styles.infoLabel}>Par</Text>
           <Text style={styles.infoValue}>{puzzle.par}</Text>
         </View>
+        {candidateCount > 0 && candidateCount < 36 && !gameOver && (
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Possible</Text>
+            <Text style={[styles.infoValue, { fontSize: 18 }]}>
+              {candidateCount}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Grid */}
@@ -310,9 +352,14 @@ export default function Seek() {
               const dist = missState?.distance ?? 0;
               const isStale = missState ? missState.foundAtTime < foundGems.size : false;
 
-              let bgColor = '#2a2a2c'; // hidden
+              const isCandidate = isHidden && candidates.has(key);
+              const isEliminated = isHidden && !candidates.has(key) && candidates.size > 0;
+
+              let bgColor = '#2a2a2c'; // hidden default
               if (isGem) bgColor = '#9b59b6';
               else if (isMiss) bgColor = isStale ? '#1a1a1c' : distColor(dist) + '33';
+              else if (isCandidate) bgColor = '#1a2a3a'; // subtle blue tint
+              else if (isEliminated) bgColor = '#181818'; // dimmed
 
               return (
                 <Pressable
@@ -331,7 +378,11 @@ export default function Seek() {
                           ? (isStale ? '#444' : distColor(dist))
                           : isGem
                             ? '#9b59b6'
-                            : '#3a3a3c',
+                            : isCandidate
+                              ? '#3a5a7a'
+                              : isEliminated
+                                ? '#252525'
+                                : '#3a3a3c',
                         borderWidth: isMiss || isGem ? 2 : 1,
                         transform: [{ scale }],
                       },
@@ -349,7 +400,11 @@ export default function Seek() {
                       </Text>
                     )}
                     {isHidden && !gameOver && (
-                      <Text style={styles.hiddenDot}>{'\u00B7'}</Text>
+                      <Text style={[
+                        styles.hiddenDot,
+                        isCandidate && styles.candidateDot,
+                        isEliminated && styles.eliminatedDot,
+                      ]}>{isCandidate ? '\u25C6' : '\u00B7'}</Text>
                     )}
                   </Animated.View>
                 </Pressable>
@@ -457,6 +512,14 @@ const styles = StyleSheet.create({
   hiddenDot: {
     fontSize: 18,
     color: '#555',
+  },
+  candidateDot: {
+    color: '#5a8ab5',
+    fontSize: 14,
+  },
+  eliminatedDot: {
+    color: '#333',
+    fontSize: 14,
   },
   legend: {
     marginTop: 12,
