@@ -9,6 +9,7 @@ import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
 import Claim from './Claim';
+import Span from './Span';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -72,6 +73,13 @@ const games: GameMeta[] = [
     emoji: '\uD83C\uDFC6',
     description: 'Pick cells to score — neighbors shrink!',
     component: Claim,
+  },
+  {
+    id: 'span',
+    name: 'Span',
+    emoji: '\uD83E\uDDF1',
+    description: 'Place spans on pairs \u2014 neighbors get blocked!',
+    component: Span,
   },
 ];
 
