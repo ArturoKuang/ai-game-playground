@@ -265,22 +265,67 @@ export default function Fence() {
           setScansUsed(scansUsed + 1);
           setSelectedCell(null);
 
-          // Animate both cells
-          [selectedCell, key].forEach((k) => {
-            Animated.sequence([
-              Animated.timing(cellScales[k], {
-                toValue: 1.15,
-                duration: 60,
-                useNativeDriver: true,
-              }),
-              Animated.spring(cellScales[k], {
-                toValue: 1,
-                friction: 3,
-                tension: 200,
-                useNativeDriver: true,
-              }),
-            ]).start();
-          });
+          if (sameRegion) {
+            // SAME REGION: reveal color of both cells!
+            const regionColor = regions[selectedCell];
+            const newPainted = new Map(paintedCells);
+            newPainted.set(selectedCell, regionColor);
+            newPainted.set(key, regionColor);
+            setPaintedCells(newPainted);
+
+            // Bounce both cells
+            [selectedCell, key].forEach((k) => {
+              Animated.sequence([
+                Animated.timing(cellScales[k], {
+                  toValue: 1.25,
+                  duration: 80,
+                  useNativeDriver: true,
+                }),
+                Animated.spring(cellScales[k], {
+                  toValue: 1,
+                  friction: 3,
+                  tension: 200,
+                  useNativeDriver: true,
+                }),
+              ]).start();
+            });
+
+            // Check win
+            let newCorrect = 0;
+            newPainted.forEach((color, cell) => {
+              if (regions[cell] === color) newCorrect++;
+            });
+            if (newCorrect === SIZE * SIZE) {
+              setGameOver(true);
+              setWon(true);
+              recordGame(
+                'fence',
+                scansUsed + 1,
+                diff.maxScans,
+                false,
+              ).then((s) => {
+                setStats(s);
+                setShowStats(true);
+              });
+            }
+          } else {
+            // DIFFERENT REGIONS: just show the boundary
+            [selectedCell, key].forEach((k) => {
+              Animated.sequence([
+                Animated.timing(cellScales[k], {
+                  toValue: 1.1,
+                  duration: 60,
+                  useNativeDriver: true,
+                }),
+                Animated.spring(cellScales[k], {
+                  toValue: 1,
+                  friction: 4,
+                  tension: 200,
+                  useNativeDriver: true,
+                }),
+              ]).start();
+            });
+          }
 
           // Auto-switch to paint when scans depleted
           if (scansUsed + 1 >= diff.maxScans) {
@@ -472,8 +517,8 @@ export default function Fence() {
     >
       <Text style={styles.dayLabel}>Day #{puzzleDay}</Text>
       <Text style={styles.subtitle}>
-        🔍 Scan: tap two adjacent cells to check if same region{'\n'}
-        🎨 Paint: color each cell by its region ({REGION_SIZE} cells each)
+        🔍 Scan: tap two neighbors — same region reveals color!{'\n'}
+        🎨 Paint: assign remaining cells. {NUM_REGIONS} regions of {REGION_SIZE}.
       </Text>
 
       {/* Score bar */}
@@ -665,6 +710,32 @@ export default function Fence() {
         </View>
       )}
 
+      {/* Reveal solution on loss */}
+      {gameOver && !won && (
+        <View style={styles.revealBox}>
+          <Text style={styles.revealTitle}>Solution:</Text>
+          <View style={[styles.revealGrid, { width: gridWidth }]}>
+            {Array.from({ length: SIZE }, (_, r) => (
+              <View key={r} style={styles.revealRow}>
+                {Array.from({ length: SIZE }, (_, c) => (
+                  <View
+                    key={c}
+                    style={[
+                      styles.revealCell,
+                      {
+                        width: cellSize,
+                        height: Math.floor(cellSize * 0.6),
+                        backgroundColor: REGION_COLORS[regions[r * SIZE + c]],
+                      },
+                    ]}
+                  />
+                ))}
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
       <CelebrationBurst show={gameOver && won && lives === MAX_LIVES} />
 
       {stats && showStats && (
@@ -769,6 +840,24 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
   },
+  revealBox: {
+    alignItems: 'center',
+    marginBottom: 12,
+    padding: 10,
+    backgroundColor: '#1a1a1b',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#3a3a3c',
+  },
+  revealTitle: {
+    color: '#818384',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  revealGrid: { alignSelf: 'center' },
+  revealRow: { flexDirection: 'row' },
+  revealCell: { borderRadius: 2, margin: 1 },
   resultBox: {
     alignItems: 'center',
     marginTop: 16,
