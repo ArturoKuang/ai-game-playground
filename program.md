@@ -84,7 +84,7 @@ Every puzzle game is one of these. Know which you're building.
 | **Examples (world)** | Wordle, Sudoku, Picross, Connections | 2048, Threes!, Mini Metro |
 | **Failure mode** | Too easy if constraints don't couple (A8) | Strategy transparent if costs are calculable (A10) |
 
-**Default to constraint satisfaction.** Of 6 optimization games designed in one session, 0 reached 60. Optimization only works when the cost of each action is INCOMMENSURABLE — it depends on your future plan, which you haven't decided yet (see Claim's locking mechanic). If you can show the exact point delta of each option, the game becomes "scan for max number" and dies.
+**UPDATED**: Constraint satisfaction with FULL VISIBILITY fails too — 3 consecutive kills (Walls 24, Fit 47→39, Coil 23) all scored A10 because the player can solve by staring. Full-visibility constraint satisfaction only works when constraints create EXPONENTIAL coupling (LightsOut's 2^25 states, BitMap's row×column intersection). For new games, prefer **hidden information revealed through play** (like Wordle/Minesweeper) — this inherently defeats A10.
 
 ### Three Litmus Tests (Before Writing Any Code)
 
@@ -530,7 +530,7 @@ This log tracks how the design PROCESS performs across sessions. Updated by Step
 | Session Date | Games Designed | Iterations | Kills | Keeps | Most Common Failure | Wasted Iters | Process Change Made |
 |---|---|---|---|---|---|---|---|
 | 2026-03-30 | 6 | 16 | 6 | 0 | A10 (fully-visible optimization) | 12 | Added: Design Introspection section, Step 2.5 litmus tests, Step 9.5 process retrospective, tighter kill rules, optimization vs constraint classification |
-| 2026-03-30b | 2 | 3 | 2 | 0 | A10 (fully-visible constraint satisfaction) + A4 (clone) | 3 | Added: effective branching factor test for constraint satisfaction, spatial packing to exhausted families |
+| 2026-03-30b | 3 | 4 | 3 | 0 | A10 (fully-visible constraint satisfaction) | 4 | Added: effective branching factor test, spatial packing + loop/network to exhausted families, hidden-info requirement for new games |
 
 ### Explored & Exhausted Families
 
@@ -544,6 +544,7 @@ These mechanic families have been tried multiple times without reaching 60. Do N
 | Hidden random values | Dig (41) | 41 | A11: luck not skill, unfair par |
 | Spatial packing + clues | Fit (47→39) | 47 | Tight clues prune search space to ~3 valid options; A10 despite large theoretical space |
 | Edge-based constraint (Slitherlink) | Walls (24) | 24 | A4: well-known Nikoli puzzle clone |
+| Path deduction (adjacency clues) | Coil (23) | 23 | A10 + solver bug. Fully-visible path constraints solvable by staring |
 
 ### Mental Model Calibration
 
@@ -552,4 +553,4 @@ Track prediction accuracy to improve your design intuition.
 | Session | Average Prediction | Average Actual | Delta | What Was Overvalued | What Was Undervalued |
 |---|---|---|---|---|---|
 | 2026-03-30 | ~58 | ~43 | -15 | P1 preview (assumed it always helps — it hurts when costs are calculable), mechanic novelty (unique ≠ deep) | Strategic transparency (the "one sentence strategy" test), importance of constraint satisfaction vs optimization |
-| 2026-03-30b | ~50 | ~35 | -15 | Theoretical search space (100k positions ≠ 100k valid positions), combination novelty (A+B ≠ novel if both A and B are well-known) | Effective branching factor after constraint propagation, A10 applies to constraint satisfaction too (not just optimization) |
+| 2026-03-30b | ~50 | ~30 | -20 | Full-visibility constraint satisfaction (assumed cascading clues prevent staring — they don't), path-based mechanics (still solvable by pre-play analysis) | A10 is the dominant failure mode for ALL fully-visible puzzles (optimization AND constraint satisfaction). Hidden information is the only reliable A10 defense. |
