@@ -229,9 +229,38 @@ export default function Flow() {
       const isDot = dotMap.has(idx);
       const dotColor = dotMap.get(idx);
 
-      // If tapping a dot, start or restart that color's path
+      // If tapping a dot...
       if (isDot && dotColor !== undefined) {
-        // If this color already has a path, clear it first
+        // Check if this is the TARGET endpoint of the active path → complete it
+        if (
+          activeColor !== null &&
+          dotColor === activeColor &&
+          paths[activeColor].length > 0
+        ) {
+          const path = paths[activeColor];
+          const lastCell = path[path.length - 1];
+          const d = dots[activeColor];
+          const isTarget =
+            (idx === d.a || idx === d.b) && idx !== path[0];
+          if (isTarget && neighbors(lastCell, size).includes(idx)) {
+            // Complete the path
+            setCellOwner((prev) => {
+              const next = [...prev];
+              next[idx] = activeColor;
+              return next;
+            });
+            setPaths((prev) => {
+              const next = [...prev];
+              next[activeColor] = [...path, idx];
+              return next;
+            });
+            setMoves((m) => m + 1);
+            setActiveColor(null);
+            return;
+          }
+        }
+
+        // Otherwise start or restart that color's path
         if (paths[dotColor].length > 0) {
           clearPath(dotColor);
         }
