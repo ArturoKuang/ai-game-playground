@@ -86,11 +86,12 @@ function shapeBounds(shape: Shape): { rows: number; cols: number } {
 /* ─── Difficulty ─── */
 function getDifficulty() {
   const d = getDayDifficulty();
-  // Mon: 3 shapes (2 tri + 1 tet), Fri: 5 shapes (1 tri + 4 tet)
-  const numTri = Math.max(1, 3 - Math.floor(d * 0.5));
-  const numTet = d <= 2 ? 1 + d : 2 + Math.floor(d * 0.6);
+  // Mon: 3 shapes (1 tri + 2 tet), Fri: 5 shapes (1 tri + 4 tet)
+  // Only 2 tromino types exist, so cap at 2
+  const numTri = d <= 2 ? 2 : 1;
+  const numTet = d <= 2 ? 1 + Math.floor(d / 2) : d - 1;
   const totalShapes = Math.min(numTri + numTet, 5);
-  return { numTri: Math.min(numTri, totalShapes), numTet: totalShapes - Math.min(numTri, totalShapes) };
+  return { numTri: Math.min(numTri, 2), numTet: totalShapes - Math.min(numTri, 2) };
 }
 
 /* ─── Puzzle generation: place shapes, derive clues, verify uniqueness ─── */
@@ -309,6 +310,8 @@ export default function Fit() {
   const [placedShapes, setPlacedShapes] = useState<Map<number, Cell[]>>(new Map());
   const [selectedShape, setSelectedShape] = useState<number | null>(null);
   const [selectedRotation, setSelectedRotation] = useState<number>(0);
+  const [ghostCells, setGhostCells] = useState<Cell[] | null>(null); // preview before confirm
+  const [ghostAnchor, setGhostAnchor] = useState<Cell | null>(null); // anchor cell of ghost
   const [gameOver, setGameOver] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -434,18 +437,20 @@ export default function Fit() {
     [selectedShape, gameOver, getPreviewCells, placedShapes, puzzle, moveCount]
   );
 
-  /* Remove a placed shape (tap to pick it back up) */
+  /* Remove a placed shape (tap to pick it back up — costs a move) */
   const pickUpShape = useCallback(
     (r: number, c: number) => {
       if (gameOver) return;
       const shapeIdx = gridState[r][c];
       if (shapeIdx === -1) return;
-      // Pick up this shape
       setSelectedShape(shapeIdx);
       setSelectedRotation(0);
+      setGhostCells(null);
+      setGhostAnchor(null);
       const newPlaced = new Map(placedShapes);
       newPlaced.delete(shapeIdx);
       setPlacedShapes(newPlaced);
+      setMoveCount((m) => m + 1); // re-placement penalty
     },
     [gameOver, gridState, placedShapes]
   );
@@ -453,25 +458,36 @@ export default function Fit() {
   const handleCellPress = useCallback(
     (r: number, c: number) => {
       if (gameOver) return;
+
       if (selectedShape !== null) {
-        // Try to place the selected shape
         const cells = getPreviewCells(r, c);
-        if (cells) {
+        if (!cells) return;
+
+        // Two-tap: first tap shows ghost, second tap on same anchor confirms
+        if (ghostAnchor && ghostAnchor[0] === r && ghostAnchor[1] === c) {
+          // Confirm placement
           placeShapeAt(r, c);
+          setGhostCells(null);
+          setGhostAnchor(null);
+        } else {
+          // Show ghost preview
+          setGhostCells(cells);
+          setGhostAnchor([r, c]);
         }
       } else if (gridState[r][c] !== -1) {
-        // Pick up the existing shape
         pickUpShape(r, c);
       }
     },
-    [gameOver, selectedShape, getPreviewCells, placeShapeAt, gridState, pickUpShape]
+    [gameOver, selectedShape, getPreviewCells, placeShapeAt, gridState, pickUpShape, ghostAnchor]
   );
 
-  /* Rotate selected shape */
+  /* Rotate selected shape — clears ghost to force re-preview */
   const rotateSelected = useCallback(() => {
     if (selectedShape === null) return;
     const rots = getRotations(puzzle.shapes[selectedShape]);
     setSelectedRotation((r) => (r + 1) % rots.length);
+    setGhostCells(null);
+    setGhostAnchor(null);
   }, [selectedShape, puzzle.shapes]);
 
   const handleShowStats = useCallback(async () => {
@@ -521,7 +537,7 @@ export default function Fit() {
     const rots = getRotations(shape);
     const displayShape = isSelected ? rots[selectedRotation % rots.length] : shape;
     const bounds = shapeBounds(displayShape);
-    const previewCell = 18;
+    const previewCell = 24;
 
     return (
       <Pressable
@@ -530,9 +546,13 @@ export default function Fit() {
           if (gameOver) return;
           if (isSelected) {
             setSelectedShape(null);
+            setGhostCells(null);
+            setGhostAnchor(null);
           } else {
             setSelectedShape(shapeIdx);
             setSelectedRotation(0);
+            setGhostCells(null);
+            setGhostAnchor(null);
           }
         }}
         style={[
@@ -581,6 +601,7 @@ export default function Fit() {
 
       <Text style={styles.subtitle}>
         Place all shapes to match the row & column targets.
+        {selectedShape !== null ? ' Tap to preview, tap again to place.' : ''}
       </Text>
 
       {/* Info row */}
@@ -646,7 +667,15 @@ export default function Fit() {
             {Array.from({ length: GRID }).map((_, c) => {
               const occupant = gridState[r][c];
               const isFilled = occupant !== -1;
+              const isGhost = ghostCells?.some(([gr, gc]) => gr === r && gc === c) ?? false;
               const scale = getScale(r, c);
+
+              let bgColor = '#1e1e20';
+              if (isFilled) {
+                bgColor = SHAPE_COLORS[occupant % SHAPE_COLORS.length];
+              } else if (isGhost && selectedShape !== null) {
+                bgColor = SHAPE_COLORS[selectedShape % SHAPE_COLORS.length] + '55'; // 33% opacity
+              }
 
               return (
                 <Pressable
@@ -661,9 +690,11 @@ export default function Fit() {
                         height: cellSize,
                         marginRight: c < GRID - 1 ? GAP : 0,
                         marginBottom: r < GRID - 1 ? GAP : 0,
-                        backgroundColor: isFilled
-                          ? SHAPE_COLORS[occupant % SHAPE_COLORS.length]
-                          : '#1e1e20',
+                        backgroundColor: bgColor,
+                        borderWidth: isGhost ? 2 : 0,
+                        borderColor: isGhost && selectedShape !== null
+                          ? SHAPE_COLORS[selectedShape % SHAPE_COLORS.length]
+                          : 'transparent',
                         transform: [{ scale }],
                       },
                     ]}
@@ -672,6 +703,9 @@ export default function Fit() {
                       <Text style={styles.cellShapeLabel}>
                         {occupant + 1}
                       </Text>
+                    )}
+                    {isGhost && !isFilled && (
+                      <Text style={styles.ghostLabel}>{'?'}</Text>
                     )}
                   </Animated.View>
                 </Pressable>
@@ -774,6 +808,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: 'rgba(255,255,255,0.4)',
+  },
+  ghostLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.6)',
   },
   trayContainer: {
     alignItems: 'center',
