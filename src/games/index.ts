@@ -8,6 +8,7 @@ import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
 import Claim from './Claim';
+import Phase from './Phase';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -71,6 +72,13 @@ const games: GameMeta[] = [
     emoji: '\uD83C\uDFC6',
     description: 'Pick cells to score — neighbors shrink!',
     component: Claim,
+  },
+  {
+    id: 'phase',
+    name: 'Phase',
+    emoji: '\ud83d\udd04',
+    description: 'Toggle cells off — the pattern shifts each tap',
+    component: Phase,
   },
 ];
 export default games;
