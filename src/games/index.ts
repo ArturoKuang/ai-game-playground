@@ -8,7 +8,6 @@ import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
 import Claim from './Claim';
-import Reap from './Reap';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -72,13 +71,6 @@ const games: GameMeta[] = [
     emoji: '\uD83C\uDFC6',
     description: 'Pick cells to score — neighbors shrink!',
     component: Claim,
-  },
-  {
-    id: 'reap',
-    name: 'Reap',
-    emoji: '\ud83c\udf3e',
-    description: 'Harvest a path — collecting damages the field',
-    component: Reap,
   },
 ];
 export default games;
