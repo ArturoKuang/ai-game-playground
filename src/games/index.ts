@@ -9,6 +9,7 @@ import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
 import Claim from './Claim';
+import Stack from './Stack';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -72,6 +73,13 @@ const games: GameMeta[] = [
     emoji: '\uD83C\uDFC6',
     description: 'Pick cells to score — neighbors shrink!',
     component: Claim,
+  },
+  {
+    id: 'stack',
+    name: 'Stack',
+    emoji: '\uD83E\uDDF1',
+    description: 'Swipe to merge \u2014 no new tiles, pure strategy!',
+    component: Stack,
   },
 ];
 
