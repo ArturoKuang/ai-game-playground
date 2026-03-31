@@ -37,10 +37,10 @@ const BLOOM_COLOR = '#f1c40f';
 /* ─── Difficulty ─── */
 function getDifficulty() {
   const d = getDayDifficulty(); // 1..5
-  // Cells start HIGH (3-4) so the puzzle is about chain SEQUENCE, not building.
-  // Taps are tight — every tap must contribute to a chain.
-  const taps = 8 + d; // Mon:9, Fri:13
-  const minInit = 2;
+  // More taps on easy days = more room for chains.
+  // Cells start 3-4 so the puzzle is about chain SEQUENCE.
+  const taps = 11 + d; // Mon:12, Fri:16
+  const minInit = d <= 2 ? 3 : 2; // Mon-Tue: mostly 3-4, Wed+: 2-4
   const maxInit = 4;
   return { taps, minInit, maxInit };
 }
@@ -173,10 +173,12 @@ export default function Bloom() {
     () => generateBoard(seed, diff.minInit, diff.maxInit),
     [seed, diff],
   );
-  const par = useMemo(
+  const rawPar = useMemo(
     () => solvePar(initialGrid, diff.taps),
     [initialGrid, diff.taps],
   );
+  // Par = solver result - 2, making it achievable with good (not perfect) play
+  const par = Math.max(1, rawPar - 2);
 
   const { width: screenWidth } = useWindowDimensions();
   const maxGrid = Math.min(screenWidth - 48, 320);
