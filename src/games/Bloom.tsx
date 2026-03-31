@@ -402,7 +402,7 @@ export default function Bloom() {
         });
       }
     },
-    [gameOver, tapsLeft, grid, blooms, tapsUsed, diff.taps, par, cellScales],
+    [gameOver, tapsLeft, grid, blooms, tapsUsed, diff.taps, par, cellScales, selectedCell],
   );
 
   const handleShowStats = useCallback(async () => {
