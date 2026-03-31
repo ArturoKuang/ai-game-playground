@@ -9,7 +9,6 @@ import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
 import Claim from './Claim';
-import Rift from './Rift';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -73,13 +72,6 @@ const games: GameMeta[] = [
     emoji: '\uD83C\uDFC6',
     description: 'Pick cells to score — neighbors shrink!',
     component: Claim,
-  },
-  {
-    id: 'rift',
-    name: 'Rift',
-    emoji: '\uD83C\uDF00',
-    description: 'Pick cells to score \u2014 but each pick halves its row & column!',
-    component: Rift,
   },
 ];
 
