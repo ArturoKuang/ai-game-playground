@@ -533,6 +533,7 @@ This log tracks how the design PROCESS performs across sessions. Updated by Step
 |---|---|---|---|---|---|---|---|
 | 2026-03-30 | 6 | 16 | 6 | 0 | A10 (fully-visible optimization) | 12 | Added: Design Introspection section, Step 2.5 litmus tests, Step 9.5 process retrospective, tighter kill rules, optimization vs constraint classification |
 | 2026-03-30b | 4 | 10 | 4 | 0 | A10 (fully-visible) then signal-per-action too weak (hidden info) | 6 | Fully-visible constraint satisfaction always A10. Hidden info defeats A10 but needs rich signal (Seek plateaued at 55). Next: rich multi-dimensional feedback per action. |
+| 2026-03-30c | 2 | 5 | 2 | 0 | Deduction technique becomes formulaic (d5 capped at 4) | 2 | Deduction games plateau at 47-51: hidden info + constraint propagation creates aha on first play but becomes rote. Next: games where STRATEGY varies per puzzle (different approach needed each day). Try spatial/physical mechanics or grouping. |
 
 ### Explored & Exhausted Families
 
