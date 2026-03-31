@@ -8,7 +8,6 @@ import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
 import Claim from './Claim';
-import Burst from './Burst';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -72,13 +71,6 @@ const games: GameMeta[] = [
     emoji: '\uD83C\uDFC6',
     description: 'Pick cells to score — neighbors shrink!',
     component: Claim,
-  },
-  {
-    id: 'burst',
-    name: 'Burst',
-    emoji: '\ud83d\udca5',
-    description: 'Trigger chain reactions to clear the board',
-    component: Burst,
   },
 ];
 export default games;
