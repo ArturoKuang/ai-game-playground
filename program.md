@@ -535,6 +535,7 @@ This log tracks how the design PROCESS performs across sessions. Updated by Step
 | 2026-03-30 | 6 | 16 | 6 | 0 | A10 (fully-visible optimization) | 12 | Added: Design Introspection section, Step 2.5 litmus tests, Step 9.5 process retrospective, tighter kill rules, optimization vs constraint classification |
 | 2026-03-30b | 4 | 10 | 4 | 0 | A10 (fully-visible) then signal-per-action too weak (hidden info) | 6 | Fully-visible constraint satisfaction always A10. Hidden info defeats A10 but needs rich signal (Seek plateaued at 55). Next: rich multi-dimensional feedback per action. |
 | 2026-03-30c | 5 | 12 | 5 | 0 | Deduction plateaus at 50; A10 kills linear puzzles; non-inverse ops = unsolvable | 8 | 5 kills: (1) deduction plateaus at 50 (Prism/Probe/Fence), (2) linear constraints = A10 (Scale), (3) non-self-inverse ops = unsolvable (Turn). Next: ONLY self-inverse toggle ops on grids (like LightsOut), or pure optimization with incommensurable costs (like Claim). |
+| 2026-03-31 | 2 | 2 | 2 | 0 | A10: hidden-info with full reveal (Dial 31), visible optimization with quantitative damage (Reap 29) | 2 | Key insight: BINARY constraints (option removal) create NP-hard evaluation that defeats A10. QUANTITATIVE damage (value reduction) is calculable. Claim works because locking removes OPTIONS. Reap fails because -1 just changes NUMBERS. Also: hidden info defeats A10 only with PARTIAL/LOSSY revelation. Next: games with binary/structural constraints (like Claim's locking) in a NEW mechanic family. |
 
 ### Explored & Exhausted Families
 
@@ -554,6 +555,7 @@ These mechanic families have been tried multiple times without reaching 60. Do N
 | Minesweeper-style adjacency deduction | Probe (51→50→50) | 51 | Deduction works (d10=6) but strategy becomes formulaic once learned. Same technique on every puzzle = d5 capped at 4. |
 | Hidden boundary discovery + painting | Fence (39→50→46) | 50 | Edge-by-edge scanning too low info density. Paint phase = guessing when scan budget tight. |
 | Hidden coupling discovery (toggle variant) | Dial (31) | 31 | A10 after probing: hidden couplings fully revealed in 3-4 taps, then puzzle = linear algebra mod 4. Full revelation = A10. |
+| Path optimization with quantitative damage | Reap (29) | 29 | A10: visible board + calculable value reduction. Quantitative damage (row/col -1) doesn't change option structure, just numbers. Need BINARY constraints (option removal) not numeric. |
 
 ### Mental Model Calibration
 
