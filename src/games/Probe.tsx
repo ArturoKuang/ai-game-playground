@@ -179,6 +179,14 @@ export default function Probe() {
     Array.from({ length: SIZE * SIZE }, () => new Animated.Value(0)),
   ).current;
 
+  /* ─── Auto-switch to flag mode when probes run out ─── */
+  const probesLeft_ = diff.maxProbes - probesUsed;
+  React.useEffect(() => {
+    if (probesLeft_ <= 0 && mode === 'probe' && !gameOver) {
+      setMode('flag');
+    }
+  }, [probesLeft_, mode, gameOver]);
+
   /* ─── Derived: how many targets still need flagging ─── */
   const targetsRemaining = useMemo(() => {
     let count = 0;
@@ -394,11 +402,11 @@ export default function Probe() {
       for (let c = 0; c < SIZE; c++) {
         const key = r * SIZE + c;
         if (flagged.has(key)) {
-          row += '🎯';
-        } else if (probed.has(key)) {
-          row += '🔍';
+          row += '🟩';
         } else if (wrongFlags.has(key)) {
-          row += '❌';
+          row += '🟥';
+        } else if (probed.has(key)) {
+          row += '🟦';
         } else {
           row += '⬛';
         }
@@ -406,8 +414,10 @@ export default function Probe() {
       rows.push(row);
     }
     const livesEmoji = '❤️'.repeat(lives) + '🖤'.repeat(MAX_LIVES - lives);
-    const result = won ? `${probesUsed} probes` : 'Failed';
-    return `🎯 Probe — Day #${puzzleDay}\n${result} ${livesEmoji}\n\n${rows.join('\n')}\n\n🔍probed 🎯found ❌miss ⬛hidden`;
+    const result = won
+      ? `${probesUsed} probes ${livesEmoji}`
+      : `Failed ${livesEmoji}`;
+    return `🎯 Probe — Day #${puzzleDay}\n${result}\n\n${rows.join('\n')}`;
   }
 
   /* ─── Cell content ─── */
@@ -511,7 +521,9 @@ export default function Probe() {
       {/* Header */}
       <Text style={styles.dayLabel}>Day #{puzzleDay}</Text>
       <Text style={styles.subtitle}>
-        Probe cells for clues. Flag the {diff.numTargets} hidden targets.
+        🔍 Probe = shows # of adjacent targets{'\n'}
+        🎯 Flag = mark a cell as a target{'\n'}
+        Edge numbers = targets per row/column
       </Text>
 
       {/* Score bar */}
@@ -634,7 +646,7 @@ export default function Probe() {
                           { color: getClueColor(probed.get(key)!) },
                         ]}
                       >
-                        {probed.get(key) === 0 ? '' : probed.get(key)}
+                        {probed.get(key)}
                       </Text>
                     )}
                     {isWrong && (
@@ -742,11 +754,11 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   subtitle: {
-    color: '#565758',
-    fontSize: 12,
-    textAlign: 'center',
-    marginBottom: 12,
-    maxWidth: 300,
+    color: '#818384',
+    fontSize: 11,
+    textAlign: 'left',
+    marginBottom: 10,
+    lineHeight: 16,
   },
   scoreRow: {
     flexDirection: 'row',
