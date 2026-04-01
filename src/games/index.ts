@@ -11,6 +11,7 @@ import Claim from './Claim';
 import Slide from './Slide';
 import Loop from './Loop';
 import Signal from './Signal';
+import Herd from './Herd';
 import Flock from './Flock';
 const games: GameMeta[] = [
   {
@@ -96,6 +97,13 @@ const games: GameMeta[] = [
     emoji: '\ud83d\udce1',
     description: 'Broadcast from edges to deduce the hidden color grid',
     component: Signal,
+  },
+  {
+    id: 'herd',
+    name: 'Herd',
+    emoji: '\uD83E\uDD8A',
+    description: 'Command animal herds to reach their pens',
+    component: Herd,
   },
   {
     id: 'flock',

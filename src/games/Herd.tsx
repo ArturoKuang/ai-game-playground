@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,11 @@ import {
   Animated,
   Modal,
 } from 'react-native';
+import ShareButton from '../components/ShareButton';
+import StatsModal from '../components/StatsModal';
+import CelebrationBurst from '../components/CelebrationBurst';
+import { getDailySeed, getPuzzleDay, getDayDifficulty } from '../utils/seed';
+import { loadStats, recordGame, type Stats } from '../utils/stats';
 import {
   generatePuzzle,
   applyMoveWithInfo,
@@ -28,36 +33,12 @@ const GAP = 2;
 
 /*
  * HARD VIEWPORT CONSTRAINT: everything must fit in 800x600.
- * Budget: header=40px, subtitle=16px, infoBar=36px, gap=4px, grid=5*48+4*2=248px,
+ * Budget: header=40px, infoBar=36px, gap=4px, grid=5*48+4*2=248px,
  * colorTabs=34px, dpad=3*40+2*2=124px, counter=24px, padding=24px*2=48px
- * Total: 40+16+36+4+248+4+34+4+124+4+24+48 = 586px < 600px
+ * Total: 40+36+4+248+4+34+4+124+4+24+48 = 570px < 600px
  */
 const CELL_SIZE = 48;
 const DPAD_SIZE = 40;
-
-/* --- Seed utilities --- */
-function getDailySeed(): number {
-  const now = new Date();
-  const dateStr = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
-  let hash = 0;
-  for (let i = 0; i < dateStr.length; i++) {
-    hash = (hash * 31 + dateStr.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash);
-}
-
-function getPuzzleDay(): number {
-  const EPOCH = new Date(2026, 2, 1);
-  const now = new Date();
-  const diffMs = now.getTime() - EPOCH.getTime();
-  return Math.max(1, Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1);
-}
-
-function getDayDifficulty(): number {
-  const day = new Date().getDay();
-  if (day === 0 || day === 6) return 3;
-  return day;
-}
 
 /* --- Herd Game Component --- */
 export default function Herd() {
@@ -82,8 +63,38 @@ export default function Herd() {
   const [solved, setSolved] = useState(false);
   const [selectedColor, setSelectedColor] = useState<number>(0);
   const [blockedTooltip, setBlockedTooltip] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+  const [stats, setStatsData] = useState<Stats | null>(null);
+  const [gameRecorded, setGameRecorded] = useState(false);
 
   const gridWidth = state.gridSize * CELL_SIZE + (state.gridSize - 1) * GAP;
+
+  /* -- Derived data -- */
+  const colors = useMemo(() => {
+    const cs = new Set<number>();
+    for (const a of state.animals) cs.add(a.color);
+    return Array.from(cs).sort();
+  }, [state.animals]);
+
+  /**
+   * BUG FIX: Compute activeColor that is always a color with unlocked animals.
+   * When a color completes (all locked), the D-pad and handleMove must use
+   * a different color. This prevents the "Blue freezes after Red completes" bug.
+   */
+  const hasUnlocked = state.animals.some((a) => a.color === selectedColor && !a.locked);
+  const activeColor = hasUnlocked
+    ? selectedColor
+    : colors.find((c) => state.animals.some((a) => a.color === c && !a.locked)) ?? selectedColor;
+
+  /**
+   * BUG FIX: Auto-switch selectedColor when the current color completes.
+   * This ensures the UI state tracks the active color correctly.
+   */
+  useEffect(() => {
+    if (!hasUnlocked && activeColor !== selectedColor) {
+      setSelectedColor(activeColor);
+    }
+  }, [hasUnlocked, activeColor, selectedColor]);
 
   /* -- Animations -- */
   const cellScales = useRef(
@@ -128,7 +139,13 @@ export default function Herd() {
   const handleMove = useCallback(
     (dir: Direction) => {
       if (solved) return;
-      const move: Move = { color: selectedColor, dir };
+      /**
+       * BUG FIX: Use activeColor instead of selectedColor.
+       * This is the core fix for "Blue freezes after Red completes".
+       * When selectedColor points to a completed color, activeColor
+       * correctly resolves to the next available unlocked color.
+       */
+      const move: Move = { color: activeColor, dir };
       const { state: next, moved } = applyMoveWithInfo(state, move);
 
       // HARD REQUIREMENT: wall-press = no-op. Do NOT increment move counter.
@@ -141,7 +158,7 @@ export default function Herd() {
 
       // Bounce moved animals
       for (const animal of next.animals) {
-        if (animal.color === selectedColor) {
+        if (animal.color === activeColor) {
           bounceCell(animal.pos.r, animal.pos.c);
         }
       }
@@ -153,9 +170,16 @@ export default function Herd() {
 
       if (isGoal(next)) {
         setSolved(true);
+        // Record stats
+        if (!gameRecorded) {
+          setGameRecorded(true);
+          recordGame('herd', nextMoves, par).then((s) => {
+            setStatsData(s);
+          });
+        }
       }
     },
-    [state, solved, moves, selectedColor, bounceCell, shakeGrid],
+    [state, solved, moves, activeColor, par, gameRecorded, bounceCell, shakeGrid],
   );
 
   /* -- Undo -- */
@@ -168,13 +192,49 @@ export default function Herd() {
     setSolved(false);
   }, [history, solved]);
 
-  /* -- Derived data -- */
+  const handleShowStats = useCallback(async () => {
+    const s = await loadStats('herd');
+    setStatsData(s);
+    setShowStats(true);
+  }, []);
+
+  /* -- Share text: emoji grid showing final board state -- */
+  function buildShareText(): string {
+    const grid: string[][] = Array.from({ length: state.gridSize }, () =>
+      Array.from({ length: state.gridSize }, () => '\u2B1C'),
+    );
+
+    // Mark walls
+    if (state.walls) {
+      for (const w of state.walls) {
+        grid[w.r][w.c] = '\u2B1B'; // black square for walls
+      }
+    }
+
+    // Mark pens (faded color squares)
+    for (const p of state.pens) {
+      const penEmoji = ['\uD83D\uDFE5', '\uD83D\uDFE6', '\uD83D\uDFE9', '\uD83D\uDFEB'][p.color] ?? '\u2B1C';
+      grid[p.pos.r][p.pos.c] = penEmoji;
+    }
+
+    // Mark animals (animal emoji -- overrides pen when on pen = locked)
+    for (const a of state.animals) {
+      grid[a.pos.r][a.pos.c] = ANIMAL_EMOJI[a.color];
+    }
+
+    const boardStr = grid.map((row) => row.join('')).join('\n');
+    const under = moves <= par;
+
+    return [
+      `Herd Day #${puzzleDay} ${ANIMAL_EMOJI[0]}`,
+      `${moves}/${par} moves`,
+      under ? '\u2B50 At or under par!' : `Solved in ${moves}`,
+      '',
+      boardStr,
+    ].join('\n');
+  }
+
   const h = heuristic(state);
-  const colors = useMemo(() => {
-    const cs = new Set<number>();
-    for (const a of state.animals) cs.add(a.color);
-    return Array.from(cs).sort();
-  }, [state.animals]);
 
   const animalMap = new Map<string, { color: number; idx: number; locked: boolean }>();
   state.animals.forEach((a, idx) => {
@@ -191,17 +251,15 @@ export default function Herd() {
     for (const w of state.walls) wallSet.add(`${w.r},${w.c}`);
   }
 
-  const hasUnlocked = state.animals.some((a) => a.color === selectedColor && !a.locked);
-  const activeColor = hasUnlocked
-    ? selectedColor
-    : colors.find((c) => state.animals.some((a) => a.color === c && !a.locked)) ?? selectedColor;
-
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Herd</Text>
         <Text style={styles.dayBadge}>Day #{puzzleDay}</Text>
+        <Pressable onPress={handleShowStats}>
+          <Text style={styles.statsIcon}>{'\uD83D\uDCCA'}</Text>
+        </Pressable>
       </View>
 
       {/* Info bar */}
@@ -379,6 +437,8 @@ export default function Herd() {
         {moves}/{par} moves {moves <= par ? '' : `(+${moves - par})`}
       </Text>
 
+      <CelebrationBurst show={solved} />
+
       {/* Win modal overlay -- HARD REQUIREMENT: centered modal, not inline text */}
       <Modal
         visible={solved}
@@ -408,9 +468,23 @@ export default function Herd() {
             <Text style={styles.modalSub}>
               Herd #{puzzleDay}
             </Text>
+            <ShareButton text={buildShareText()} />
+            <Pressable
+              style={styles.modalStatsBtn}
+              onPress={() => {
+                setSolved(false);
+                handleShowStats();
+              }}
+            >
+              <Text style={styles.modalStatsBtnText}>View Stats</Text>
+            </Pressable>
           </View>
         </View>
       </Modal>
+
+      {showStats && stats && (
+        <StatsModal stats={stats} onClose={() => setShowStats(false)} />
+      )}
     </View>
   );
 }
@@ -436,6 +510,7 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
   },
   dayBadge: { color: '#6aaa64', fontSize: 12, fontWeight: '600' },
+  statsIcon: { fontSize: 20 },
   /* Info bar */
   infoBar: {
     flexDirection: 'row',
@@ -615,5 +690,17 @@ const styles = StyleSheet.create({
   modalSub: {
     color: '#818384',
     fontSize: 13,
+  },
+  modalStatsBtn: {
+    backgroundColor: '#3a3a3c',
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginTop: 12,
+  },
+  modalStatsBtnText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 14,
   },
 });
