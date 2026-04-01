@@ -212,3 +212,30 @@ Par = lock-naive solver optimal + buffer (Mon +3, Fri +2).
 2. Block identical-tile swaps (same color + same shape) with a shake animation and no move cost.
 3. Increase lock density slightly on Wed-Fri (Wed: 24%, Thu: 28%, Fri: 32%) to force more rerouting moments and push CI higher. Keep Mon-Tue unchanged.
 4. Place at least one lock adjacent to the highest-violation tile on each puzzle, ensuring the "obvious first swap" is blocked and the player must find an alternative entry point. This is the primary CI driver.
+
+## Play Report (v3)
+
+**Toast bug FIXED**: Lock discovery now shows non-blocking padlock icon. Game never softlocks. Lock discovery feels like a feature, not a bug.
+
+**Identical-swap block works**: Swapping two tiles with same color+shape correctly costs 0 moves.
+
+**Session 1 (Intuitive)**: Rules clear. First swap raised conflicts 19→21 — sharp negative signal. Lock at r2c2 revealed cleanly (padlock icon, no toast). By 4 moves: 21 conflicts, 2 locks discovered. Never solved. Conflict oscillation feels punishing but motivating.
+
+**Session 2 (Strategic)**: Read board before moving. Found 3-move sequence dropping 19→17→14. But then hit locks in center (4 by move 7), making middle row unmanipulable. Center lock cluster feels like a wall. Player forgot color dimension (only reasoned about shapes). Never solved — stuck at 14-20.
+
+**Session 3 (Edge Cases)**: No dominant strategy. Greedy fails. Lock cells correctly non-selectable after reveal. Deselect works. Back-and-forth swap restores state (costs 2 moves).
+
+**Strategy Divergence**: Strong. Strategic play reached 14 in 3 moves vs 21-23 in 4 intuitive. Planning multi-constraint swaps is genuine skill. But neither approach solved the puzzle. Lock density in center creates a wall that strategic play cannot route around.
+
+**Best Moment**: Move 3 dropping conflicts from 17→14 with a deliberate cross-row swap.
+**Worst Moment**: 4th lock revealed in row 2, making center row entirely frozen.
+
+**Key question**: Puzzle never solved in 25+ moves across 3 sessions. Is par=6 achievable? Color dimension easily forgotten — players reason about shapes only.
+
+## Decision (v3)
+
+**Status: KILL** (iteration 3 of 3, max reached)
+
+**Reason:** Puzzle never solved across 25+ moves in 3 playtest sessions. Strategic play dramatically outperforms intuitive (14 conflicts in 3 moves vs 21 in 4) but neither approach reaches zero conflicts. Four center locks create an impassable wall. Players forgot the color dimension entirely (reasoned only about shapes), meaning the "double" Latin square is cognitive overload, not depth. CI stuck at 0.6 across iterations 2 and 3 -- the constraint landscape is fundamentally smooth. A daily puzzle that a motivated player cannot complete after 3 focused sessions is not viable.
+
+**Lesson learned:** Double constraints (shape AND color) on a single grid create cognitive overload -- players collapse to one dimension. Constraint satisfaction puzzles need constraints that REINFORCE each other (LightsOut's cross-toggle), not constraints that COMPETE (fixing shapes breaks colors). Hidden action restrictions (locks) are a promising deduction layer but only work if the visible puzzle is completable -- locks should create detours, not make an already-hard puzzle impossible.

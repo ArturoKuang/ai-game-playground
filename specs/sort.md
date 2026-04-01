@@ -88,10 +88,24 @@ Computed on 5 puzzles (Mon-Fri seeds), 5 skill levels each.
 **Strongest metric**: Skill-Depth — 72.9% (greedy takes 8-66 steps vs optimal 4-7; huge gap between strategic and naive play)
 
 ## Play Report
-<!-- Playtester fills this section with blind play observations -->
+
+**BUG (minor)**: Palindrome reversals (e.g., YGY→YGY) cost a move. Should be blocked or warned.
+
+**Session 1 (Intuitive)**: Rules clear after 1 tap. Reversal preview (showing "RGB→BGR" on buttons) is exceptionally clear — zero guesswork. First move increased breaks 5→6 (surprise). Found 3-move collapse sequence (breaks 5→4→3→1) via experimentation + undo. Then 3 boring "marching" moves to drag isolated R across board. Solved in 6 (par 5). Win celebration satisfying.
+
+**Session 2 (Strategic)**: Identified optimal 3-move opening immediately. Explored all alternative first moves — only 2 of ~30 reduce breaks. Very narrow correct path. Could NOT find a 5-move solution despite systematic exploration. Same 6-move result as intuitive play.
+
+**Session 3 (Edge Cases)**: Partial dominant strategy (greedy "reduce breaks" is strong but doesn't reach par). Can fail (breaks increase on bad moves). Palindrome no-op wastes moves. Deselect works. Undo clean.
+
+**Strategy Divergence**: Mixed. Strategic found same 3-move sequence as intuitive (with fewer wasted moves). Both sessions = 6 moves. Game has ONE interesting decision (3-move setup) then 3 mechanical "marching" moves with no drama. Breaks=1 endgame is tedious bookkeeping.
+
+**Best Moment**: Move 3 — Breaks dropping 3→1 in one reversal. Board visually collapsed from chaos to "almost done."
+**Worst Moment**: Moves 4-5-6, dragging isolated R across the board. Each move kept Breaks=1. Puzzle felt over but required cleanup.
 
 ## Decision
-<!-- Designer fills this after reviewing metrics + play report -->
-<!-- Status: keep / iterate / kill -->
-<!-- If iterate: what to change and why -->
-<!-- If kill: lesson learned for learnings.md -->
+
+**Status: KILL** (mercy kill after first playtest)
+
+**Reason:** One interesting 3-move collapse, then 3 boring "marching" moves of mechanical cleanup. Strategic play produced the SAME result as intuitive (both 6 moves, par 5 unreachable). CI = 0.2 (greedy is near-optimal). Only 2 of ~30 first moves reduce breaks -- path is narrow and forced. Breaks=1 endgame is pure tedium. The emotional arc is one satisfying collapse followed by janitorial bookkeeping.
+
+**Lesson learned:** Bounded-reversal sorting creates dramatic opening collapses but degenerates into tedious endgame marching once Breaks=1 (isolated token). 1D sequence puzzles lack the spatial richness of 2D grids -- with strong heuristic pruning, the effective decision space is too narrow for daily puzzle depth. Sorting puzzles need endgame mechanics AS interesting as the opening, or a scoring system about HOW you sort (efficiency), not WHETHER (completion).

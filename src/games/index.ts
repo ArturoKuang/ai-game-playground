@@ -23,6 +23,7 @@ import Ferry from './Ferry';
 import Etch from './Etch';
 import Peel from './Peel';
 import Surge from './Surge';
+import Thaw from './Thaw';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -191,6 +192,13 @@ const games: GameMeta[] = [
     emoji: '\uD83C\uDF0B',
     description: 'Tap cells to cascade pressure to target',
     component: Surge,
+  },
+  {
+    id: 'thaw',
+    name: 'Thaw',
+    emoji: '\u2744\uFE0F',
+    description: 'Melt all ice with limited heat taps',
+    component: Thaw,
   },
 ];
 export default games;

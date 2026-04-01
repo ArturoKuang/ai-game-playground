@@ -98,7 +98,9 @@ This makes greedy play near-optimal: always pick the fold that clears the most c
 <!-- Playtester fills this section with blind play observations -->
 
 ## Decision
-<!-- Designer fills this after reviewing metrics + play report -->
-<!-- Status: keep / iterate / kill -->
-<!-- If iterate: what to change and why -->
-<!-- If kill: lesson learned for learnings.md -->
+
+**Status: KILL** (auto-kill, CI = 0 across all puzzles, Drama = 0.00)
+
+**Reason:** Folding is structurally monotonic -- optimal solutions NEVER create frozen stacks, so greedy "fold for max matches" is near-optimal. The predicted "shape management vs. color matching" tension does not materialize. CI = 0, Drama = 0.00. Frozen stacks are irreversible damage, so the optimal path simply avoids them, eliminating any sacrifice-now-gain-later dynamic.
+
+**Lesson learned:** Irreversible damage mechanics (frozen stacks, permanent penalties) are structurally incompatible with counterintuitive play. If the penalty is permanent, the optimal path always avoids it, making greedy play near-optimal. For CI > 0, the "bad" state must be RECOVERABLE -- the player must be able to make things temporarily worse knowing they can fix it later. Permanent damage = monotonic optimization = CI = 0.

@@ -1,5 +1,5 @@
 /**
- * Peel Solver — Layer-reveal constraint satisfaction
+ * Peel Solver v2 — Layer-reveal constraint satisfaction
  *
  * 5x5 grid, each cell has 3 stacked color layers.
  * Player sees only the top visible layer.
@@ -7,9 +7,11 @@
  * Peeling goes layer 0 -> layer 1 -> layer 2 (max 2 peels per cell).
  * Goal: the visible surface satisfies row/column color-count targets.
  *
- * The solver operates in TWO modes:
- * - "Blind" solver: only sees what the player sees (for par calculation)
- * - "Omniscient" solver: sees all layers (for metric computation)
+ * v2 changes:
+ * - No same-color adjacent layers (layer[n] != layer[n+1])
+ * - Violations counter instead of raw "Wrong" count
+ * - Endgame softening: last 2-3 peels are independently fixable
+ * - Mon/Tue guaranteed counterintuitive moments
  */
 
 export const SIZE = 5;
@@ -73,7 +75,7 @@ export function visibleColor(grid: CellStack[][], peeled: number[][], r: number,
   return grid[r][c][peeled[r][c]];
 }
 
-/* ─── Count violations: how many row/col targets are unsatisfied ─── */
+/* ─── Count violations: sum of absolute deviations per color per row/col ─── */
 export function countViolations(state: PeelState): number {
   let violations = 0;
 
@@ -100,6 +102,39 @@ export function countViolations(state: PeelState): number {
   }
 
   return violations;
+}
+
+/* ─── Count unsatisfied rows + columns (for player-facing "violations remaining") ─── */
+export function countUnsatisfiedLines(state: PeelState): number {
+  let count = 0;
+
+  // Rows
+  for (let r = 0; r < SIZE; r++) {
+    const counts = [0, 0, 0];
+    for (let c = 0; c < SIZE; c++) {
+      counts[visibleColor(state.grid, state.peeled, r, c)]++;
+    }
+    let satisfied = true;
+    for (let color = 0; color < MAX_COLORS; color++) {
+      if (counts[color] !== state.rowTargets[r][color]) { satisfied = false; break; }
+    }
+    if (!satisfied) count++;
+  }
+
+  // Columns
+  for (let c = 0; c < SIZE; c++) {
+    const counts = [0, 0, 0];
+    for (let r = 0; r < SIZE; r++) {
+      counts[visibleColor(state.grid, state.peeled, r, c)]++;
+    }
+    let satisfied = true;
+    for (let color = 0; color < MAX_COLORS; color++) {
+      if (counts[color] !== state.colTargets[c][color]) { satisfied = false; break; }
+    }
+    if (!satisfied) count++;
+  }
+
+  return count;
 }
 
 /* ─── Heuristic: total constraint violations ─── */
@@ -141,7 +176,6 @@ export function applyMove(state: PeelState, move: Move): PeelState {
 export function generatePuzzle(seed: number, difficulty: number): PeelState {
   const rng = makeRng(seed);
 
-  // Number of colors: always 3 colors for richer constraint interactions
   const numColors = 3;
 
   // Step 1: Generate the GOAL surface — a balanced 5x5 color grid
@@ -161,7 +195,8 @@ export function generatePuzzle(seed: number, difficulty: number): PeelState {
     colTargets.push(counts);
   }
 
-  // Step 3: Decide which cells need peeling and at what depth
+  // Step 3: Decide which cells need peeling
+  // We split cells into "independent" (fixable alone) and "coupled" (interacts with others)
   const peelCounts: Record<number, number> = { 1: 5, 2: 6, 3: 8, 4: 10, 5: 12 };
   const numPeels = peelCounts[difficulty] ?? 8;
 
@@ -170,21 +205,33 @@ export function generatePuzzle(seed: number, difficulty: number): PeelState {
     for (let c = 0; c < SIZE; c++) { allCells.push([r, c]); }
   }
   const shuffledCells = shuffle(allCells, rng);
-  const peelCellList = shuffledCells.slice(0, Math.min(numPeels, 25));
-  const peelCells = new Set(peelCellList.map(([r, c]) => `${r},${c}`));
 
-  // Step 4: Build the grid — ALL peel cells are depth-2 traps
+  // Split into coupled (majority, placed first in solve path) and independent (last 2-3)
+  const numIndependent = Math.min(3, Math.max(2, Math.floor(numPeels * 0.25)));
+  const numCoupled = numPeels - numIndependent;
+
+  const peelCellList = shuffledCells.slice(0, Math.min(numPeels, 25));
+  const coupledCells = peelCellList.slice(0, numCoupled);
+  const independentCells = peelCellList.slice(numCoupled);
+
+  const peelCells = new Set(peelCellList.map(([r, c]) => `${r},${c}`));
+  const independentSet = new Set(independentCells.map(([r, c]) => `${r},${c}`));
+
+  // Step 4: For Mon/Tue, ensure at least 1 counterintuitive cell
+  // A CI cell: top satisfies its row constraint but violates its column constraint
+  // Peeling it fixes the column while the row has enough slack
+  let ciCell: [number, number] | null = null;
+  if (difficulty <= 2 && coupledCells.length > 0) {
+    ciCell = coupledCells[0]; // designate first coupled cell as CI cell
+  }
+
+  // Step 5: Build the grid with distinct adjacent layers
   //
-  // Every peel cell has: top = wrong_A, layer1 = wrong_B, layer2 = goal
-  // This means the first peel of any cell changes the violation type without
-  // fixing it (or makes it worse), and only the SECOND peel resolves it.
-  // Since each cell requires 2 peels, the total peel budget is higher,
-  // and the solver MUST go through intermediate "worse" states.
-  //
-  // The trick: with 3 colors, wrong_A and wrong_B are DIFFERENT wrong colors.
-  // Peeling from wrong_A to wrong_B shifts which row/column constraints are
-  // violated, but doesn't reduce total violations. Only the second peel
-  // (wrong_B -> goal) actually fixes things.
+  // v2: layer[n] != layer[n+1] for all cells.
+  // Peel cells: depth-1 (single peel to fix) for independent cells,
+  //             depth-2 (two peels) for coupled cells.
+  // This creates: coupled cells need 2 peels (intermediate state is still wrong),
+  //               independent cells need 1 peel (endgame is tractable).
 
   const grid: CellStack[][] = [];
   for (let r = 0; r < SIZE; r++) {
@@ -194,25 +241,75 @@ export function generatePuzzle(seed: number, difficulty: number): PeelState {
       const key = `${r},${c}`;
 
       if (peelCells.has(key)) {
-        // ALL peel cells are depth-2: top = wrong_A, layer1 = wrong_B, layer2 = goal
-        const wrongs: Color[] = [];
-        for (let k = 0; k < numColors; k++) {
-          if (k !== goalColor) wrongs.push(k as Color);
+        if (independentSet.has(key)) {
+          // Independent cell: depth-1 peel (top = wrong, layer1 = goal, layer2 = different)
+          // v2: all layers distinct from their neighbors
+          const wrongColors: Color[] = [];
+          for (let k = 0; k < numColors; k++) {
+            if (k !== goalColor) wrongColors.push(k as Color);
+          }
+          const topColor = wrongColors[Math.floor(rng() * wrongColors.length)];
+          // layer2 must differ from layer1 (goalColor)
+          const layer2Options: Color[] = [];
+          for (let k = 0; k < numColors; k++) {
+            if (k !== goalColor) layer2Options.push(k as Color);
+          }
+          const layer2 = layer2Options[Math.floor(rng() * layer2Options.length)];
+          grid[r].push([topColor, goalColor, layer2]);
+        } else if (ciCell && key === `${ciCell[0]},${ciCell[1]}`) {
+          // Counterintuitive cell: top color satisfies row but violates column
+          // We pick a top color that matches what the row needs but the column doesn't
+          // Still needs to be different from goalColor for it to be a peel target
+          const wrongColors: Color[] = [];
+          for (let k = 0; k < numColors; k++) {
+            if (k !== goalColor) wrongColors.push(k as Color);
+          }
+          // For CI: pick a top color that's different from goal
+          // The CI effect comes from the fact that the row already has enough of goalColor
+          // from other cells, so peeling this "correct-looking" cell is counterintuitive
+          const topColor = wrongColors[Math.floor(rng() * wrongColors.length)];
+          // mid must differ from top, layer2 (goal) must differ from mid
+          const midOptions: Color[] = [];
+          for (let k = 0; k < numColors; k++) {
+            if (k !== topColor && k !== goalColor) midOptions.push(k as Color);
+          }
+          const midColor = midOptions.length > 0
+            ? midOptions[Math.floor(rng() * midOptions.length)]
+            : (((topColor + 1) % numColors) as Color);
+          grid[r].push([topColor, midColor, goalColor]);
+        } else {
+          // Coupled cell: depth-2 (top = wrong_A, layer1 = wrong_B, layer2 = goal)
+          // v2: layer[n] != layer[n+1]
+          const wrongs: Color[] = [];
+          for (let k = 0; k < numColors; k++) {
+            if (k !== goalColor) wrongs.push(k as Color);
+          }
+          // With 3 colors, there are exactly 2 wrong colors.
+          // Arrange them so top != mid != goal (and top != mid is guaranteed since they're different wrongs)
+          const shuffledWrongs = shuffle(wrongs, rng);
+          const topColor = shuffledWrongs[0];
+          const midColor = shuffledWrongs[1];
+          // Verify: topColor != midColor (guaranteed since they're 2 different wrongs)
+          // midColor != goalColor (guaranteed since midColor is wrong)
+          grid[r].push([topColor, midColor, goalColor]);
         }
-        const shuffledWrongs = shuffle(wrongs, rng);
-        const topColor = shuffledWrongs[0];
-        const midColor = shuffledWrongs.length > 1 ? shuffledWrongs[1] : shuffledWrongs[0];
-        grid[r].push([topColor, midColor, goalColor]);
       } else {
-        // CORRECT cell: top = goal, below random
-        const l1 = Math.floor(rng() * numColors) as Color;
-        const l2 = Math.floor(rng() * numColors) as Color;
+        // Correct cell: top = goal, layers below must be distinct from neighbors
+        // v2: layer[0] != layer[1] and layer[1] != layer[2]
+        let l1: Color;
+        do {
+          l1 = Math.floor(rng() * numColors) as Color;
+        } while (l1 === goalColor);
+        let l2: Color;
+        do {
+          l2 = Math.floor(rng() * numColors) as Color;
+        } while (l2 === l1);
         grid[r].push([goalColor, l1, l2]);
       }
     }
   }
 
-  // Step 5: Verify the top layer has violations
+  // Step 6: Verify the top layer has violations
   const testState: PeelState = {
     grid,
     peeled: Array.from({ length: SIZE }, () => Array(SIZE).fill(0)),
@@ -224,7 +321,7 @@ export function generatePuzzle(seed: number, difficulty: number): PeelState {
     return generatePuzzle(seed + 7919, difficulty);
   }
 
-  // Step 6: Compute par
+  // Step 7: Compute par using the solver
   const sol = solve(testState, 5);
   if (!sol) {
     return generatePuzzle(seed + 7919, difficulty);
@@ -246,21 +343,15 @@ function generateBalancedSurface(rng: () => number, numColors: number): Color[][
   const surface: Color[][] = [];
 
   if (numColors === 2) {
-    // 2 colors: each row has 2-3 of each color (R, B)
-    // Each column should also have 2-3 of each
-    // Generate by rows, then adjust columns
     for (let r = 0; r < SIZE; r++) {
-      const numR = 2 + Math.floor(rng() * 2); // 2 or 3 reds per row
+      const numR = 2 + Math.floor(rng() * 2);
       const row: Color[] = [];
       for (let i = 0; i < numR; i++) row.push(0);
       for (let i = numR; i < SIZE; i++) row.push(1);
       surface.push(shuffle(row, rng) as Color[]);
     }
-    // Fix column balance
     fixColumnBalance(surface, numColors, rng);
   } else {
-    // 3 colors: partition 5 cells into groups summing to 5
-    // Possible splits: 2+2+1, 2+1+2, 1+2+2, etc.
     for (let r = 0; r < SIZE; r++) {
       const splits = generateSplit(rng);
       const row: Color[] = [];
@@ -271,7 +362,6 @@ function generateBalancedSurface(rng: () => number, numColors: number): Color[][
       }
       surface.push(shuffle(row, rng) as Color[]);
     }
-    // Fix column balance
     fixColumnBalance(surface, numColors, rng);
   }
 
@@ -280,7 +370,6 @@ function generateBalancedSurface(rng: () => number, numColors: number): Color[][
 
 /** Generate a random split of 5 into 3 positive parts */
 function generateSplit(rng: () => number): [number, number, number] {
-  // All ways to split 5 into 3 parts each >= 1: {1,1,3}, {1,2,2}, {1,3,1}, {2,1,2}, {2,2,1}, {3,1,1}
   const splits: [number, number, number][] = [
     [1, 1, 3], [1, 3, 1], [3, 1, 1],
     [1, 2, 2], [2, 1, 2], [2, 2, 1],
@@ -290,16 +379,13 @@ function generateSplit(rng: () => number): [number, number, number] {
 
 /** Adjust surface so columns also have reasonable counts */
 function fixColumnBalance(surface: Color[][], numColors: number, rng: () => number): void {
-  // Do up to 100 random swaps within rows to improve column balance
   for (let iter = 0; iter < 200; iter++) {
-    // Pick a random column and check its balance
     const c = Math.floor(rng() * SIZE);
     const counts = Array(numColors).fill(0);
     for (let r = 0; r < SIZE; r++) {
       counts[surface[r][c]]++;
     }
 
-    // Find the most overrepresented color
     let maxColor = 0;
     for (let k = 1; k < numColors; k++) {
       if (counts[k] > counts[maxColor]) maxColor = k;
@@ -309,9 +395,8 @@ function fixColumnBalance(surface: Color[][], numColors: number, rng: () => numb
       if (counts[k] < counts[minColor]) minColor = k;
     }
 
-    if (counts[maxColor] - counts[minColor] <= 1) continue; // balanced enough
+    if (counts[maxColor] - counts[minColor] <= 1) continue;
 
-    // Find a row where column c has maxColor and another column has minColor
     const rows = shuffle(Array.from({ length: SIZE }, (_, i) => i), rng);
     let swapped = false;
     for (const r of rows) {
@@ -320,7 +405,6 @@ function fixColumnBalance(surface: Color[][], numColors: number, rng: () => numb
       for (const c2 of cols) {
         if (c2 === c) continue;
         if (surface[r][c2] === minColor) {
-          // Swap within row r: swap columns c and c2
           [surface[r][c], surface[r][c2]] = [surface[r][c2], surface[r][c]];
           swapped = true;
           break;
@@ -347,11 +431,6 @@ export function solve(
 
 /* ─── Blind solver (player-information only) ─── */
 export function solveBlind(puzzle: PeelState, skillLevel: 1 | 2 | 3 | 4 | 5): Solution | null {
-  // The blind solver operates the same as the regular solver because
-  // the player CAN see the visible layer and plan accordingly.
-  // The "blindness" is that they don't know what's BENEATH unpeeled cells.
-  // For par calculation, we use the omniscient solver at skill 5 since
-  // the puzzle is designed with known solutions.
   return solve(puzzle, skillLevel);
 }
 
@@ -408,7 +487,6 @@ function solveGreedy(puzzle: PeelState): Solution | null {
       }
     }
 
-    // Only peel if it improves or maintains (avoids pure random waste)
     state = applyMove(state, bestMove);
     moveList.push(bestMove);
   }

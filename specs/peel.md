@@ -89,10 +89,55 @@ This forces the solver through intermediate "worse" states to reach the goal.
 **Strongest metric**: Skill-Depth -- 74% avg (random play uses ~4x more peels than optimal; strategic constraint analysis dramatically reduces waste)
 
 ## Play Report
-<!-- Playtester fills this section with blind play observations -->
+
+**BUG**: Undo button non-functional (visible but clicking does nothing). Either fix or remove.
+**BUG**: "Wrong" counter semantics never explained. Starting at 22/25 is overwhelming and opaque.
+
+**Session 1 (Intuitive)**: Rules clear after 2 taps. First peel fixed Row 2 immediately — great first-tap satisfaction. But peeling Row 1 Col 4 twice got B→B (same color layers) — completely wasted. No indication of layer count or whether next layer differs. Wrong went UP from 14→16 on one peel — surprising penalty. Ended 9 moves, Wrong=16.
+
+**Session 2 (Strategic)**: Strategy = analyze row/column intersection needs, peel cells that satisfy BOTH constraints. Reduced Wrong 22→4 in 10 moves (3x better than intuitive). Row 4 Col 3 (G→R) fixed both row AND column at once (Wrong -4). But endgame wall: last 4 violations form tight interdependency where fixing one breaks another. Couldn't close.
+
+**Session 3 (Edge Cases)**: No dominant strategy. Can fail (Wrong increases). No protection against peeling satisfied rows. Multi-peel on same cell wastes moves (B→B→B). Game never solved.
+
+**Strategy Divergence**: STRONG. Strategic 3x better than intuitive (22→4 in 10 moves vs 22→16 in 9). Game absolutely rewards analyzing intersection constraints. But endgame wall: "almost solved" to "solved" was opaque and felt like it required luck or full hidden-layer knowledge.
+
+**Best Moment**: Row 4 Col 3 peel dropping Wrong by 4 while satisfying both row and column. Multi-constraint cascade.
+**Worst Moment**: Wrong jumping 14→16 on a seemingly reasonable peel — no feedback distinguishing bad peel from neutral.
 
 ## Decision
-<!-- Designer fills this after reviewing metrics + play report -->
-<!-- Status: keep / iterate / kill -->
-<!-- If iterate: what to change and why -->
-<!-- If kill: lesson learned for learnings.md -->
+
+**Status: ITERATE** (iteration 1 of 3)
+
+### Rationale
+
+The core mechanic — irreversible layer-reveal for constraint satisfaction — is structurally sound. 74% skill-depth and 3x strategy divergence are among the best numbers in this lab. Row/column intersection analysis is genuine, learnable skill with incommensurable costs (peeling cell X depends on what you plan to do with cells Y and Z). The mechanic occupies a novel family (layer-reveal commitment) that nothing else in the portfolio touches.
+
+However, the game was **never solved in 3 playtest sessions**. A daily puzzle that cannot be completed is not a daily puzzle — it is a frustration engine. The endgame wall (last 4 violations forming tight interdependencies where fixing one breaks another) is a structural design problem, not a skill problem.
+
+### What to Change (spec revisions for v2)
+
+**1. Eliminate same-color layer traps.** No cell should have identical colors on adjacent layers. If layer 1 is blue, layer 2 MUST be a different color. Peeling must always reveal NEW information. A peel that shows the same color is a blank Wordle guess — zero information, full move cost, pure frustration. This is the single most important fix. The generator must enforce: for every cell, layer[n] != layer[n+1].
+
+**2. Reframe the progress metric.** Replace "Wrong: 22/25" with a POSITIVE, DECREASING counter: "Violations remaining: 8" (count of row/column constraint violations on the visible surface). The number should go DOWN on good peels and occasionally UP on bad ones. Starting at a small manageable number (8-12 on Monday, not 22) makes the goal feel achievable. Show which specific rows/columns are satisfied (green check) vs unsatisfied (red X) so the player has clear targets.
+
+**3. Fix or remove undo.** Either make undo functional (costs +1 to move count, per P2 — undo is acceptable only if it costs something) or remove the button entirely. A broken UI element is worse than no element.
+
+**4. Soften the endgame wall.** The generator should ensure that the LAST 2-3 peels needed to solve the puzzle are NOT tightly coupled — at least one of the final violations should be fixable independently of the others. This means the generator works backward from a solved surface, introduces violations in two waves: an "independent" wave (violations fixable one-at-a-time) and a "coupled" wave (violations requiring multi-cell reasoning). The coupled violations should appear FIRST in the solve path (mid-game), and the independent ones LAST (endgame). This creates the correct emotional arc: opening confidence, mid-game tension from coupling, endgame relief as remaining violations become tractable.
+
+**5. Add Monday/Tuesday counterintuitive moments.** CI=0 on easy days means casual players never experience an aha. Even on Monday, include at least 1 cell where the top layer satisfies its row constraint but violates its column constraint, and peeling it fixes the column while the row has enough slack to absorb the change. This is a gentle "peel the cell that looks correct" moment that teaches the dual-constraint nature of the puzzle.
+
+### What NOT to change
+
+- The 5x5 grid with 3 layers per cell (this creates the right state space)
+- The row/column color-count constraints (this IS the game)
+- The irreversibility of peels (this is the source of tension and skill)
+- The hidden-information structure (this is what defeats A10)
+
+### Target metrics for v2
+
+| Metric | v1 | v2 Target | Why |
+|---|---|---|---|
+| Skill-Depth | 74% | 65%+ | May decrease slightly as puzzles become more solvable; that is acceptable |
+| CI | 1.2 (0 Mon/Tue) | 1.5+ (>0 all days) | Explicit generator constraint for easy-day CI |
+| Solvability by human | 0% (never solved) | 100% (solved in session 2 or 3) | THE critical bar |
+| Drama | 0.70 | 0.5+ | Endgame softening may reduce drama slightly; that is fine |

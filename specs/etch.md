@@ -108,7 +108,17 @@ Skill level breakdown:
 <!-- Playtester fills this section with blind play observations -->
 
 ## Decision
-<!-- Designer fills this after reviewing metrics + play report -->
-<!-- Status: keep / iterate / kill -->
-<!-- If iterate: what to change and why -->
-<!-- If kill: lesson learned for learnings.md -->
+
+**Status: KILL (auto-kill confirmed)**
+
+**Metrics reviewed:**
+- Counterintuitive Moves = 0 across all 5 puzzles -- FATAL
+- Drama = 0.40 (below 0.5 threshold for engagement)
+- Info Gain Ratio = 1.14 (near the 1.2 red flag floor)
+- Skill-Depth = 80% is misleading -- it measures DFS vs random, not strategic vs greedy. The depth comes from backtracking search (path finding), not from counterintuitive insight.
+
+**Root cause:** Irreversible contiguous path carving is structurally monotonic. When the removal set exactly matches row/column targets (backward generation), the constraint-excess heuristic decreases monotonically with each correct removal. There is never a reason to remove a cell that INCREASES constraint violations. The "depth" is pathfinding (avoiding dead-ends), not strategic sacrifice. Pathfinding difficulty is computational, not insightful -- it creates frustration (dead-ends), not aha moments.
+
+**Lesson for learnings.md:** Irreversible contiguous path carving with exact targets produces CI=0 because the constraint satisfaction is monotonic by construction. The game's difficulty is PATH PLANNING (NP-hard maze traversal), not STRATEGIC DECISION-MAKING. Path planning creates computational challenge (can I reach all cells?) but not counterintuitive insight (should I sacrifice something now?). For a daily puzzle, difficulty must come from strategy, not from computation. Players want to feel clever, not to feel like a search algorithm.
+
+**Exhausted family:** Irreversible contiguous path carving with constraint targets.

@@ -98,7 +98,16 @@ Computed on 5 puzzles (Mon-Fri seeds), 5 skill levels each.
 <!-- Playtester fills this section with blind play observations -->
 
 ## Decision
-<!-- Designer fills this after reviewing metrics + play report -->
-<!-- Status: keep / iterate / kill -->
-<!-- If iterate: what to change and why -->
-<!-- If kill: lesson learned for learnings.md -->
+
+**Status: KILL (auto-kill confirmed)**
+
+**Metrics reviewed:**
+- Skill-Depth = 4.4% (threshold: 10%) -- FATAL
+- Counterintuitive Moves = 0 across all 5 puzzles -- FATAL
+- Greedy solver (sum-of-shortest-paths heuristic) matches optimal on 4/5 puzzles
+
+**Root cause:** Edge swaps on constrained graphs are locally evaluable. The spec's core bet was that graph bottlenecks would force counterintuitive "move away from goal" moves. In practice, the pairwise swap decomposition means each swap's net displacement benefit is calculable without recursive lookahead. Greedy IS optimal. The bottleneck topology creates longer paths but never situations where a token must move further from its goal to enable a globally better outcome.
+
+**Lesson for learnings.md:** Graph-topology token permutation with edge swaps produces CI=0 because the swap operation is locally evaluable -- the sum-of-shortest-paths heuristic is a nearly perfect guide. For CI>0 in token permutation, the operation must affect MORE than the two swapped elements (e.g., cyclic rotation of 3+ elements, as in Loop's CI=1.8). Pairwise swaps are too "clean" -- they lack the collateral damage that forces sacrifice/recovery dynamics.
+
+**Exhausted family:** Graph-topology token permutation with edge swaps.

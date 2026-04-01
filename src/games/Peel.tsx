@@ -19,7 +19,7 @@ import {
   generatePuzzle,
   applyMove,
   isGoal,
-  heuristic,
+  countUnsatisfiedLines,
   visibleColor,
   solve,
   type PeelState,
@@ -97,7 +97,6 @@ export default function Peel() {
     ...initialState,
     peeled: initialState.peeled.map(row => [...row]),
   }));
-  const [history, setHistory] = useState<PeelState[]>(() => [state]);
   const [showStats, setShowStats] = useState(false);
   const [stats, setStatsData] = useState<Stats | null>(null);
   const [gameRecorded, setGameRecorded] = useState(false);
@@ -106,7 +105,6 @@ export default function Peel() {
   const { width: screenWidth } = useWindowDimensions();
   const maxGrid = Math.min(screenWidth - 80, 320); // leave room for row targets
   const cellSize = Math.floor((maxGrid - (SIZE - 1) * GAP) / SIZE);
-  const gridWidth = SIZE * cellSize + (SIZE - 1) * GAP;
 
   /* ── Animations ── */
   const cellScales = useRef(
@@ -139,7 +137,6 @@ export default function Peel() {
       const move: Move = { r, c };
       const next: PeelState = applyMove(state, move);
       setState(next);
-      setHistory(h => [...h, next]);
 
       if (isGoal(next) && !gameRecorded) {
         setGameRecorded(true);
@@ -151,14 +148,6 @@ export default function Peel() {
     },
     [state, solved, par, gameRecorded, cellScales],
   );
-
-  /* ── Undo ── */
-  const handleUndo = useCallback(() => {
-    if (history.length <= 1 || solved) return;
-    const prev = history[history.length - 2];
-    setState(prev);
-    setHistory(h => h.slice(0, -1));
-  }, [history, solved]);
 
   const handleShowStats = useCallback(async () => {
     const s = await loadStats('peel');
@@ -189,7 +178,7 @@ export default function Peel() {
     ].join('\n');
   }
 
-  const h = heuristic(state);
+  const violationsRemaining = countUnsatisfiedLines(state);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -222,12 +211,17 @@ export default function Peel() {
           <Text style={styles.infoPar}>{par}</Text>
         </View>
         <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Wrong</Text>
-          <Text style={styles.infoVal}>{h}</Text>
+          <Text style={styles.infoLabel}>Violations</Text>
+          <Text style={[
+            styles.infoVal,
+            violationsRemaining === 0 && styles.infoGood,
+          ]}>
+            {violationsRemaining}
+          </Text>
         </View>
       </View>
 
-      {/* Column targets (above grid) */}
+      {/* Column targets (above grid) with satisfied/unsatisfied indicators */}
       <View style={{ flexDirection: 'row', marginLeft: 52, marginBottom: 4 }}>
         {state.colTargets.map((target, c) => {
           const sat = colSatisfied(state, c);
@@ -243,10 +237,10 @@ export default function Peel() {
               <Text
                 style={[
                   styles.targetText,
-                  sat && styles.targetSatisfied,
+                  sat ? styles.targetSatisfied : styles.targetUnsatisfied,
                 ]}
               >
-                {formatTarget(target, numColors)}
+                {sat ? '\u2713' : ''} {formatTarget(target, numColors)}
               </Text>
             </View>
           );
@@ -258,15 +252,15 @@ export default function Peel() {
         const rSat = rowSatisfied(state, r);
         return (
           <View key={r} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: r < SIZE - 1 ? GAP : 0 }}>
-            {/* Row target (left side) */}
+            {/* Row target (left side) with satisfied/unsatisfied indicator */}
             <View style={{ width: 48, alignItems: 'flex-end', marginRight: 4 }}>
               <Text
                 style={[
                   styles.targetText,
-                  rSat && styles.targetSatisfied,
+                  rSat ? styles.targetSatisfied : styles.targetUnsatisfied,
                 ]}
               >
-                {formatTarget(state.rowTargets[r], numColors)}
+                {rSat ? '\u2713' : ''} {formatTarget(state.rowTargets[r], numColors)}
               </Text>
             </View>
 
@@ -319,12 +313,7 @@ export default function Peel() {
         );
       })}
 
-      {/* Undo */}
-      {!solved && history.length > 1 && (
-        <Pressable style={styles.undoBtn} onPress={handleUndo}>
-          <Text style={styles.undoText}>Undo</Text>
-        </Pressable>
-      )}
+      {/* Undo removed per v2 spec — irreversibility is core tension */}
 
       <CelebrationBurst show={solved} />
 
@@ -350,7 +339,7 @@ export default function Peel() {
           Each cell has hidden color layers beneath. Tap to peel away the top
           layer and reveal what's underneath.{'\n\n'}
           Goal: make every row and column match its color count target.
-          Peels are irreversible and cost a move.{'\n'}
+          Green checks show satisfied constraints. Peels are irreversible.{'\n'}
           Par: {par} peels.
         </Text>
       </View>
@@ -399,13 +388,15 @@ const styles = StyleSheet.create({
   infoGood: { color: '#2ecc71' },
   infoPar: { color: '#818384', fontSize: 22, fontWeight: '800' },
   targetText: {
-    color: '#818384',
     fontSize: 10,
     fontWeight: '700',
     textAlign: 'center',
   },
   targetSatisfied: {
     color: '#2ecc71',
+  },
+  targetUnsatisfied: {
+    color: '#c0392b',
   },
   cell: {
     borderRadius: CELL_BORDER_RADIUS,
@@ -430,14 +421,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.6)',
     fontSize: 8,
   },
-  undoBtn: {
-    backgroundColor: '#3a3a3c',
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginTop: 12,
-  },
-  undoText: { color: '#ffffff', fontWeight: '600', fontSize: 14 },
   endMsg: { alignItems: 'center', marginTop: 20 },
   endEmoji: { fontSize: 48 },
   endText: {
