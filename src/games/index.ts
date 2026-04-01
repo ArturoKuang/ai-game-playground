@@ -26,6 +26,8 @@ import Surge from './Surge';
 import Thaw from './Thaw';
 import Knot from './Knot';
 import Sieve from './Sieve';
+import Vault from './Vault';
+import Pour from './Pour';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -215,6 +217,20 @@ const games: GameMeta[] = [
     emoji: '\uD83D\uDD0D',
     description: 'Sieve icons to deduce hidden attribute groups',
     component: Sieve,
+  },
+  {
+    id: 'vault',
+    name: 'Vault',
+    emoji: '\uD83D\uDD10',
+    description: 'Unlock cells with a rotating key ring',
+    component: Vault,
+  },
+  {
+    id: 'pour',
+    name: 'Pour',
+    emoji: '\uD83E\uDD43',
+    description: 'Pour liquid between glasses to match target distribution',
+    component: Pour,
   },
 ];
 export default games;
