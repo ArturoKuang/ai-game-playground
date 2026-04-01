@@ -103,5 +103,11 @@ Computed on 5 puzzles (Mon-Fri seeds), 5 skill levels each.
 <!-- Playtester fills this section with blind play observations -->
 
 ## Decision
-<!-- Designer fills this after reviewing metrics + play report -->
-<!-- Status: keep / iterate / kill -->
+
+**Status: KILL (auto-killed, CI = 0)**
+
+CI=0 across all 5 puzzles is a fatal structural flaw. Greedy sieving IS optimal because every observation monotonically reduces uncertainty -- there is no sieve that could be "counterintuitive" because information-gathering can never make things worse. This is intrinsic to pure information-gathering games: every probe is beneficial, so there are no sacrifice/recovery moments, no detours, no aha moments where you must "give up" information to gain more later.
+
+Additionally, IGR=1.00 confirms that strategic sieving is no better than random sieving -- the solver finds the grouping in the same number of sieves regardless of which icons are probed. This means the game has no skill gradient: a thoughtful player and a random player perform identically.
+
+**Lesson learned**: Pure information-gathering mechanics (probe to reveal hidden state) are structurally incompatible with CI>0. For CI, the player must sometimes make a move that APPEARS to worsen their position but enables a better outcome later. In information games, every observation is pure gain -- there is no cost to revealing information. For an information-gathering game to have CI, there must be a COST to probing (e.g., probing the wrong cell locks you out of probing a better one, or revealed information decays over time) that creates genuine tradeoffs in probe selection. Sieve's unlimited sieve budget with no probe-order penalties eliminates all such tradeoffs.

@@ -271,3 +271,77 @@ Constraint tightness (v3 improvement):
 **Weakest metric**: Decision Entropy -- 1.40 avg (low end but above 1.0 threshold; constraint-guided routing narrows choices)
 **Strongest metric**: Skill-Depth -- 100% avg (random play never finds solution; strategic play always does)
 **v2 -> v3 changes**: Constraint tightness dramatically improved (most cells now at turns, not straight-throughs). CI slightly decreased (1.8 -> 1.0 avg) due to tighter constraints making the optimal path more forced, but still above 0 threshold. Arrow+color constraint indicators replace border-only encoding. Mouse clicks now work via web-compatible Pressable. Segment extension pulse animation added.
+
+## v3 Play Report
+
+```
+BLIND PLAY REPORT (v3)
+======================
+Game: Knot
+Commit: 4d671cd
+
+BUGS FOUND:
+- None. Game loaded, rendered, responded to all inputs, win condition triggered correctly. Console had only minor React Native Web deprecation warnings.
+
+SESSION 1 — INTUITIVE PLAY:
+Rules clarity: Understood basic goal after 1 tap. Constraint mechanic took 3-4 taps — first red X with arrows required re-reading How to Play. Arrow directions difficult to interpret at small cell size, but green check vs red X feedback immediately clear. Started clicking green cell, moved right to adjacent purple cell, got red X. Continued collecting red X marks. Tried undoing but got confused about button position. Attempted to loop back but couldn't revisit cells. Dead end at 13 segments. Reset entirely. Green checks felt like puzzle pieces clicking into place.
+
+SESSION 2 — STRATEGIC PLAY:
+Strategy found: Plan loop shape before committing, using known cell positions to sketch a closed loop mentally. Explore to discover constraints, then undo and reroute.
+Strategy helped: Yes, dramatically. Session 1 ended in failure. Session 2 produced win under par (13 segments vs 15 par).
+Planned path through two cell clusters. Executed it — cascade of green checks (check, check, check, check) was thrilling. Constraint-reveal mechanic created genuine tension: held breath at each purple cell to see if arrows matched planned path. Win felt earned and satisfying.
+
+SESSION 3 — EDGE CASES:
+Dominant strategy: No — need both valid loop shape AND constraint direction satisfaction. Hidden constraints prevent pure planning.
+Can fail: Yes — meaningful difference between good and bad play.
+Exploits found: None. Game correctly prevents non-adjacent clicks, diagonal movement, revisiting cells, premature loop closure.
+
+EXPERIENCE SUMMARY:
+Confusion points: Arrow readability at 58px cell size. Undo button scrolls off-screen. Unclear if red X means entry AND exit violated or just one.
+Surprise moments: First green check was genuine aha. Constraint updating based on exit direction. Winning under par.
+Boring moments: Clicking undo 14+ times one-by-one. Empty cells between clusters had no decisions.
+Best moment: Cascade of green checks during Session 2's winning run.
+Worst moment: Session 1's dead end after 13 segments of effort.
+
+STRATEGY DIVERGENCE:
+Strategic play produced dramatically different and better results. Session 1: dead end with violations. Session 2: won under par on first attempt. Game strongly rewards thinking ahead. Hidden-constraint mechanic adds deduction layer preventing pure planning from being sufficient — must also adapt. Genuine skill depth. Large and meaningful gap between intuitive and strategic play.
+```
+
+## v3 Decision
+
+**Status: KEEP**
+
+### Metrics assessment
+
+The numbers held steady across all three iterations and clear every threshold:
+- Entropy=18.8 (LightsOut-tier, competitive with Claim's 18-22 range)
+- Skill-Depth=100% (theoretical maximum -- random play never solves, strategic always does)
+- CI=1.0 (dropped from v2's 1.8 due to tighter constraints narrowing the solution space, but counterintuitive moves still appear on Wed-Fri puzzles)
+- Drama=0.62 (solid tension arc with genuine near-miss moments)
+- DE=1.40 (low end but above the 1.0 red flag threshold)
+- IGR=1.28 (strategic play pays off measurably)
+- Solvability=100%, Solution Uniqueness=1 (every puzzle has exactly one valid loop)
+
+Comparison with kept games:
+- Loop: entropy=17.6, CI=1.8, skillDepth=100% -- Knot matches entropy and skillDepth
+- Herd: entropy=28.27, CI=1.2, skillDepth=97.1% -- Knot trades entropy for higher skillDepth
+- Claim: ~18-22 entropy -- Knot is directly competitive
+
+### Play report assessment
+
+Both v2 success criteria were met:
+1. **Mouse bug fixed** -- zero bugs found, all inputs worked correctly on desktop.
+2. **Active constraint reasoning confirmed** -- the playtester explicitly reported that hidden constraints prevent pure planning, that constraint reveals created genuine tension ("held breath at each purple cell"), and that the cascade of green checks was "thrilling." This is the exact constraint-reasoning engagement that was missing in v2.
+
+Strategy divergence is enormous: Session 1 ended in a dead end with violations; Session 2 produced a flawless under-par win. The game strongly rewards the probe-discover-plan-execute loop. No dominant strategy exists -- each puzzle requires puzzle-specific reasoning about both loop topology and constraint directions.
+
+### Why KEEP
+
+Knot occupies a genuinely novel mechanical family: **loop drawing with hidden directional constraints and progressive revelation**. It is not a clone of any frozen game or any killed experiment. The combination of spatial construction (drawing a loop) with hidden information discovery (directional constraints revealed on arrival) creates the Wordle-style act-learn-adapt cycle that defeats A10. The constraint system is now load-bearing (v3 tightened generation so nearly all cells are at turns), the input works on desktop, and the emotional arc is confirmed by the playtester.
+
+### Polish phase notes
+
+Three minor UX issues to address before shipping:
+1. **Arrow readability at 58px** -- constraint indicators are functional but could be larger or benefit from a tap-to-zoom feature on mobile
+2. **Tedious multi-undo** -- undoing 14+ segments one-by-one is painful. Add a "reset to last green check" checkpoint or batch-undo (undo-to-last-marked-cell)
+3. **Button viewport** -- undo/reset buttons scroll off-screen on smaller viewports (800x600). Tighten layout or use a fixed bottom bar
