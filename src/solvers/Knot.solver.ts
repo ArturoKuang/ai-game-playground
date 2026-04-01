@@ -202,17 +202,61 @@ function generateClosedLoop(
 }
 
 /**
+ * Count how many approach directions are "compatible" for a cell on the loop.
+ * A cell at a turn (enter from left, exit up) has fewer compatible approaches
+ * than a cell on a straight segment (enter from left, exit right).
+ *
+ * Compatible approaches = number of adjacent grid neighbors from which a loop
+ * could theoretically enter this cell AND still exit in the constrained direction.
+ * Straight-through = 2 compatible (can enter from either end of the line).
+ * Turn = 1-2 compatible (must enter from the specific side).
+ */
+function constraintTightness(
+  cellIdx: number,
+  prevCell: number,
+  nextCell: number,
+  size: number,
+): number {
+  const enterDir = oppositeDir(getDir(prevCell, cellIdx, size));
+  const exitDir = getDir(cellIdx, nextCell, size);
+
+  // If enter and exit are opposite (straight-through), the constraint is loose:
+  // many loop shapes can pass through this cell in a straight line.
+  // If they form a turn (90 degrees), it's tighter.
+  if (oppositeDir(enterDir) === exitDir) {
+    return 3; // straight-through: most compatible (loose)
+  }
+  return 1; // turn: least compatible (tight)
+}
+
+/**
  * Select marked cells along a loop path.
  * Skip the first cell (start). Spread them out.
+ * On harder difficulties, prefer cells at turns (tighter constraints).
  */
 function selectMarkedCells(
   loopPath: number[],
   count: number,
   rng: () => number,
+  difficulty: number = 3,
 ): number[] {
   const candidates = loopPath.slice(1); // skip start
   if (count >= candidates.length) return candidates;
 
+  const size = Math.round(Math.sqrt(loopPath.length * 2)); // approximate grid size
+  // Won't use size directly -- pass it through from caller. For now compute per cell.
+
+  // Score each candidate by tightness
+  const scored = candidates.map((cellIdx) => {
+    const pathPos = loopPath.indexOf(cellIdx);
+    const prevCell = pathPos > 0 ? loopPath[pathPos - 1] : loopPath[loopPath.length - 1];
+    const nextCell = pathPos < loopPath.length - 1 ? loopPath[pathPos + 1] : loopPath[0];
+    // We need the actual grid size, not approximate. We'll fix this from caller.
+    return { cellIdx, pathPos, prevCell, nextCell };
+  });
+
+  // The actual grid size is needed -- we'll compute it properly in generatePuzzle
+  // For now return evenly spread with tightness preference
   const step = Math.max(1, Math.floor(candidates.length / (count + 1)));
   const marked: number[] = [];
 
@@ -227,6 +271,84 @@ function selectMarkedCells(
   }
 
   return marked.slice(0, count);
+}
+
+/**
+ * Select marked cells with constraint tightness filtering.
+ * On harder difficulties, prefer cells at turns (tight constraints).
+ * - difficulty 1-2 (Mon/Tue): allow mix of turns and straights (2 compatible avg)
+ * - difficulty 3 (Wed): prefer turns, allow 1-2 straights (1-2 compatible avg)
+ * - difficulty 4-5 (Thu/Fri): maximize turns, exactly 1 compatible direction each
+ */
+function selectMarkedCellsTight(
+  loopPath: number[],
+  count: number,
+  size: number,
+  rng: () => number,
+  difficulty: number,
+): number[] {
+  const candidates = loopPath.slice(1); // skip start
+  if (count >= candidates.length) return candidates;
+
+  // Score each candidate
+  const scored = candidates.map((cellIdx) => {
+    const pathPos = loopPath.indexOf(cellIdx);
+    const prevCell = pathPos > 0 ? loopPath[pathPos - 1] : loopPath[loopPath.length - 1];
+    const nextCell = pathPos < loopPath.length - 1 ? loopPath[pathPos + 1] : loopPath[0];
+    const tightness = constraintTightness(cellIdx, prevCell, nextCell, size);
+    return { cellIdx, tightness, pathPos };
+  });
+
+  // Separate into tight (turns) and loose (straight-through)
+  const tight = scored.filter((s) => s.tightness <= 1);
+  const loose = scored.filter((s) => s.tightness > 1);
+
+  // Determine how many tight vs loose based on difficulty
+  let minTight: number;
+  if (difficulty >= 5) {
+    minTight = count; // all tight
+  } else if (difficulty >= 4) {
+    minTight = Math.max(count - 1, Math.ceil(count * 0.8)); // mostly tight
+  } else if (difficulty >= 3) {
+    minTight = Math.ceil(count * 0.6); // more tight than loose
+  } else {
+    minTight = Math.ceil(count * 0.4); // some tight
+  }
+  minTight = Math.min(minTight, tight.length); // can't exceed available
+
+  // Select: spread tight cells evenly along path, then fill with loose
+  const sortedTight = shuffle([...tight], rng);
+  // Sort by path position for even spacing
+  sortedTight.sort((a, b) => a.pathPos - b.pathPos);
+
+  const selected: number[] = [];
+
+  // Pick evenly-spaced tight cells
+  if (sortedTight.length > 0 && minTight > 0) {
+    const tStep = Math.max(1, Math.floor(sortedTight.length / minTight));
+    for (let i = 0; i < sortedTight.length && selected.length < minTight; i += tStep) {
+      selected.push(sortedTight[i].cellIdx);
+    }
+    // Fill remaining tight quota
+    const remainTight = sortedTight.filter((s) => !selected.includes(s.cellIdx));
+    const shuffledRemain = shuffle(remainTight.map((s) => s.cellIdx), rng);
+    while (selected.length < minTight && shuffledRemain.length > 0) {
+      selected.push(shuffledRemain.pop()!);
+    }
+  }
+
+  // Fill remaining count with loose cells (or more tight if not enough loose)
+  const remaining = [...shuffle(loose.map((s) => s.cellIdx), rng)];
+  const moreTight = sortedTight
+    .filter((s) => !selected.includes(s.cellIdx))
+    .map((s) => s.cellIdx);
+  const fill = [...remaining, ...shuffle(moreTight, rng)];
+
+  while (selected.length < count && fill.length > 0) {
+    selected.push(fill.pop()!);
+  }
+
+  return selected.slice(0, count);
 }
 
 /* ─── Constraint satisfaction check ─── */
@@ -292,7 +414,7 @@ export function generatePuzzle(seed: number, difficulty: number): KnotState {
   }
 
   const startCell = loopPath[0];
-  const markedIndices = selectMarkedCells(loopPath, markedCount, rng);
+  const markedIndices = selectMarkedCellsTight(loopPath, markedCount, size, rng, difficulty);
 
   // Derive constraints from the loop
   const markedCells: MarkedCell[] = markedIndices.map((cellIdx, i) => {

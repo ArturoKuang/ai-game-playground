@@ -7,6 +7,7 @@ import {
   ScrollView,
   useWindowDimensions,
   Animated,
+  Platform,
 } from 'react-native';
 import ShareButton from '../components/ShareButton';
 import StatsModal from '../components/StatsModal';
@@ -28,6 +29,71 @@ import {
 const GAP = 2;
 const ENTRY_COLOR = '#3498db'; // blue for entry wall
 const EXIT_COLOR = '#f1c40f';  // gold for exit wall
+
+/**
+ * Fix 2: Arrow position helper.
+ * Places the arrow indicator at the edge of the cell corresponding to the direction.
+ * Dir: 0=up, 1=right, 2=down, 3=left
+ */
+function getArrowPosition(dir: number, cellSize: number, arrowSize: number): any {
+  const offset = -1; // slightly inside the cell edge
+  switch (dir) {
+    case 0: // top
+      return { top: offset, left: (cellSize - arrowSize) / 2 - 1 };
+    case 1: // right
+      return { right: offset, top: (cellSize - arrowSize) / 2 - 1 };
+    case 2: // bottom
+      return { bottom: offset, left: (cellSize - arrowSize) / 2 - 1 };
+    case 3: // left
+      return { left: offset, top: (cellSize - arrowSize) / 2 - 1 };
+    default:
+      return {};
+  }
+}
+
+/**
+ * Fix 2: Arrow rotation helper.
+ * Entry arrows point INTO the cell, exit arrows point OUT of the cell.
+ * Base triangle points up (border-bottom trick). Rotate to point in the correct direction.
+ * Dir: 0=up, 1=right, 2=down, 3=left
+ * isEntry: true = arrow points into cell, false = arrow points out of cell
+ */
+function getArrowRotation(dir: number, isEntry: boolean): any {
+  // For entry: arrow should point INTO the cell from that side
+  // For exit: arrow should point OUT of the cell toward that side
+  // Base triangle points UP (toward top of screen)
+  // Entry from top: arrow points down (into cell) = rotate 180
+  // Entry from right: arrow points left (into cell) = rotate 270
+  // Entry from bottom: arrow points up (into cell) = rotate 0
+  // Entry from left: arrow points right (into cell) = rotate 90
+  // Exit toward top: arrow points up (out of cell) = rotate 0
+  // Exit toward right: arrow points right (out of cell) = rotate 90
+  // Exit toward bottom: arrow points down (out of cell) = rotate 180
+  // Exit toward left: arrow points left (out of cell) = rotate 270
+  let rotation: number;
+  if (isEntry) {
+    // "Enter from dir X" means the path comes FROM direction X into the cell
+    // Arrow should point INWARD from that side
+    switch (dir) {
+      case 0: rotation = 180; break; // from top -> arrow points down
+      case 1: rotation = 270; break; // from right -> arrow points left
+      case 2: rotation = 0; break;   // from bottom -> arrow points up
+      case 3: rotation = 90; break;  // from left -> arrow points right
+      default: rotation = 0;
+    }
+  } else {
+    // "Exit toward dir X" means the path leaves toward direction X
+    // Arrow should point OUTWARD toward that side
+    switch (dir) {
+      case 0: rotation = 0; break;   // toward top -> arrow points up
+      case 1: rotation = 90; break;  // toward right -> arrow points right
+      case 2: rotation = 180; break; // toward bottom -> arrow points down
+      case 3: rotation = 270; break; // toward left -> arrow points left
+      default: rotation = 0;
+    }
+  }
+  return { transform: [{ rotate: `${rotation}deg` }] };
+}
 
 
 export default function Knot() {
@@ -75,6 +141,11 @@ export default function Knot() {
     Array.from({ length: state.size * state.size }, () => new Animated.Value(1)),
   ).current;
 
+  // Segment extension pulse: each cell gets an opacity-based pulse when added to path
+  const segmentPulse = useRef(
+    Array.from({ length: state.size * state.size }, () => new Animated.Value(0)),
+  ).current;
+
   /* ─── Count visited marked cells ─── */
   const visitedMarked = useMemo(() => {
     return state.marked.filter((m) => pathSet.has(m.idx)).length;
@@ -86,6 +157,7 @@ export default function Knot() {
       if (solved) return;
       if (!legal.has(cellIdx)) return;
 
+      // Cell scale animation (tap feedback)
       Animated.sequence([
         Animated.timing(cellScales[cellIdx], {
           toValue: 1.15,
@@ -96,6 +168,22 @@ export default function Knot() {
           toValue: 1,
           friction: 3,
           tension: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Fix 4: Segment extension pulse animation (overshoot-and-settle)
+      segmentPulse[cellIdx].setValue(0);
+      Animated.sequence([
+        Animated.timing(segmentPulse[cellIdx], {
+          toValue: 1.3, // overshoot
+          duration: 80,
+          useNativeDriver: true,
+        }),
+        Animated.spring(segmentPulse[cellIdx], {
+          toValue: 1, // settle
+          friction: 4,
+          tension: 180,
           useNativeDriver: true,
         }),
       ]).start();
@@ -112,7 +200,7 @@ export default function Knot() {
         });
       }
     },
-    [state, solved, legal, par, gameRecorded, cellScales],
+    [state, solved, legal, par, gameRecorded, cellScales, segmentPulse],
   );
 
   /* ─── Undo ─── */
@@ -253,66 +341,47 @@ export default function Knot() {
               const isSatisfied = markedInfo?.satisfied ?? false;
 
               let bg = '#1a1a1c';
-              // Per-side border colors and widths for constraint display
-              let bTop = '#333', bRight = '#333', bBottom = '#333', bLeft = '#333';
-              let bwTop = 1, bwRight = 1, bwBottom = 1, bwLeft = 1;
+              let borderColor = '#333';
+              let borderWidth = 1;
 
               if (isStart && !isOnPath) {
                 bg = '#1a4a1a';
-                bTop = bRight = bBottom = bLeft = '#2ecc71';
-                bwTop = bwRight = bwBottom = bwLeft = 2;
+                borderColor = '#2ecc71';
+                borderWidth = 2;
               } else if (isOnPath) {
                 const pathIdx = state.path.indexOf(i);
                 const frac = pathIdx / Math.max(1, state.path.length - 1);
                 bg = frac < 0.5 ? '#1a3d5c' : '#3d1a1a';
-                const baseColor = isLast ? '#f1c40f' : '#555';
-                const baseWidth = isLast ? 3 : 1;
-                bTop = bRight = bBottom = bLeft = baseColor;
-                bwTop = bwRight = bwBottom = bwLeft = baseWidth;
+                borderColor = isLast ? '#f1c40f' : '#555';
+                borderWidth = isLast ? 3 : 1;
                 if (isMarked && isRevealed) {
-                  // Satisfied/violated overall glow
-                  const statusColor = isSatisfied ? '#2ecc71' : '#e74c3c';
-                  bTop = bRight = bBottom = bLeft = statusColor;
-                  bwTop = bwRight = bwBottom = bwLeft = 2;
-                  // Overlay entry (blue) and exit (gold) on specific walls
-                  const enterDir = markedInfo!.constraint.enter;
-                  const exitDir = markedInfo!.constraint.exit;
-                  // Entry wall = blue
-                  if (enterDir === 0) { bwTop = 4; bTop = ENTRY_COLOR; }
-                  if (enterDir === 1) { bwRight = 4; bRight = ENTRY_COLOR; }
-                  if (enterDir === 2) { bwBottom = 4; bBottom = ENTRY_COLOR; }
-                  if (enterDir === 3) { bwLeft = 4; bLeft = ENTRY_COLOR; }
-                  // Exit wall = gold
-                  if (exitDir === 0) { bwTop = 4; bTop = EXIT_COLOR; }
-                  if (exitDir === 1) { bwRight = 4; bRight = EXIT_COLOR; }
-                  if (exitDir === 2) { bwBottom = 4; bBottom = EXIT_COLOR; }
-                  if (exitDir === 3) { bwLeft = 4; bLeft = EXIT_COLOR; }
+                  borderColor = isSatisfied ? '#2ecc71' : '#e74c3c';
+                  borderWidth = 2;
                 }
               } else if (isMarked) {
                 bg = '#2c2c3e';
                 if (isRevealed) {
-                  // Show entry/exit borders on revealed but unvisited marked cells
-                  const enterDir = markedInfo!.constraint.enter;
-                  const exitDir = markedInfo!.constraint.exit;
-                  bTop = bRight = bBottom = bLeft = '#555';
-                  bwTop = bwRight = bwBottom = bwLeft = 1;
-                  if (enterDir === 0) { bwTop = 4; bTop = ENTRY_COLOR; }
-                  if (enterDir === 1) { bwRight = 4; bRight = ENTRY_COLOR; }
-                  if (enterDir === 2) { bwBottom = 4; bBottom = ENTRY_COLOR; }
-                  if (enterDir === 3) { bwLeft = 4; bLeft = ENTRY_COLOR; }
-                  if (exitDir === 0) { bwTop = 4; bTop = EXIT_COLOR; }
-                  if (exitDir === 1) { bwRight = 4; bRight = EXIT_COLOR; }
-                  if (exitDir === 2) { bwBottom = 4; bBottom = EXIT_COLOR; }
-                  if (exitDir === 3) { bwLeft = 4; bLeft = EXIT_COLOR; }
+                  borderColor = '#555';
+                  borderWidth = 1;
                 } else {
-                  bTop = bRight = bBottom = bLeft = '#6c5ce7';
-                  bwTop = bwRight = bwBottom = bwLeft = 2;
+                  borderColor = '#6c5ce7';
+                  borderWidth = 2;
                 }
               } else if (isLegal) {
                 bg = 'rgba(52,152,219,0.2)';
-                bTop = bRight = bBottom = bLeft = '#3498db';
-                bwTop = bwRight = bwBottom = bwLeft = 2;
+                borderColor = '#3498db';
+                borderWidth = 2;
               }
+
+              // Fix 2: Arrow constraint indicators
+              // Entry arrow: points INTO the cell (blue)
+              // Exit arrow: points OUT of the cell (gold)
+              const showConstraintArrows = isMarked && isRevealed;
+              const enterDir = markedInfo?.constraint.enter;
+              const exitDir = markedInfo?.constraint.exit;
+
+              // Arrow size relative to cell
+              const arrowSize = Math.max(6, Math.floor(cellSize * 0.22));
 
               return (
                 <Animated.View
@@ -324,23 +393,100 @@ export default function Knot() {
                 >
                   <Pressable
                     onPress={() => handleTap(i)}
-                    style={[
-                      styles.cell,
-                      {
-                        width: cellSize,
-                        height: cellSize,
-                        backgroundColor: bg,
-                        borderTopColor: bTop,
-                        borderRightColor: bRight,
-                        borderBottomColor: bBottom,
-                        borderLeftColor: bLeft,
-                        borderTopWidth: bwTop,
-                        borderRightWidth: bwRight,
-                        borderBottomWidth: bwBottom,
-                        borderLeftWidth: bwLeft,
-                      },
-                    ]}
+                    // Fix 1: Ensure mouse clicks work on web
+                    {...(Platform.OS === 'web' ? {
+                      role: 'button' as any,
+                      tabIndex: 0,
+                      style: [
+                        styles.cell,
+                        {
+                          width: cellSize,
+                          height: cellSize,
+                          backgroundColor: bg,
+                          borderColor,
+                          borderWidth,
+                          cursor: (isLegal || isStart) ? 'pointer' : 'default',
+                          // Ensure pointer events work through Animated.View
+                          userSelect: 'none',
+                        } as any,
+                      ],
+                    } : {
+                      style: [
+                        styles.cell,
+                        {
+                          width: cellSize,
+                          height: cellSize,
+                          backgroundColor: bg,
+                          borderColor,
+                          borderWidth,
+                        },
+                      ],
+                    })}
                   >
+                    {/* Fix 4: Segment extension pulse glow */}
+                    {isOnPath && (
+                      <Animated.View
+                        style={{
+                          position: 'absolute',
+                          top: 0, left: 0, right: 0, bottom: 0,
+                          backgroundColor: 'rgba(52,152,219,0.25)',
+                          borderRadius: 4,
+                          opacity: segmentPulse[i].interpolate({
+                            inputRange: [0, 1, 1.3],
+                            outputRange: [0, 0, 0.6],
+                            extrapolate: 'clamp',
+                          }),
+                          transform: [{
+                            scale: segmentPulse[i].interpolate({
+                              inputRange: [0, 1, 1.3],
+                              outputRange: [0.8, 1, 1.15],
+                              extrapolate: 'clamp',
+                            }),
+                          }],
+                        }}
+                      />
+                    )}
+
+                    {/* Fix 2: Constraint arrow indicators */}
+                    {showConstraintArrows && enterDir !== undefined && (
+                      <View
+                        style={[
+                          styles.arrowIndicator,
+                          getArrowPosition(enterDir, cellSize, arrowSize),
+                        ]}
+                      >
+                        <View style={[
+                          styles.arrowTriangle,
+                          getArrowRotation(enterDir, true),
+                          {
+                            borderBottomColor: ENTRY_COLOR,
+                            borderLeftWidth: arrowSize / 2,
+                            borderRightWidth: arrowSize / 2,
+                            borderBottomWidth: arrowSize,
+                          },
+                        ]} />
+                      </View>
+                    )}
+                    {showConstraintArrows && exitDir !== undefined && (
+                      <View
+                        style={[
+                          styles.arrowIndicator,
+                          getArrowPosition(exitDir, cellSize, arrowSize),
+                        ]}
+                      >
+                        <View style={[
+                          styles.arrowTriangle,
+                          getArrowRotation(exitDir, false),
+                          {
+                            borderBottomColor: EXIT_COLOR,
+                            borderLeftWidth: arrowSize / 2,
+                            borderRightWidth: arrowSize / 2,
+                            borderBottomWidth: arrowSize,
+                          },
+                        ]} />
+                      </View>
+                    )}
+
                     {isStart && (
                       <Text style={styles.startDot}>{'\u25C9'}</Text>
                     )}
@@ -427,9 +573,10 @@ export default function Knot() {
           Draw a closed loop that passes through every marked cell (purple dots).
           {'\n\n'}
           Each marked cell has a hidden directional constraint revealed when your
-          loop reaches it. Blue border = entry wall, gold border = exit wall.
-          Match both to satisfy the constraint (green check). If violated, the cell
-          shows a red X — undo and reroute!
+          loop reaches it. Blue arrow = entry direction (points into cell), gold
+          arrow = exit direction (points out of cell). Match both to satisfy the
+          constraint (green check). If violated, the cell shows a red X — undo and
+          reroute!
           {'\n\n'}
           Undo preserves discovered constraints, but full reset clears them all.
           {'\n\n'}
@@ -484,6 +631,22 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'visible',
+    position: 'relative',
+  },
+  arrowIndicator: {
+    position: 'absolute',
+    zIndex: 10,
+  },
+  arrowTriangle: {
+    width: 0,
+    height: 0,
+    backgroundColor: 'transparent',
+    borderStyle: 'solid',
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopWidth: 0,
+    borderTopColor: 'transparent',
   },
   startDot: {
     color: '#2ecc71',

@@ -194,8 +194,25 @@ for (let d = 0; d < DIFFICULTIES.length; d++) {
   console.log(`Computing ${day} (difficulty=${difficulty}, seed=${seed})...`);
   const result = computeMetrics(seed, difficulty, day);
   results.push(result);
+  // Count tight vs loose constraints
+  const puzzle = generatePuzzle(seed, difficulty);
+  let tightCount = 0;
+  let looseCount = 0;
+  for (const m of puzzle.marked) {
+    const enterDir = m.constraint.enter;
+    const exitDir = m.constraint.exit;
+    if (((enterDir + 2) % 4) === exitDir) {
+      looseCount++;
+    } else {
+      tightCount++;
+    }
+  }
+  (result as any).tightConstraints = tightCount;
+  (result as any).looseConstraints = looseCount;
+
   console.log(`  Solvable: ${result.solvable}`);
   console.log(`  Grid: ${result.gridSize}x${result.gridSize}, Marked: ${result.markedCount}`);
+  console.log(`  Constraint tightness: ${tightCount} tight (turns) / ${looseCount} loose (straight)`);
   console.log(`  Optimal: ${result.optimalSteps}, Par: ${result.par}`);
   console.log(`  Puzzle Entropy: ${result.puzzleEntropy}`);
   console.log(`  Skill-Depth: ${result.skillDepth}`);

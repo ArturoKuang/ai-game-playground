@@ -161,3 +161,113 @@ Replace arrow notation (e.g., "up-arrow right-arrow") with colored cell borders:
 ### Difficulty Knobs (revised)
 Keep all 4 existing knobs. Add a 5th:
 5. **Constraint memory** (Monday: 1 previously-discovered constraint persists through reset, giving a free hint; Friday: no constraints persist, full amnesia on reset)
+
+## v2 Play Report
+
+```
+BLIND PLAY REPORT (v2)
+======================
+Game: Knot
+Commit: 3997d7f
+
+BUGS FOUND:
+- Grid cells do not respond to standard mouse click events. Only touch events (touchscreen.tap) work. Desktop browser users clicking with a mouse may experience the same issue.
+- Undo and Reset buttons positioned below visible viewport on smaller screen heights (800x600).
+
+SESSION 1 — INTUITIVE PLAY:
+Rules clarity: Took 5-6 taps to understand basic interaction. Initial confusion: mouse clicks did nothing, game appeared broken. Once touch-tap on green start cell activated the path, mechanics became clearer. Built path going left, down entire left column, right across bottom, up right column. Every purple cell showed red X (constraint violation). Hit dead end at 15 segments. The constraint borders (blue=entry, gold=exit) were hard to parse — too subtle to determine which side was blue vs gold. Session 1 was frustrating: never got close to winning.
+
+SESSION 2 — STRATEGIC PLAY:
+Strategy found: Plan a compact rectangular loop visiting all marked cells with minimal wasted segments.
+Strategy helped: Yes, dramatically. Won on first try (13 segments, under par of 15).
+Planned compact loop before first tap. 6/7 constraints showed green immediately. Cell (2,4) showed X during building but flipped to green when loop closed (exit direction retroactively satisfied). Win celebration with stars was satisfying. Planning loop shape in advance was the decisive factor.
+
+SESSION 3 — EDGE CASES:
+Dominant strategy: Partially — tightest possible loop around marked cells works well, but direction matters. Same loop reversed (counterclockwise vs clockwise) failed completely.
+Can fail: Yes, meaningfully. Wasteful paths create dead ends. Reversed direction causes violations.
+Exploits found: None. Constraint system prevents brute-force.
+
+EXPERIENCE SUMMARY:
+Confusion points: Mouse clicks don't work. Blue/gold borders too subtle. "Constraints reveal on arrival" unclear initially.
+Surprise moments: Loop closing retroactively fixing a constraint. Reversed loop failing proved direction matters.
+Boring moments: Early exploration when nothing responded. Walking through empty cells with no feedback.
+Best moment: Closing loop in Session 2, all 7 constraints green, under par.
+Worst moment: First 5 minutes when mouse clicks did nothing — would cause real players to abandon.
+
+STRATEGY DIVERGENCE:
+Strategic play dramatically outperformed intuitive play. Key insight: loop must be as compact as possible, traversed in right direction. However, constraint satisfaction felt passive — the "right" compact loop happened to satisfy all constraints without deliberate constraint reasoning. Never needed to read blue/gold borders. Game rewards topological planning more than constraint reasoning on this difficulty. Harder puzzles might require actual constraint analysis.
+```
+
+## v2 Decision
+
+**Status: ITERATE (2 of 3) -- final shot**
+
+### Metrics assessment
+
+The numbers are genuinely excellent. Entropy=18.8 puts Knot in LightsOut territory. Skill-depth=100% is the best possible -- random play never solves the puzzle, strategic play always does. CI=1.8 matches Loop (our best kept game by this metric). Drama=0.66 is solid. DE=1.40 and IGR=1.37 both clear their respective thresholds. This is one of the strongest metric profiles in the entire results.tsv -- stronger than Seek, Probe, Fence, or Bloom ever achieved.
+
+For comparison against the kept games:
+- Loop: entropy=17.6, CI=1.8, skillDepth=100% -- Knot matches or beats every dimension
+- Herd: entropy=28.27, CI=1.2, skillDepth=97.1% -- Knot trades some entropy for higher CI
+- Claim: ~18-22 entropy range -- Knot is competitive
+
+The metrics say: this game works mechanically.
+
+### Play report assessment
+
+Two problems, one structural and one cosmetic:
+
+1. **CRITICAL BUG: Mouse clicks don't work.** Only touch events fire. This is a web compatibility showstopper -- desktop users (the majority of daily puzzle players) literally cannot play. This is an implementation bug, not a design flaw, so it doesn't count against the mechanic. But it MUST be fixed.
+
+2. **Constraint borders (blue/gold) still too subtle.** v1 had unreadable arrow notation. v2 replaced it with colored borders. The playtester reports they're still hard to distinguish. However -- and this is the critical observation -- the playtester WON WITHOUT EVER READING THE BORDERS. The compact-loop strategy satisfied constraints passively.
+
+3. **Constraints are vestigial on easy puzzles.** This is the most important finding. The playtester's compact loop strategy satisfied all 7 constraints without deliberate constraint reasoning. The topology did all the work. On the current Monday difficulty, the directional constraints are decorative -- they don't force the player to think differently than they would without them.
+
+This is NOT a fatal flaw. It means the difficulty knobs aren't tuned aggressively enough on the easy end. Monday's constraints are too generous (too many compatible approach directions), so any reasonable loop shape satisfies them. The constraints only become load-bearing when they're TIGHT -- when a cell demands a specific entry direction that conflicts with the natural loop shape.
+
+### What to change for v3
+
+**Fix 1: Mouse input (bug fix).** Click events must work identically to touch events. This is a blocking bug for desktop play.
+
+**Fix 2: Constraint visibility -- use shape, not just color.** Blue/gold borders failed twice. Color-only encoding doesn't work during active spatial reasoning when the player is focused on routing. Replace with: entry side gets a solid triangle/arrow pointing INTO the cell, exit side gets a solid triangle/arrow pointing OUT of the cell. Use shape + color together (entry = blue inward arrow, exit = gold outward arrow). The directional shape is redundant with the color, so even if color is hard to distinguish, the arrow direction tells the story.
+
+**Fix 3: Tighten constraints so they're load-bearing.** The core design revision: constraints must force the player to deviate from the "obvious" compact loop. On the current settings, most constraints are compatible with multiple approach directions, making them passively satisfiable. Tighten:
+- Monday: each marked cell has 2 compatible approach directions (was 3). The compact loop still works but the player must think about direction (clockwise vs counterclockwise matters).
+- Wednesday: each marked cell has 1-2 compatible approach directions. Some cells will force detours away from the compact shape.
+- Friday: each marked cell has exactly 1 compatible approach direction. The loop shape is fully determined by constraints -- the puzzle is figuring out what shape that is through progressive discovery.
+
+This ensures the constraint system is the actual challenge, not a decorative overlay on topology. The playtester noted that clockwise vs counterclockwise matters -- tighter constraints amplify this effect and create genuine constraint reasoning, not passive satisfaction.
+
+**Fix 4: Walking through empty cells needs feedback.** The playtester flagged "walking through empty cells with no feedback" as boring. Each segment extension should have a brief visual pulse (the line grows with a slight overshoot-and-settle animation). The path itself is the primary visual element -- it needs to feel alive.
+
+### Success criteria for v3
+
+If v3 fixes the mouse bug AND the playtester reports having to actively reason about constraints (not just passively satisfy them), this is a KEEP. The metrics are already there. The mechanic is structurally sound. What's missing is (a) basic input working on desktop and (b) constraints that actually constrain.
+
+## Solver Metrics (v3 — mouse input fix, arrow constraints, tighter generation, segment animation)
+
+Computed on 5 puzzles (Mon-Fri seeds), 5 skill levels each.
+
+| Metric | Mon | Tue | Wed | Thu | Fri | Avg |
+|---|---|---|---|---|---|---|
+| Solvability | Y | Y | Y | Y | Y | 100% |
+| Puzzle Entropy | 14.7 | 11.2 | 20.3 | 21.0 | 26.8 | 18.80 |
+| Skill-Depth | 100% | 100% | 100% | 100% | 100% | 100% |
+| Decision Entropy | 1.47 | 1.24 | 1.45 | 1.50 | 1.34 | 1.40 |
+| Counterintuitive | 2 | 0 | 0 | 1 | 2 | 1.00 |
+| Drama | 0.27 | 1.00 | 1.00 | 0.13 | 0.70 | 0.62 |
+| Duration (s) | 0.01 | 0.01 | 0.01 | 0.01 | 0.02 | 0.01 |
+| Info Gain Ratio | 1.34 | 1.30 | 1.33 | 1.21 | 1.20 | 1.28 |
+| Solution Uniqueness | 1 | 1 | 1 | 1 | 1 | 1 |
+
+Constraint tightness (v3 improvement):
+- Mon: 5/5 tight (turns), 0 loose (straight-through)
+- Tue: 6/6 tight, 0 loose
+- Wed: 7/7 tight, 0 loose
+- Thu: 5/8 tight, 3 loose
+- Fri: 10/10 tight, 0 loose
+
+**Auto-kill check**: PASSED
+**Weakest metric**: Decision Entropy -- 1.40 avg (low end but above 1.0 threshold; constraint-guided routing narrows choices)
+**Strongest metric**: Skill-Depth -- 100% avg (random play never finds solution; strategic play always does)
+**v2 -> v3 changes**: Constraint tightness dramatically improved (most cells now at turns, not straight-throughs). CI slightly decreased (1.8 -> 1.0 avg) due to tighter constraints making the optimal path more forced, but still above 0 threshold. Arrow+color constraint indicators replace border-only encoding. Mouse clicks now work via web-compatible Pressable. Segment extension pulse animation added.
