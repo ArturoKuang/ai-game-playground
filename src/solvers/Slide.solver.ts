@@ -74,8 +74,9 @@ export function generatePuzzle(seed: number, _difficulty: number): SlideState {
   }
 
   // Shuffle by making random moves from goal state
+  // 100+ shuffles needed for CI ≥ 2 (counterintuitive moves)
   let tiles = goalState();
-  const numShuffles = 30 + Math.floor(rng() * 40);
+  const numShuffles = 100 + Math.floor(rng() * 100);
   for (let i = 0; i < numShuffles; i++) {
     const moves = legalMoves(tiles);
     tiles = applyMove(tiles, moves[Math.floor(rng() * moves.length)]);
