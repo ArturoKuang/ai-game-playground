@@ -5,11 +5,10 @@
  * Goal: no repeated shape OR color in any row or column (double Latin square).
  * Some swap positions are secretly locked; failed swaps cost a move and reveal the lock.
  *
- * v2 changes:
- * - Locks placed in grid interior (rows 1-3, cols 1-3) to create routing detours
- * - Monday: 2-3 tiles out of place; Friday: 8-10 tiles out of place
- * - Par computed via lock-naive solver (discovers locks through failed swaps)
- * - Par buffer: Monday +3, Friday +2
+ * v3 changes:
+ * - Increased lock density Wed-Fri (Wed 24%, Thu 28%, Fri 32%)
+ * - At least one lock placed adjacent to the highest-violation tile
+ * - Identical-tile swaps blocked in legalMoves (was already in v2)
  */
 
 export const SIZE = 5;
@@ -96,6 +95,23 @@ export function countViolations(grid: Tile[][]): number {
   return violations;
 }
 
+/* ─── Count violations for a single cell ─── */
+function cellViolations(grid: Tile[][], r: number, c: number): number {
+  const tile = grid[r][c];
+  let v = 0;
+  for (let cc = 0; cc < SIZE; cc++) {
+    if (cc === c) continue;
+    if (grid[r][cc].shape === tile.shape) v++;
+    if (grid[r][cc].color === tile.color) v++;
+  }
+  for (let rr = 0; rr < SIZE; rr++) {
+    if (rr === r) continue;
+    if (grid[rr][c].shape === tile.shape) v++;
+    if (grid[rr][c].color === tile.color) v++;
+  }
+  return v;
+}
+
 /* ─── Heuristic: violations ─── */
 export function heuristic(state: SiftState): number {
   return countViolations(state.grid);
@@ -118,6 +134,7 @@ export function legalMoves(state: SiftState): Move[] {
           if (state.knownLocks[r2][c2]) continue;
           const t1 = state.grid[r1][c1];
           const t2 = state.grid[r2][c2];
+          // v2+: Block identical-tile swaps (same color + same shape)
           if (t1.shape === t2.shape && t1.color === t2.color) continue;
           moves.push({ r1, c1, r2, c2 });
         }
@@ -184,8 +201,10 @@ export function generatePuzzle(seed: number, difficulty: number): SiftState {
     }
   }
 
-  // Lock density: Mon ~12%, Fri ~28%
-  const numLocks = 2 + difficulty; // diff 1->3, diff 5->7
+  // v3: Lock density — Mon 12%, Tue 16%, Wed 24%, Thu 28%, Fri 32%
+  // Mon (diff 1): 3 locks, Tue (diff 2): 4 locks, Wed (diff 3): 6 locks, Thu (diff 4): 7 locks, Fri (diff 5): 8 locks
+  const lockCounts: Record<number, number> = { 1: 3, 2: 4, 3: 6, 4: 7, 5: 8 };
+  const numLocks = lockCounts[difficulty] ?? (2 + difficulty);
 
   const locks: boolean[][] = Array.from({ length: SIZE }, () =>
     Array.from({ length: SIZE }, () => false)
@@ -215,14 +234,14 @@ export function generatePuzzle(seed: number, difficulty: number): SiftState {
     locks[r][c] = true;
     placed++;
   }
-  // Overflow to edges if needed (shouldn't happen: 9 interior slots >= 7 max locks)
+  // Overflow to edges if needed (for Fri: 8 locks, 9 interior slots available)
   for (const [r, c] of shuffledEdge) {
     if (placed >= numLocks) break;
     locks[r][c] = true;
     placed++;
   }
 
-  // Get unlocked positions
+  // Get unlocked positions (computed BEFORE scrambling)
   const unlocked: [number, number][] = [];
   for (let r = 0; r < SIZE; r++) {
     for (let c = 0; c < SIZE; c++) {
@@ -282,7 +301,189 @@ export function generatePuzzle(seed: number, difficulty: number): SiftState {
     }
   }
 
+  // v3: Ensure at least one lock is adjacent to the highest-violation tile
+  // This forces the "obvious first swap" to be blocked, creating a rerouting moment.
+  // IMPORTANT: We only RELOCATE an existing lock — never add new ones (to preserve lock count).
+  let maxViolTile: [number, number] = [0, 0];
+  let maxViol = -1;
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      const v = cellViolations(grid, r, c);
+      if (v > maxViol) {
+        maxViol = v;
+        maxViolTile = [r, c];
+      }
+    }
+  }
+
+  // Check if any adjacent cell is already locked (or the tile itself is locked)
+  const [mr, mc] = maxViolTile;
+  const adjacents: [number, number][] = [];
+  for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+    const nr = mr + dr;
+    const nc = mc + dc;
+    if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE) {
+      adjacents.push([nr, nc]);
+    }
+  }
+
+  const hasAdjacentLock = locks[mr][mc] || adjacents.some(([ar, ac]) => locks[ar][ac]);
+  if (!hasAdjacentLock && adjacents.length > 0) {
+    // Pick an adjacent that's currently unlocked to place a lock via relocation
+    const candidates = adjacents.filter(([ar, ac]) => !locks[ar][ac]);
+    if (candidates.length > 0) {
+      const [lr, lc] = candidates[Math.floor(rng() * candidates.length)];
+
+      // Find a non-adjacent lock to relocate (so total lock count stays the same)
+      let relocated = false;
+      for (let r = SIZE - 1; r >= 0 && !relocated; r--) {
+        for (let c = SIZE - 1; c >= 0 && !relocated; c--) {
+          if (locks[r][c]) {
+            // Don't relocate a lock that's already adjacent to max-viol tile
+            const isAdjToMax = (r === mr && c === mc) ||
+              adjacents.some(([ar, ac]) => ar === r && ac === c);
+            // Also don't relocate to the same position
+            if (!isAdjToMax && !(r === lr && c === lc)) {
+              locks[r][c] = false;
+              locks[lr][lc] = true;
+              relocated = true;
+            }
+          }
+        }
+      }
+      // If couldn't relocate (all locks already adjacent — very unlikely), skip.
+      // Do NOT add extra locks — that would push total above target and risk unsolvability.
+    }
+  }
+
   const maxMoves = 10 + difficulty * 5; // fallback; par will be computed in UI
+
+  // v3: Solvability check — verify puzzle can be solved by L5 beam search.
+  // If not, return a simplified version (remove the adjacent-lock constraint).
+  const testState: SiftState = {
+    grid: grid.map((row) => row.map((t) => ({ ...t }))),
+    locks: locks.map((row) => [...row]),
+    knownLocks: Array.from({ length: SIZE }, () =>
+      Array.from({ length: SIZE }, () => false)
+    ),
+    moves: 0,
+    maxMoves,
+  };
+
+  const testSol = solveBeamSearchExport(testState, 2000);
+  if (!testSol) {
+    // Solvability failed — remove the adjacent-lock relocation by regenerating
+    // with a slightly modified seed to get a different lock arrangement
+    return generatePuzzleFallback(seed + 7919, difficulty);
+  }
+
+  return {
+    grid,
+    locks,
+    knownLocks: Array.from({ length: SIZE }, () =>
+      Array.from({ length: SIZE }, () => false)
+    ),
+    moves: 0,
+    maxMoves,
+  };
+}
+
+/* ─── Fallback puzzle generator (no adjacent-lock constraint) ─── */
+function generatePuzzleFallback(seed: number, difficulty: number): SiftState {
+  const rng = makeRng(seed);
+
+  const shapeSquare = generateLatinSquare(rng);
+  const colorSquare = generateLatinSquare(rng);
+
+  const goalGrid: Tile[][] = [];
+  for (let r = 0; r < SIZE; r++) {
+    goalGrid.push([]);
+    for (let c = 0; c < SIZE; c++) {
+      goalGrid[r].push({ shape: shapeSquare[r][c], color: colorSquare[r][c] });
+    }
+  }
+
+  const lockCounts: Record<number, number> = { 1: 3, 2: 4, 3: 6, 4: 7, 5: 8 };
+  const numLocks = lockCounts[difficulty] ?? (2 + difficulty);
+
+  const locks: boolean[][] = Array.from({ length: SIZE }, () =>
+    Array.from({ length: SIZE }, () => false)
+  );
+
+  const interiorPositions: [number, number][] = [];
+  const edgePositions: [number, number][] = [];
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      if (r >= 1 && r <= 3 && c >= 1 && c <= 3) {
+        interiorPositions.push([r, c]);
+      } else {
+        edgePositions.push([r, c]);
+      }
+    }
+  }
+
+  const shuffledInterior = shuffle(interiorPositions, rng);
+  const shuffledEdge = shuffle(edgePositions, rng);
+
+  let placed = 0;
+  for (const [r, c] of shuffledInterior) {
+    if (placed >= numLocks) break;
+    locks[r][c] = true;
+    placed++;
+  }
+  for (const [r, c] of shuffledEdge) {
+    if (placed >= numLocks) break;
+    locks[r][c] = true;
+    placed++;
+  }
+
+  const unlocked: [number, number][] = [];
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      if (!locks[r][c]) unlocked.push([r, c]);
+    }
+  }
+
+  const targetDisorder = difficulty <= 1 ? 3 : (difficulty <= 2 ? 4 : (difficulty <= 3 ? 6 : (difficulty <= 4 ? 8 : 10)));
+  const grid: Tile[][] = goalGrid.map((row) => row.map((t) => ({ ...t })));
+  const shuffledUnlocked = shuffle(unlocked, rng);
+  let displaced = 0;
+
+  let posIdx = 0;
+  while (displaced < targetDisorder && posIdx + 2 < shuffledUnlocked.length) {
+    const p0 = shuffledUnlocked[posIdx];
+    const p1 = shuffledUnlocked[posIdx + 1];
+    const p2 = shuffledUnlocked[posIdx + 2];
+    const tmp = { ...grid[p0[0]][p0[1]] };
+    grid[p0[0]][p0[1]] = { ...grid[p2[0]][p2[1]] };
+    grid[p2[0]][p2[1]] = { ...grid[p1[0]][p1[1]] };
+    grid[p1[0]][p1[1]] = tmp;
+    posIdx += 3;
+    displaced = countOutOfPlace(grid, goalGrid);
+  }
+
+  const remaining = shuffledUnlocked.slice(posIdx);
+  let swapIdx = 0;
+  while (displaced < targetDisorder && swapIdx + 1 < remaining.length) {
+    const p1 = remaining[swapIdx];
+    const p2 = remaining[swapIdx + 1];
+    const tmp = { ...grid[p1[0]][p1[1]] };
+    grid[p1[0]][p1[1]] = { ...grid[p2[0]][p2[1]] };
+    grid[p2[0]][p2[1]] = tmp;
+    swapIdx += 2;
+    displaced = countOutOfPlace(grid, goalGrid);
+  }
+
+  if (countViolations(grid) === 0) {
+    if (unlocked.length >= 2) {
+      const [p1, p2] = shuffle(unlocked, rng);
+      const tmp = grid[p1[0]][p1[1]];
+      grid[p1[0]][p1[1]] = grid[p2[0]][p2[1]];
+      grid[p2[0]][p2[1]] = tmp;
+    }
+  }
+
+  const maxMoves = 10 + difficulty * 5;
 
   return {
     grid,
@@ -368,7 +569,7 @@ export function solveLockNaive(puzzle: SiftState, beamWidth: number = 500): Solu
   return null;
 }
 
-/* ─── Compute par (v2) ───
+/* ─── Compute par (v2+) ───
  * Par = lock-naive solver optimal + buffer
  * Buffer: Monday (diff 1) = +3, graduating to Friday (diff 5) = +2
  */
@@ -503,6 +704,11 @@ function solveGreedyLookahead(puzzle: SiftState): Solution | null {
     moveList.push(bestMove);
   }
   return isGoal(state) ? { moves: moveList, steps: moveList.length, failedSwaps } : null;
+}
+
+/* ─── Exported beam search for solvability checks ─── */
+export function solveBeamSearchExport(puzzle: SiftState, beamWidth: number): Solution | null {
+  return solveBeamSearch(puzzle, beamWidth);
 }
 
 /* ─── Skill 4-5: Beam search with A* flavor ─── */

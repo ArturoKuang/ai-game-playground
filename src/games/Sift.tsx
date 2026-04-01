@@ -73,7 +73,10 @@ export default function Sift() {
     knownLocks: initialState.knownLocks.map((row) => [...row]),
   }));
   const [selected, setSelected] = useState<[number, number] | null>(null);
+<<<<<<< HEAD
   const [lastSwapFailed, setLastSwapFailed] = useState(false);
+=======
+>>>>>>> 9f0bf98 (iterate: Sift v3 — toast fix + identical swap block + lock density)
 
   const solved = isGoal(state);
   const violations = countViolations(state.grid);
@@ -92,6 +95,14 @@ export default function Sift() {
     Array.from({ length: SIZE * SIZE }, () => new Animated.Value(0)),
   ).current;
 
+<<<<<<< HEAD
+=======
+  // v3: Lock icon fade-in opacity per cell
+  const lockFadeAnims = useRef(
+    Array.from({ length: SIZE * SIZE }, () => new Animated.Value(0)),
+  ).current;
+
+>>>>>>> 9f0bf98 (iterate: Sift v3 — toast fix + identical swap block + lock density)
   const animateBounce = useCallback(
     (key: number) => {
       Animated.sequence([
@@ -124,6 +135,22 @@ export default function Sift() {
     [shakeAnims],
   );
 
+<<<<<<< HEAD
+=======
+  // v3: Animate lock icon fade-in when a lock is discovered
+  const animateLockReveal = useCallback(
+    (key: number) => {
+      lockFadeAnims[key].setValue(0);
+      Animated.timing(lockFadeAnims[key], {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }).start();
+    },
+    [lockFadeAnims],
+  );
+
+>>>>>>> 9f0bf98 (iterate: Sift v3 — toast fix + identical swap block + lock density)
   /* ── Tap handler ── */
   const handleTap = useCallback(
     (r: number, c: number) => {
@@ -135,7 +162,10 @@ export default function Sift() {
       if (selected === null) {
         // First tap: select this tile
         setSelected([r, c]);
+<<<<<<< HEAD
         setLastSwapFailed(false);
+=======
+>>>>>>> 9f0bf98 (iterate: Sift v3 — toast fix + identical swap block + lock density)
         animateBounce(r * SIZE + c);
         return;
       }
@@ -154,6 +184,19 @@ export default function Sift() {
         return;
       }
 
+<<<<<<< HEAD
+=======
+      // v3: Block identical-tile swaps (same color + same shape) — no move cost, just shake
+      const t1 = state.grid[r1][c1];
+      const t2 = state.grid[r][c];
+      if (t1.shape === t2.shape && t1.color === t2.color) {
+        animateShake(r1 * SIZE + c1);
+        animateShake(r * SIZE + c);
+        setSelected(null);
+        return;
+      }
+
+>>>>>>> 9f0bf98 (iterate: Sift v3 — toast fix + identical swap block + lock density)
       // Attempt swap
       const move: Move = { r1, c1, r2: r, c2: c };
       const nextState = applyMove(state, move);
@@ -162,6 +205,7 @@ export default function Sift() {
       const wasFailed = state.locks[r1][c1] || state.locks[r][c];
 
       if (wasFailed) {
+<<<<<<< HEAD
         if (state.locks[r1][c1]) animateShake(r1 * SIZE + c1);
         if (state.locks[r][c]) animateShake(r * SIZE + c);
         setLastSwapFailed(true);
@@ -169,12 +213,30 @@ export default function Sift() {
         animateBounce(r1 * SIZE + c1);
         animateBounce(r * SIZE + c);
         setLastSwapFailed(false);
+=======
+        // v3: Non-blocking lock reveal — shake + padlock fade-in, NO toast
+        if (state.locks[r1][c1]) {
+          animateShake(r1 * SIZE + c1);
+          animateLockReveal(r1 * SIZE + c1);
+        }
+        if (state.locks[r][c]) {
+          animateShake(r * SIZE + c);
+          animateLockReveal(r * SIZE + c);
+        }
+      } else {
+        animateBounce(r1 * SIZE + c1);
+        animateBounce(r * SIZE + c);
+>>>>>>> 9f0bf98 (iterate: Sift v3 — toast fix + identical swap block + lock density)
       }
 
       setState(nextState);
       setSelected(null);
     },
+<<<<<<< HEAD
     [state, selected, solved, animateBounce, animateShake],
+=======
+    [state, selected, solved, animateBounce, animateShake, animateLockReveal],
+>>>>>>> 9f0bf98 (iterate: Sift v3 — toast fix + identical swap block + lock density)
   );
 
   /* ── Check row/col violations for highlighting ── */
@@ -231,6 +293,7 @@ export default function Sift() {
         </View>
       </View>
 
+<<<<<<< HEAD
       {/* Feedback on last swap */}
       {lastSwapFailed && (
         <View style={styles.feedbackBar}>
@@ -239,6 +302,10 @@ export default function Sift() {
           </Text>
         </View>
       )}
+=======
+      {/* v3: Removed the blocking feedbackBar/toast entirely.
+          Lock discovery is communicated via inline padlock icon fade-in + cell shake. */}
+>>>>>>> 9f0bf98 (iterate: Sift v3 — toast fix + identical swap block + lock density)
 
       {/* Grid */}
       <View style={[styles.grid, { width: gridWidth, height: gridWidth }]}>
@@ -296,7 +363,14 @@ export default function Sift() {
                     ]}
                   >
                     {isKnownLock ? (
+<<<<<<< HEAD
                       <Text style={styles.lockIcon}>{'\ud83d\udd12'}</Text>
+=======
+                      // v3: Padlock with fade-in animation (non-blocking lock reveal)
+                      <Animated.Text style={[styles.lockIcon, { opacity: lockFadeAnims[key] }]}>
+                        {'\ud83d\udd12'}
+                      </Animated.Text>
+>>>>>>> 9f0bf98 (iterate: Sift v3 — toast fix + identical swap block + lock density)
                     ) : (
                       <Text style={styles.shapeEmoji}>
                         {SHAPE_EMOJIS[tile.shape]}
@@ -402,6 +476,7 @@ const styles = StyleSheet.create({
   infoVal: { color: '#ffffff', fontSize: 22, fontWeight: '800' },
   infoGood: { color: '#2ecc71' },
   infoPar: { color: '#818384', fontSize: 22, fontWeight: '800' },
+<<<<<<< HEAD
   feedbackBar: {
     backgroundColor: '#3a1a1a',
     paddingHorizontal: 16,
@@ -415,6 +490,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
+=======
+>>>>>>> 9f0bf98 (iterate: Sift v3 — toast fix + identical swap block + lock density)
   grid: { gap: GAP },
   gridRow: { flexDirection: 'row', gap: GAP },
   cell: {

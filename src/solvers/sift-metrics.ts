@@ -1,5 +1,5 @@
 /**
- * Sift v2 — Quality Metrics Computation
+ * Sift v3 — Quality Metrics Computation
  * Run: npx ts-node src/solvers/sift-metrics.ts
  */
 
@@ -87,7 +87,6 @@ function computeDayMetrics(dayLabel: string, seed: number, difficulty: number): 
   const solveSteps: (number | null)[] = [];
 
   for (let level = 1; level <= 5; level++) {
-    const start = Date.now();
     const sol = solve(puzzle, level as 1 | 2 | 3 | 4 | 5);
     solutions.push(sol);
     solvability.push(sol !== null);
@@ -122,7 +121,6 @@ function computeDayMetrics(dayLabel: string, seed: number, difficulty: number): 
       Array.from({ length: SIZE }, () => false)
     );
     let prevH = heuristic(state);
-    let prevProgress = 0;
 
     const startTime = Date.now();
 
@@ -157,8 +155,6 @@ function computeDayMetrics(dayLabel: string, seed: number, difficulty: number): 
       const curH = heuristic(state);
 
       // Counterintuitive: heuristic worsens (violations increase)
-      // This includes both: (a) successful swaps that temporarily worsen board,
-      // (b) failed swaps (lock hits) that don't change grid but waste a move
       if (curH > prevH) {
         counterintuitive++;
       }
@@ -253,7 +249,7 @@ function main() {
   }
 
   // Print summary table
-  console.log('\n=== SOLVER METRICS (v2) ===\n');
+  console.log('\n=== SOLVER METRICS (v3) ===\n');
 
   console.log('| Metric | Mon | Tue | Wed | Thu | Fri | Avg |');
   console.log('|---|---|---|---|---|---|---|');
@@ -304,7 +300,7 @@ function main() {
   console.log(`| Solution Uniqueness | ${suRow.join(' | ')} | ${suAvg.toFixed(1)} |`);
 
   // Solve steps by skill level
-  console.log('\n### Solve steps by skill level\n');
+  console.log('\n### Solve steps by skill level (v3)\n');
   console.log('| Day | L1 | L2 | L3 | L4 | L5 |');
   console.log('|---|---|---|---|---|---|');
   for (const r of results) {
@@ -313,7 +309,7 @@ function main() {
   }
 
   // Par and lock info
-  console.log('\n### Par calibration (v2)\n');
+  console.log('\n### Par calibration (v3)\n');
   console.log('| Day | Naive Steps | Par (naive+buffer) | Lock Density | Initial Violations |');
   console.log('|---|---|---|---|---|');
   for (const r of results) {

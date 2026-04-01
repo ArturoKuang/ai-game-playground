@@ -175,3 +175,92 @@ Par = lock-naive solver optimal + buffer (Mon +3, Fri +2).
 2. Recompute par using a lock-naive solver that discovers locks through failed swaps (matching player information). Add generous buffer: par = lock-naive optimal + 3 on Monday, + 2 on Friday.
 3. Place locks preferentially in grid interior (rows 2-4, columns 2-4) to create routing detours without blocking corner-first strategies that give early success.
 4. Fix bugs: selection indicator too subtle (use thick colored border), ensure mouse click works on desktop (not just touch events).
+<<<<<<< HEAD
+=======
+
+## Play Report (v2)
+
+**CRITICAL BUG**: Lock toast ("Locked! That position cannot be swapped.") never auto-dismisses. Persists indefinitely and blocks ALL tile interaction. Game softlocked after any lock encounter. Reproducible 100%.
+
+**BUG (minor)**: Swapping two identical tiles (same color + shape) is permitted, costs a move, reduces nothing. No feedback.
+
+**Session 1 (Intuitive)**: Rules immediately clear. Selection indicator (cyan ring) now visible and satisfying. First good swap (r1c2↔r5c4) dropped conflicts 18→15 — genuine aha. But internal swap within row raised conflicts 18→19 (row fixes create column conflicts). Discovered lock at r3c4 — dramatic padlock icon + toast. Game then froze. After restart, reached 7 moves with all rows solved but all columns broken (12 conflicts). Did not solve.
+
+**Session 2 (Strategic)**: Strategy = identify locks as anchors, plan swaps satisfying both axes. Discovered second lock at r2c3. Toast bug froze game at move 3. Strategic analysis revealed: row-by-row solving provably fails (12 column conflicts remain). True solution requires global constraint propagation. Cut short by bug.
+
+**Session 3 (Edge Cases)**: No dominant strategy. Greedy fails. Can fail meaningfully. Deselect (tap same tile twice) works correctly (no move cost). Lock reveals cost inconsistently. Game frozen by toast bug in every session.
+
+**Strategy Divergence**: Strategic play qualitatively different from intuitive — analyzing constraints across both axes vs reactive swapping. Strategic revealed genuine depth (competing row/column constraints, locks as anchors). But toast bug prevented completing any strategic session. CANNOT determine if puzzle is solvable in practice.
+
+**Best Moment**: First good swap dropping conflicts 18→15 while solving Row 1 completely.
+**Worst Moment**: Toast freeze at move 3 of strategic session, losing all progress and blocking further play.
+
+## Decision (v2)
+
+**Status: ITERATE (iteration 2 of 3)**
+
+**Reason:** The dual-layer mechanic remains structurally promising. Skill-Depth 100%, Decision Entropy 2.55, and Info Gain Ratio 16.56 are all excellent. CI improved from 0.2 to 0.6, showing the interior lock placement is moving in the right direction. The playtester confirmed genuine strategic depth -- competing row/column constraints create qualitatively different play from intuitive swapping, and lock discovery as strategic anchoring is a novel feel. However, two blockers prevent KEEP:
+
+**Problem 1: CRITICAL BUG -- toast softlock.** The lock discovery toast never auto-dismisses and blocks ALL tile interaction, making the game unplayable after any lock encounter. This is a showstopper that prevented either playtest session from completing the puzzle. The toast must auto-dismiss after 1-2 seconds or be replaced with a non-blocking visual indicator (e.g., the padlock icon fading in on the locked cell is sufficient feedback without any overlay toast).
+
+**Problem 2: CI still low (0.6).** The greedy solver finds smooth paths on Tue-Fri. The constraint landscape needs more situations where the player must temporarily INCREASE conflicts to route around lock clusters. The interior lock placement from v2 is correct in principle but needs to be denser or more strategically placed so that the "obvious" swap is blocked more often, forcing creative reroutes that worsen one axis to fix another.
+
+**Problem 3: Identical-tile swap.** Swapping two tiles with the same color AND shape is permitted, costs a move, and accomplishes nothing. This should be blocked with a shake animation and no move cost.
+
+**What the game should feel like after this iteration:** The player discovers 2-3 locks per session, each one creating a genuine "well, now what?" rerouting moment. The toast bug is gone -- lock discovery is communicated through the padlock icon appearing on the cell with a brief bounce animation, not a blocking overlay. Monday is solvable in 5-7 moves. Friday requires 9-12 moves with at least 2 moments where the greedy swap is blocked and the player must find a creative multi-swap reroute that temporarily worsens one constraint to satisfy another.
+
+**Specific spec changes for v3:**
+1. Replace the lock toast with a non-blocking visual indicator (padlock icon fade-in + cell shake). No overlay, no modal, no toast.
+2. Block identical-tile swaps (same color + same shape) with a shake animation and no move cost.
+3. Increase lock density slightly on Wed-Fri (Wed: 24%, Thu: 28%, Fri: 32%) to force more rerouting moments and push CI higher. Keep Mon-Tue unchanged.
+4. Place at least one lock adjacent to the highest-violation tile on each puzzle, ensuring the "obvious first swap" is blocked and the player must find an alternative entry point. This is the primary CI driver.
+
+## Solver Metrics (v3)
+
+Computed on 5 puzzles (Mon-Fri seeds), 5 skill levels each. CI measured from greedy solver (L2) path which represents typical player experience (hits locks, must reroute). Other metrics from lock-naive solver path.
+
+| Metric | Mon | Tue | Wed | Thu | Fri | Avg |
+|---|---|---|---|---|---|---|
+| Solvability | 100% | 100% | 100% | 100% | 100% | 100% |
+| Puzzle Entropy | 55.6 | 24.5 | 32.6 | 49.0 | 57.0 | 43.7 |
+| Skill-Depth | 100% | 100% | 100% | 100% | 100% | 100% |
+| Decision Entropy | 2.66 | 2.72 | 2.52 | 2.33 | 2.16 | 2.48 |
+| Counterintuitive | 3 | 0 | 0 | 0 | 0 | 0.6 |
+| Drama | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| Duration (ms) | 4 | 2 | 2 | 4 | 4 | 3 |
+| Info Gain Ratio | 14.26 | 26.26 | 18.12 | 11.91 | 10.16 | 16.14 |
+| Solution Uniqueness | 1 | 2 | 1 | 1 | 1 | 1.2 |
+
+### Solve steps by skill level (v3)
+
+| Day | L1 | L2 | L3 | L4 | L5 |
+|---|---|---|---|---|---|
+| Mon | FAIL | 7 | FAIL | 2 | 2 |
+| Tue | FAIL | 3 | 4 | 3 | 3 |
+| Wed | FAIL | FAIL | FAIL | 4 | 4 |
+| Thu | FAIL | FAIL | FAIL | 6 | 6 |
+| Fri | FAIL | FAIL | FAIL | 7 | 7 |
+
+### Par calibration (v3)
+
+Par = lock-naive solver optimal + buffer (Mon +3, Fri +2).
+
+| Day | Naive Steps | Par | Lock Density | Initial Violations |
+|---|---|---|---|---|
+| Mon | 2 | 5 | 12% | 6 |
+| Tue | 3 | 6 | 16% | 15 |
+| Wed | 4 | 6 | 24% | 14 |
+| Thu | 6 | 8 | 28% | 19 |
+| Fri | 7 | 9 | 32% | 21 |
+
+### v3 changes implemented
+
+1. **Toast bug fixed**: Removed blocking toast/feedbackBar entirely. Lock discovery now communicated via inline padlock icon fade-in animation (400ms) + cell shake (250ms). No overlay, no modal, no toast. Game is never blocked.
+2. **Identical-tile swap blocked**: Swapping two tiles with same color AND shape now triggers shake animation on both tiles with zero move cost. Handled in both UI (Sift.tsx handleTap) and solver (legalMoves already excluded these in v2).
+3. **Increased lock density Wed-Fri**: Wed 24% (6 locks), Thu 28% (7 locks), Fri 32% (8 locks). Mon 12% and Tue 16% unchanged. Solvability verified via beam search (width 2000) with fallback regeneration.
+4. **Adjacent lock to highest-violation tile**: On each puzzle, at least one lock is placed adjacent to the tile with the most row/column violations. This is achieved by relocating an existing lock (never adding extra). Ensures the "obvious first swap" is blocked.
+
+**Auto-kill check**: PASSED
+**Weakest metric**: Counterintuitive Moves -- 3 total, all on Monday (greedy solver hits locks and must reroute). Tue-Fri greedy solver finds smooth paths despite increased lock density. The double Latin square constraint landscape remains fundamentally smooth; CI depends on greedy solver hitting locks that force reroutes. CI avg = 0.6, which passes auto-kill (>0) but falls short of the designer's aspirational target of >= 1.0.
+**Strongest metric**: Skill-Depth 100% (random play cannot solve; strategic play solves all). Info Gain Ratio 16.14 indicates huge strategic advantage. Decision Entropy 2.48 in good range. Solvability 100% including Friday at 32% lock density (with fallback regeneration).
+>>>>>>> 9f0bf98 (iterate: Sift v3 — toast fix + identical swap block + lock density)
