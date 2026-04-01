@@ -17,6 +17,8 @@ import Flock from './Flock';
 import Sift from './Sift';
 import Split from './Split';
 import Fuse from './Fuse';
+import Sort from './Sort';
+import Fold from './Fold';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -143,6 +145,20 @@ const games: GameMeta[] = [
     emoji: '\uD83D\uDCA3',
     description: 'Ignite bombs to trigger chain reactions',
     component: Fuse,
+  },
+  {
+    id: 'sort',
+    name: 'Sort',
+    emoji: '\uD83D\uDD00',
+    description: 'Reverse groups to sort tokens by color',
+    component: Sort,
+  },
+  {
+    id: 'fold',
+    name: 'Fold',
+    emoji: '\uD83D\uDCDC',
+    description: 'Fold the grid to stack matching colors',
+    component: Fold,
   },
 ];
 export default games;
