@@ -10,6 +10,7 @@ import BitMap from './BitMap';
 import Claim from './Claim';
 import Slide from './Slide';
 import Loop from './Loop';
+import Signal from './Signal';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -87,6 +88,13 @@ const games: GameMeta[] = [
     emoji: '\ud83d\udd04',
     description: 'Rotate interlocking rings to sort tiles',
     component: Loop,
+  },
+  {
+    id: 'signal',
+    name: 'Signal',
+    emoji: '\ud83d\udce1',
+    description: 'Broadcast from edges to deduce the hidden color grid',
+    component: Signal,
   },
 ];
 export default games;
