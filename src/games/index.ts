@@ -9,6 +9,7 @@ import DropPop from './DropPop';
 import BitMap from './BitMap';
 import Claim from './Claim';
 import Slide from './Slide';
+import Loop from './Loop';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -79,6 +80,13 @@ const games: GameMeta[] = [
     emoji: '\ud83e\udde9',
     description: 'Slide tiles into order',
     component: Slide,
+  },
+  {
+    id: 'loop',
+    name: 'Loop',
+    emoji: '\ud83d\udd04',
+    description: 'Rotate interlocking rings to sort tiles',
+    component: Loop,
   },
 ];
 export default games;
