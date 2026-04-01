@@ -15,6 +15,8 @@ import Relay from './Relay';
 import Herd from './Herd';
 import Flock from './Flock';
 import Sift from './Sift';
+import Split from './Split';
+import Fuse from './Fuse';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -127,6 +129,20 @@ const games: GameMeta[] = [
     emoji: '\ud83d\udd00',
     description: 'Swap tiles to complete the double Latin square',
     component: Sift,
+  },
+  {
+    id: 'split',
+    name: 'Split',
+    emoji: '\u2702\uFE0F',
+    description: 'Draw lines to partition the grid by color',
+    component: Split,
+  },
+  {
+    id: 'fuse',
+    name: 'Fuse',
+    emoji: '\uD83D\uDCA3',
+    description: 'Ignite bombs to trigger chain reactions',
+    component: Fuse,
   },
 ];
 export default games;
