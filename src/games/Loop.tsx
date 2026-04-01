@@ -286,6 +286,10 @@ export default function Loop() {
                 ]}
               >
                 <Text style={styles.nodeNum}>{tile}</Text>
+                {/* Ghost position label */}
+                {!isCorrect && (
+                  <Text style={styles.ghostLabel}>{i}</Text>
+                )}
               </View>
             </Animated.View>
           );
@@ -339,17 +343,19 @@ export default function Loop() {
         </Pressable>
       )}
 
-      <CelebrationBurst show={solved && moves <= par} />
+      <CelebrationBurst show={solved} />
 
       {solved && (
         <View style={styles.endMsg}>
           <Text style={styles.endEmoji}>
-            {moves <= par ? '\ud83c\udf1f' : '\ud83d\udd04'}
+            {moves < par ? '\ud83c\udf1f' : moves === par ? '\u2b50' : '\ud83d\udd04'}
           </Text>
           <Text style={styles.endText}>
-            {moves <= par
+            {moves < par
               ? `Under par! ${moves} rotations`
-              : `Solved in ${moves} rotations`}
+              : moves === par
+                ? `At par! ${moves} rotations`
+                : `Solved in ${moves} rotations`}
           </Text>
           <ShareButton text={buildShareText()} />
         </View>
@@ -418,6 +424,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   nodeNum: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  ghostLabel: {
+    position: 'absolute',
+    bottom: 1,
+    right: 4,
+    color: 'rgba(255,255,255,0.25)',
+    fontSize: 9,
+    fontWeight: '600',
+  },
   btnRow: { flexDirection: 'row', gap: 24, marginBottom: 8 },
   btnGroup: { alignItems: 'center' },
   btnGroupLabel: {
