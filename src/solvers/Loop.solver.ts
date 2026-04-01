@@ -76,8 +76,8 @@ export function generatePuzzle(seed: number, difficulty: number): LoopState {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   }
 
-  // Scramble: more moves = harder
-  const scrambleMoves = 5 + difficulty * 4; // diff 1→9, diff 5→25
+  // Scramble: more moves = harder. Mon par~4, Fri par~10
+  const scrambleMoves = 8 + difficulty * 6; // diff 1→14, diff 5→38
   let state = goalState();
   for (let i = 0; i < scrambleMoves; i++) {
     state = applyMove(state, Math.floor(rng() * 4) as Move);

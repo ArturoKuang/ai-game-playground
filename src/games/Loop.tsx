@@ -139,7 +139,8 @@ export default function Loop() {
 
       if (isGoal(next) && !gameRecorded) {
         setGameRecorded(true);
-        recordGame('loop', nextMoves, par).then((s) => {
+        // Use generous par for win tracking (any solve within 3x par = win)
+        recordGame('loop', nextMoves, par * 3).then((s) => {
           setStatsData(s);
           setShowStats(true);
         });
@@ -426,11 +427,11 @@ const styles = StyleSheet.create({
   nodeNum: { color: '#fff', fontSize: 16, fontWeight: '800' },
   ghostLabel: {
     position: 'absolute',
-    bottom: 1,
-    right: 4,
-    color: 'rgba(255,255,255,0.25)',
-    fontSize: 9,
-    fontWeight: '600',
+    bottom: 0,
+    right: 3,
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 10,
+    fontWeight: '700',
   },
   btnRow: { flexDirection: 'row', gap: 24, marginBottom: 8 },
   btnGroup: { alignItems: 'center' },
