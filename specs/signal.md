@@ -59,7 +59,9 @@ Signal occupies the "spatial constraint deduction with partial sequential reveal
 ---
 <!-- BELOW THIS LINE: filled by engineer and playtester, not designer -->
 
-## Solver Metrics
+## Solver Metrics (v1)
+
+<details><summary>v1 metrics (pre-iteration)</summary>
 
 Computed on 5 puzzles (Mon-Fri seeds 1001-1005), 5 skill levels each.
 
@@ -75,27 +77,79 @@ Computed on 5 puzzles (Mon-Fri seeds 1001-1005), 5 skill levels each.
 | Info Gain Ratio | 1.78 | 1.60 | 1.78 | 2.00 | 1.88 | 1.81 |
 | Solution Uniqueness | 1 | 1 | 1 | 1 | 1 | 1 |
 
-Optimal broadcasts: Mon=9, Tue=10, Wed=9, Thu=8, Fri=8 (avg 8.8).
-Random broadcasts: Mon=16, Tue=16, Wed=16, Thu=16, Fri=15 (avg 15.8).
-Par: Mon=12, Tue=12, Wed=10, Thu=8, Fri=8.
+</details>
+
+## Solver Metrics (v2 -- iteration 1)
+
+Computed on 5 puzzles (Mon-Fri seeds 1001-1005), 5 skill levels each.
+Changes: cell-guessing, directional broadcasts, wrong-guess feedback.
+
+| Metric | Mon | Tue | Wed | Thu | Fri | Avg |
+|---|---|---|---|---|---|---|
+| Solvability | 100% | 100% | 100% | 100% | 100% | 100% |
+| Puzzle Entropy | 40.1 | 40.6 | 36.9 | 32.2 | 32.5 | 36.5 |
+| Skill-Depth | 57.1% | 58.8% | 63.2% | 52.9% | 61.9% | 58.8% |
+| Decision Entropy | 3.38 | 3.23 | 3.43 | 3.31 | 3.26 | 3.32 |
+| Counterintuitive | 1 | 3 | 2 | 0 | 1 | 1.4 |
+| Drama | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| Duration (s) | 104 | 144 | 96 | 80 | 80 | 100.8 |
+| Info Gain Ratio | 2.33 | 2.43 | 2.71 | 2.13 | 2.63 | 2.45 |
+| Solution Uniqueness | 1 | 1 | 1 | 1 | 1 | 1.0 |
+
+Optimal cost: Mon=9, Tue=7, Wed=7, Thu=8, Fri=8 (avg 7.8).
+Random cost: Mon=21, Tue=17, Wed=19, Thu=17, Fri=21 (avg 19.0).
+Par: Mon=12, Tue=9, Wed=8, Thu=8, Fri=8.
 Colors: Mon/Tue=3, Wed/Thu=4, Fri=5.
 
 **Auto-kill check**: PASSED
 - Solvability: 100% (PASS)
-- Skill-Depth: 44.4% (PASS, threshold >10%)
-- Counterintuitive: 1 total (PASS, threshold >0)
-- Decision Entropy: 3.19 (PASS, 1.0-4.5 range)
-- Puzzle Entropy: 35.1 (PASS, threshold >5)
+- Skill-Depth: 58.8% (PASS, threshold >10%)
+- Counterintuitive: 7 total (PASS, threshold >0)
+- Decision Entropy: 3.32 (PASS, range 1.0-4.5)
+- Puzzle Entropy: 36.5 (PASS, threshold >5)
 
-**Weakest metric**: Counterintuitive -- 0.2 avg (only 1 across 5 puzzles). The optimal solver rarely chooses a lower-info-gain broadcast, suggesting the greedy approach is usually near-optimal. This means aha moments from "seemingly bad" broadcasts are rare.
+**Weakest metric**: Counterintuitive -- 1.4 avg (7 total across 5 puzzles). Thu puzzle has 0 CI moves. Improved from v1 (0.2 avg, 1 total) thanks to the guess-vs-broadcast tradeoff creating situations where the optimal solver chooses a risky guess over a safe broadcast.
 
-**Strongest metric**: Skill-Depth -- 44.4%. Random play uses ~16 broadcasts vs optimal ~9, a 44% gap. Strategic broadcast selection (cross-referencing constraints) clearly outperforms random probing.
+**Strongest metric**: Skill-Depth -- 58.8% (up from 44.4% in v1). The broadcast+guess action space gives strategic players a much larger advantage over random play. Random play wastes budget on wrong guesses; strategic play uses deduction to guess correctly for free.
+
+**v1 -> v2 comparison**:
+- Skill-Depth: 44.4% -> 58.8% (+14.4pp) -- guess mechanic rewards deduction
+- Counterintuitive: 0.2 -> 1.4 (+1.2) -- risky guesses create aha moments
+- Info Gain Ratio: 1.81 -> 2.45 (+0.64) -- correct guesses are free, amplifying skilled play
+- Puzzle Entropy: 35.1 -> 36.5 (+1.4) -- more meaningful choices per step
+- Completion mechanic: now functional (tap cells to guess, win when all 25 known)
 
 ## Play Report
-<!-- Playtester fills this section with blind play observations -->
+
+**CRITICAL BUG**: No completion mechanic. Game has no Submit/Guess button; grid cells are not clickable. After gathering info, no way to submit answer or trigger win state. 3 sessions, 10-11 broadcasts each (17-22/25 cells known), no win condition ever triggered.
+
+**Session 1 (Intuitive)**: Broadcast mechanic understood after ~2 taps. Each broadcast reveals first cell of each color from that direction. After 11 broadcasts (at par), 5 "?" cells remained with no way to interact. First-tap satisfaction high (3 cells revealed immediately). Late broadcasts felt unrewarding (fewer new cells).
+
+**Session 2 (Strategic)**: Strategy = broadcast all 5 rows first, then all 5 columns. Produced 22/25 in 10 broadcasts vs 20/25 in 11 (intuitive). Cross-referencing rows+columns is genuinely strategic. Same dead-end: 3 unknowns, no submission.
+
+**Session 3 (Edge Cases)**: Duplicate taps on used arrows silently ignored (correct but no feedback). Dominant strategy exists: "all rows then all columns." Grid cells entirely non-interactive.
+
+**Strategy Divergence**: Strategic play measurably better (22/25 in 10 vs 20/25 in 11). Real but modest. Moot because game never resolves. The deduction puzzle is engaging during reveal phase but has no payoff.
+
+**Best Moment**: Broadcasting row 1 from the right, lighting up 4 remaining cells simultaneously in green.
+**Worst Moment**: Reaching par with 5 unknowns and no way to complete the puzzle.
 
 ## Decision
-<!-- Designer fills this after reviewing metrics + play report -->
-<!-- Status: keep / iterate / kill -->
-<!-- If iterate: what to change and why -->
-<!-- If kill: lesson learned for learnings.md -->
+
+**Status: ITERATE (iteration 1 of 3)**
+
+**Reasoning:** The deduction mechanic is structurally sound -- skill-depth of 44% proves strategic broadcast selection outperforms random, and the playtester confirmed cross-referencing rows+columns is "genuinely strategic." Entropy at 35.1 is healthy. The critical bug (no completion mechanic) is an implementation gap, not a design flaw. However, two design-level issues must be addressed:
+
+1. **Counterintuitive moves = 0.2 avg (near-zero).** Greedy "pick the broadcast that reveals the most new cells" is near-optimal. This means there are almost no aha moments where a "boring" broadcast is secretly the best choice. The deduction chains are too shallow -- the game rewards information gathering but not information REASONING.
+
+2. **Dominant strategy found by playtester:** "Broadcast all rows first, then all columns" works on every puzzle. This is a one-sentence strategy -- fails Litmus Test 1.
+
+**What to change:**
+
+1. **Add cell-guessing as the core action, not just broadcasting.** After each broadcast, the player should be able to TAP cells to commit guesses ("I think this cell is blue"). Correct guesses earn points; wrong guesses cost a broadcast. This creates the missing completion mechanic AND adds risk-reward: guess early with partial info (risky but efficient) vs. gather more info first (safe but costs broadcasts). The game becomes: broadcast to gather info, then guess to score, with wrong guesses eating your broadcast budget.
+
+2. **Break the "all rows then all columns" dominant strategy.** Make broadcasts DIRECTIONAL and ASYMMETRIC: a row broadcast from the LEFT reveals different info than from the RIGHT (first-of-each-color from each direction). This doubles the broadcast options and makes the "broadcast all rows" strategy suboptimal because you must choose WHICH direction for each row.
+
+3. **Increase constraint coupling to drive CI up.** When a player commits a wrong guess, reveal which color that cell actually is (partial negative feedback, like Wordle's yellow). This creates a new information channel that rewards bold guessing -- a counterintuitive "guess wrong on purpose" strategy where the penalty (lost broadcast) is worth the info gained.
+
+**Target metrics for iteration 2:** CI >= 2, info-gain-ratio >= 1.5, no single dominant strategy across all puzzles. The game should FEEL like Wordle's guess-and-feedback loop applied to a spatial grid.
