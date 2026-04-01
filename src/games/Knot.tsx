@@ -31,12 +31,12 @@ const ENTRY_COLOR = '#3498db'; // blue for entry wall
 const EXIT_COLOR = '#f1c40f';  // gold for exit wall
 
 /**
- * Fix 2: Arrow position helper.
+ * Arrow position helper.
  * Places the arrow indicator at the edge of the cell corresponding to the direction.
  * Dir: 0=up, 1=right, 2=down, 3=left
  */
 function getArrowPosition(dir: number, cellSize: number, arrowSize: number): any {
-  const offset = -1; // slightly inside the cell edge
+  const offset = -2; // slightly inside the cell edge
   switch (dir) {
     case 0: // top
       return { top: offset, left: (cellSize - arrowSize) / 2 - 1 };
@@ -52,28 +52,14 @@ function getArrowPosition(dir: number, cellSize: number, arrowSize: number): any
 }
 
 /**
- * Fix 2: Arrow rotation helper.
+ * Arrow rotation helper.
  * Entry arrows point INTO the cell, exit arrows point OUT of the cell.
- * Base triangle points up (border-bottom trick). Rotate to point in the correct direction.
  * Dir: 0=up, 1=right, 2=down, 3=left
  * isEntry: true = arrow points into cell, false = arrow points out of cell
  */
 function getArrowRotation(dir: number, isEntry: boolean): any {
-  // For entry: arrow should point INTO the cell from that side
-  // For exit: arrow should point OUT of the cell toward that side
-  // Base triangle points UP (toward top of screen)
-  // Entry from top: arrow points down (into cell) = rotate 180
-  // Entry from right: arrow points left (into cell) = rotate 270
-  // Entry from bottom: arrow points up (into cell) = rotate 0
-  // Entry from left: arrow points right (into cell) = rotate 90
-  // Exit toward top: arrow points up (out of cell) = rotate 0
-  // Exit toward right: arrow points right (out of cell) = rotate 90
-  // Exit toward bottom: arrow points down (out of cell) = rotate 180
-  // Exit toward left: arrow points left (out of cell) = rotate 270
   let rotation: number;
   if (isEntry) {
-    // "Enter from dir X" means the path comes FROM direction X into the cell
-    // Arrow should point INWARD from that side
     switch (dir) {
       case 0: rotation = 180; break; // from top -> arrow points down
       case 1: rotation = 270; break; // from right -> arrow points left
@@ -82,8 +68,6 @@ function getArrowRotation(dir: number, isEntry: boolean): any {
       default: rotation = 0;
     }
   } else {
-    // "Exit toward dir X" means the path leaves toward direction X
-    // Arrow should point OUTWARD toward that side
     switch (dir) {
       case 0: rotation = 0; break;   // toward top -> arrow points up
       case 1: rotation = 90; break;  // toward right -> arrow points right
@@ -104,9 +88,13 @@ export default function Knot() {
     () => generatePuzzle(seed, difficulty),
     [seed, difficulty],
   );
+
+  /* ─── Day-of-week difficulty scaling ─── */
   const par = useMemo(() => {
     const sol = solve(initialState, 5);
-    return sol ? sol.steps + (difficulty <= 2 ? 3 : difficulty <= 4 ? 2 : 1) : initialState.par;
+    // Par generosity: Mon optimal+4, Tue +3, Wed +2, Thu +2, Fri +1
+    const buffer = difficulty <= 1 ? 4 : difficulty <= 2 ? 3 : difficulty <= 3 ? 2 : difficulty <= 4 ? 2 : 1;
+    return sol ? sol.steps + buffer : initialState.par;
   }, [initialState, difficulty]);
 
   const [state, setState] = useState<KnotState>(() => ({
@@ -127,7 +115,6 @@ export default function Knot() {
   const moves = state.path.length;
   const legal = useMemo(() => new Set(legalMoves(state)), [state]);
   const pathSet = useMemo(() => new Set(state.path), [state.path]);
-  const h = heuristic(state);
 
   const { width: screenWidth } = useWindowDimensions();
   const gridAreaMax = Math.min(screenWidth - 48, 360);
@@ -141,10 +128,23 @@ export default function Knot() {
     Array.from({ length: state.size * state.size }, () => new Animated.Value(1)),
   ).current;
 
-  // Segment extension pulse: each cell gets an opacity-based pulse when added to path
+  // Segment extension pulse
   const segmentPulse = useRef(
     Array.from({ length: state.size * state.size }, () => new Animated.Value(0)),
   ).current;
+
+  // Shake animation for invalid moves
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+
+  const shakeGrid = useCallback(() => {
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: 6, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -6, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 4, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -4, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
+    ]).start();
+  }, [shakeAnim]);
 
   /* ─── Count visited marked cells ─── */
   const visitedMarked = useMemo(() => {
@@ -155,7 +155,11 @@ export default function Knot() {
   const handleTap = useCallback(
     (cellIdx: number) => {
       if (solved) return;
-      if (!legal.has(cellIdx)) return;
+      if (!legal.has(cellIdx)) {
+        // Shake on invalid tap
+        shakeGrid();
+        return;
+      }
 
       // Cell scale animation (tap feedback)
       Animated.sequence([
@@ -172,16 +176,16 @@ export default function Knot() {
         }),
       ]).start();
 
-      // Fix 4: Segment extension pulse animation (overshoot-and-settle)
+      // Segment extension pulse animation
       segmentPulse[cellIdx].setValue(0);
       Animated.sequence([
         Animated.timing(segmentPulse[cellIdx], {
-          toValue: 1.3, // overshoot
+          toValue: 1.3,
           duration: 80,
           useNativeDriver: true,
         }),
         Animated.spring(segmentPulse[cellIdx], {
-          toValue: 1, // settle
+          toValue: 1,
           friction: 4,
           tension: 180,
           useNativeDriver: true,
@@ -200,10 +204,10 @@ export default function Knot() {
         });
       }
     },
-    [state, solved, legal, par, gameRecorded, cellScales, segmentPulse],
+    [state, solved, legal, par, gameRecorded, cellScales, segmentPulse, shakeGrid],
   );
 
-  /* ─── Undo ─── */
+  /* ─── Undo (single step) ─── */
   const handleUndo = useCallback(() => {
     if (history.length <= 1 || solved) return;
     const prev = history[history.length - 2];
@@ -211,17 +215,33 @@ export default function Knot() {
     setHistory((h) => h.slice(0, -1));
   }, [history, solved]);
 
+  /* ─── Undo to last marked cell (batch undo) ─── */
+  const handleUndoToLastMarked = useCallback(() => {
+    if (history.length <= 1 || solved) return;
+    // Find the last history state where a marked cell was most recently visited
+    // Walk backward through history to find the state just after the last marked cell was reached
+    const markedIdxSet = new Set(state.markedSet);
+    let targetHistoryIdx = 0; // fallback to initial state
+    for (let i = history.length - 2; i >= 1; i--) {
+      const histState = history[i];
+      const lastCell = histState.path[histState.path.length - 1];
+      if (lastCell !== undefined && markedIdxSet.has(lastCell)) {
+        targetHistoryIdx = i;
+        break;
+      }
+    }
+    const target = history[targetHistoryIdx];
+    setState(target);
+    setHistory((h) => h.slice(0, targetHistoryIdx + 1));
+  }, [history, solved, state.markedSet]);
+
   /* ─── Reset ─── */
   const handleReset = useCallback(() => {
     if (solved) return;
-    // Full reset wipes ALL discovered constraints (except constraintMemory count).
-    // This prevents the probe-all-then-plan exploit.
     const memory = initialState.constraintMemory;
-    // Collect indices of constraints that were discovered during play (not pre-revealed)
     const discoveredDuringPlay = state.marked
       .map((m, i) => ({ ...m, originalIdx: i }))
       .filter((m) => m.revealed && !initialState.marked[m.originalIdx].revealed);
-    // Keep at most `memory` of the discovered constraints (first ones found)
     const keepSet = new Set(
       discoveredDuringPlay.slice(0, memory).map((m) => m.originalIdx),
     );
@@ -232,7 +252,6 @@ export default function Knot() {
       closed: false,
       marked: initialState.marked.map((m, i) => ({
         ...m,
-        // Pre-revealed stay revealed; others only if in keepSet
         revealed: m.revealed || keepSet.has(i),
         satisfied: false,
       })),
@@ -247,19 +266,39 @@ export default function Knot() {
     setShowStats(true);
   }, []);
 
-  /* ─── Share text ─── */
+  /* ─── Share text (iconic emoji grid) ─── */
   function buildShareText() {
     const rows: string[] = [];
     for (let r = 0; r < state.size; r++) {
       let row = '';
       for (let c = 0; c < state.size; c++) {
         const i = r * state.size + c;
-        if (i === state.startCell) {
-          row += '\uD83D\uDFE2'; // green = start
-        } else if (state.markedSet.includes(i) && pathSet.has(i)) {
-          row += '\uD83D\uDFE1'; // yellow = marked + visited
-        } else if (pathSet.has(i)) {
-          row += '\uD83D\uDFE6'; // blue = path
+        const markedInfo = state.marked.find((m) => m.idx === i);
+        const isOnPath = pathSet.has(i);
+        const isStart = i === state.startCell;
+
+        if (isStart) {
+          row += '\uD83D\uDFE2'; // green circle = start
+        } else if (markedInfo && isOnPath && markedInfo.satisfied) {
+          row += '\u2705'; // green check = constraint satisfied
+        } else if (markedInfo && isOnPath && !markedInfo.satisfied) {
+          row += '\u274C'; // red X = constraint violated
+        } else if (markedInfo && !isOnPath) {
+          row += '\uD83D\uDFE3'; // purple circle = unvisited marked cell
+        } else if (isOnPath) {
+          // Show direction arrow based on path traversal
+          const pathIdx = state.path.indexOf(i);
+          if (pathIdx >= 0 && pathIdx < state.path.length - 1) {
+            const nextCell = state.path[pathIdx + 1];
+            const [cr, cc] = [Math.floor(i / state.size), i % state.size];
+            const [nr, nc] = [Math.floor(nextCell / state.size), nextCell % state.size];
+            if (nr < cr) row += '\u2B06\uFE0F'; // up
+            else if (nc > cc) row += '\u27A1\uFE0F'; // right
+            else if (nr > cr) row += '\u2B07\uFE0F'; // down
+            else row += '\u2B05\uFE0F'; // left
+          } else {
+            row += '\uD83D\uDFE6'; // blue = path end segment
+          }
         } else {
           row += '\u2B1B'; // black = empty
         }
@@ -278,320 +317,345 @@ export default function Knot() {
   /* ─── Check if stuck ─── */
   const isStuck = !solved && moves > 0 && legal.size === 0;
 
+  /* ─── Check if batch-undo available (any marked cell in path) ─── */
+  const hasBatchUndo = useMemo(() => {
+    if (history.length <= 1) return false;
+    const markedIdxSet = new Set(state.markedSet);
+    for (let i = history.length - 2; i >= 1; i--) {
+      const histState = history[i];
+      const lastCell = histState.path[histState.path.length - 1];
+      if (lastCell !== undefined && markedIdxSet.has(lastCell)) return true;
+    }
+    return false;
+  }, [history, state.markedSet]);
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Knot</Text>
-        <Text style={styles.dayBadge}>Day #{puzzleDay}</Text>
-        <Pressable onPress={handleShowStats}>
-          <Text style={styles.statsIcon}>{'\uD83D\uDCCA'}</Text>
-        </Pressable>
-      </View>
-
-      <Text style={styles.subtitle}>
-        Draw a loop through all marked cells. Constraints reveal on arrival.
-      </Text>
-
-      {/* Info bar */}
-      <View style={styles.infoBar}>
-        <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Segments</Text>
-          <Text
-            style={[
-              styles.infoVal,
-              solved && moves <= par && styles.infoGood,
-            ]}
-          >
-            {moves}
-          </Text>
+    <View style={styles.outerContainer}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Knot</Text>
+          <Text style={styles.dayBadge}>Day #{puzzleDay}</Text>
+          <Pressable onPress={handleShowStats}>
+            <Text style={styles.statsIcon}>{'\uD83D\uDCCA'}</Text>
+          </Pressable>
         </View>
-        <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Par</Text>
-          <Text style={styles.infoPar}>{par}</Text>
+
+        <Text style={styles.subtitle}>
+          Draw a loop through all marked cells. Constraints reveal on arrival.
+        </Text>
+
+        {/* Info bar */}
+        <View style={styles.infoBar}>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Segments</Text>
+            <Text
+              style={[
+                styles.infoVal,
+                solved && moves <= par && styles.infoGood,
+              ]}
+            >
+              {moves}
+            </Text>
+          </View>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Par</Text>
+            <Text style={styles.infoPar}>{par}</Text>
+          </View>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Cells</Text>
+            <Text style={styles.infoVal}>
+              {visitedMarked}/{state.marked.length}
+            </Text>
+          </View>
         </View>
-        <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Cells</Text>
-          <Text style={styles.infoVal}>
-            {visitedMarked}/{state.marked.length}
-          </Text>
-        </View>
-      </View>
 
-      {/* Grid */}
-      <View style={{ width: gridWidth }}>
-        {Array.from({ length: state.size }).map((_, r) => (
-          <View
-            key={r}
-            style={{
-              flexDirection: 'row',
-              marginBottom: r < state.size - 1 ? GAP : 0,
-            }}
-          >
-            {Array.from({ length: state.size }).map((_, c) => {
-              const i = r * state.size + c;
-              const isStart = i === state.startCell;
-              const isOnPath = pathSet.has(i);
-              const isLegal = legal.has(i);
-              const isLast = moves > 0 && state.path[moves - 1] === i;
+        {/* Grid with shake animation */}
+        <Animated.View
+          style={{
+            width: gridWidth,
+            transform: [{ translateX: shakeAnim }],
+          }}
+        >
+          {Array.from({ length: state.size }).map((_, r) => (
+            <View
+              key={r}
+              style={{
+                flexDirection: 'row',
+                marginBottom: r < state.size - 1 ? GAP : 0,
+              }}
+            >
+              {Array.from({ length: state.size }).map((_, c) => {
+                const i = r * state.size + c;
+                const isStart = i === state.startCell;
+                const isOnPath = pathSet.has(i);
+                const isLegal = legal.has(i);
+                const isLast = moves > 0 && state.path[moves - 1] === i;
 
-              // Check if marked
-              const markedInfo = state.marked.find((m) => m.idx === i);
-              const isMarked = !!markedInfo;
-              const isRevealed = markedInfo?.revealed ?? false;
-              const isSatisfied = markedInfo?.satisfied ?? false;
+                // Check if marked
+                const markedInfo = state.marked.find((m) => m.idx === i);
+                const isMarked = !!markedInfo;
+                const isRevealed = markedInfo?.revealed ?? false;
+                const isSatisfied = markedInfo?.satisfied ?? false;
 
-              let bg = '#1a1a1c';
-              let borderColor = '#333';
-              let borderWidth = 1;
+                let bg = '#1a1a1c';
+                let borderColor = '#333';
+                let borderWidth = 1;
 
-              if (isStart && !isOnPath) {
-                bg = '#1a4a1a';
-                borderColor = '#2ecc71';
-                borderWidth = 2;
-              } else if (isOnPath) {
-                const pathIdx = state.path.indexOf(i);
-                const frac = pathIdx / Math.max(1, state.path.length - 1);
-                bg = frac < 0.5 ? '#1a3d5c' : '#3d1a1a';
-                borderColor = isLast ? '#f1c40f' : '#555';
-                borderWidth = isLast ? 3 : 1;
-                if (isMarked && isRevealed) {
-                  borderColor = isSatisfied ? '#2ecc71' : '#e74c3c';
+                if (isStart && !isOnPath) {
+                  bg = '#1a4a1a';
+                  borderColor = '#2ecc71';
+                  borderWidth = 2;
+                } else if (isOnPath) {
+                  const pathIdx = state.path.indexOf(i);
+                  const frac = pathIdx / Math.max(1, state.path.length - 1);
+                  bg = frac < 0.5 ? '#1a3d5c' : '#3d1a1a';
+                  borderColor = isLast ? '#f1c40f' : '#555';
+                  borderWidth = isLast ? 3 : 1;
+                  if (isMarked && isRevealed) {
+                    borderColor = isSatisfied ? '#2ecc71' : '#e74c3c';
+                    borderWidth = 2;
+                  }
+                } else if (isMarked) {
+                  bg = '#2c2c3e';
+                  if (isRevealed) {
+                    borderColor = '#555';
+                    borderWidth = 1;
+                  } else {
+                    borderColor = '#6c5ce7';
+                    borderWidth = 2;
+                  }
+                } else if (isLegal) {
+                  bg = 'rgba(52,152,219,0.2)';
+                  borderColor = '#3498db';
                   borderWidth = 2;
                 }
-              } else if (isMarked) {
-                bg = '#2c2c3e';
-                if (isRevealed) {
-                  borderColor = '#555';
-                  borderWidth = 1;
-                } else {
-                  borderColor = '#6c5ce7';
-                  borderWidth = 2;
-                }
-              } else if (isLegal) {
-                bg = 'rgba(52,152,219,0.2)';
-                borderColor = '#3498db';
-                borderWidth = 2;
-              }
 
-              // Fix 2: Arrow constraint indicators
-              // Entry arrow: points INTO the cell (blue)
-              // Exit arrow: points OUT of the cell (gold)
-              const showConstraintArrows = isMarked && isRevealed;
-              const enterDir = markedInfo?.constraint.enter;
-              const exitDir = markedInfo?.constraint.exit;
+                // Arrow constraint indicators — LARGER for readability
+                const showConstraintArrows = isMarked && isRevealed;
+                const enterDir = markedInfo?.constraint.enter;
+                const exitDir = markedInfo?.constraint.exit;
 
-              // Arrow size relative to cell
-              const arrowSize = Math.max(6, Math.floor(cellSize * 0.22));
+                // UX Fix 1: Increased arrow size from 22% to 35% of cell size
+                const arrowSize = Math.max(10, Math.floor(cellSize * 0.35));
 
-              return (
-                <Animated.View
-                  key={c}
-                  style={{
-                    transform: [{ scale: cellScales[i] }],
-                    marginRight: c < state.size - 1 ? GAP : 0,
-                  }}
-                >
-                  <Pressable
-                    onPress={() => handleTap(i)}
-                    // Fix 1: Ensure mouse clicks work on web
-                    {...(Platform.OS === 'web' ? {
-                      role: 'button' as any,
-                      tabIndex: 0,
-                      style: [
-                        styles.cell,
-                        {
-                          width: cellSize,
-                          height: cellSize,
-                          backgroundColor: bg,
-                          borderColor,
-                          borderWidth,
-                          cursor: (isLegal || isStart) ? 'pointer' : 'default',
-                          // Ensure pointer events work through Animated.View
-                          userSelect: 'none',
-                        } as any,
-                      ],
-                    } : {
-                      style: [
-                        styles.cell,
-                        {
-                          width: cellSize,
-                          height: cellSize,
-                          backgroundColor: bg,
-                          borderColor,
-                          borderWidth,
-                        },
-                      ],
-                    })}
+                return (
+                  <Animated.View
+                    key={c}
+                    style={{
+                      transform: [{ scale: cellScales[i] }],
+                      marginRight: c < state.size - 1 ? GAP : 0,
+                    }}
                   >
-                    {/* Fix 4: Segment extension pulse glow */}
-                    {isOnPath && (
-                      <Animated.View
-                        style={{
-                          position: 'absolute',
-                          top: 0, left: 0, right: 0, bottom: 0,
-                          backgroundColor: 'rgba(52,152,219,0.25)',
-                          borderRadius: 4,
-                          opacity: segmentPulse[i].interpolate({
-                            inputRange: [0, 1, 1.3],
-                            outputRange: [0, 0, 0.6],
-                            extrapolate: 'clamp',
-                          }),
-                          transform: [{
-                            scale: segmentPulse[i].interpolate({
+                    <Pressable
+                      onPress={() => handleTap(i)}
+                      {...(Platform.OS === 'web' ? {
+                        role: 'button' as any,
+                        tabIndex: 0,
+                        style: [
+                          styles.cell,
+                          {
+                            width: cellSize,
+                            height: cellSize,
+                            backgroundColor: bg,
+                            borderColor,
+                            borderWidth,
+                            cursor: (isLegal || isStart) ? 'pointer' : 'default',
+                            userSelect: 'none',
+                          } as any,
+                        ],
+                      } : {
+                        style: [
+                          styles.cell,
+                          {
+                            width: cellSize,
+                            height: cellSize,
+                            backgroundColor: bg,
+                            borderColor,
+                            borderWidth,
+                          },
+                        ],
+                      })}
+                    >
+                      {/* Segment extension pulse glow */}
+                      {isOnPath && (
+                        <Animated.View
+                          style={{
+                            position: 'absolute',
+                            top: 0, left: 0, right: 0, bottom: 0,
+                            backgroundColor: 'rgba(52,152,219,0.25)',
+                            borderRadius: 4,
+                            opacity: segmentPulse[i].interpolate({
                               inputRange: [0, 1, 1.3],
-                              outputRange: [0.8, 1, 1.15],
+                              outputRange: [0, 0, 0.6],
                               extrapolate: 'clamp',
                             }),
-                          }],
-                        }}
-                      />
-                    )}
+                            transform: [{
+                              scale: segmentPulse[i].interpolate({
+                                inputRange: [0, 1, 1.3],
+                                outputRange: [0.8, 1, 1.15],
+                                extrapolate: 'clamp',
+                              }),
+                            }],
+                          }}
+                        />
+                      )}
 
-                    {/* Fix 2: Constraint arrow indicators */}
-                    {showConstraintArrows && enterDir !== undefined && (
-                      <View
-                        style={[
-                          styles.arrowIndicator,
-                          getArrowPosition(enterDir, cellSize, arrowSize),
-                        ]}
-                      >
-                        <View style={[
-                          styles.arrowTriangle,
-                          getArrowRotation(enterDir, true),
-                          {
-                            borderBottomColor: ENTRY_COLOR,
-                            borderLeftWidth: arrowSize / 2,
-                            borderRightWidth: arrowSize / 2,
-                            borderBottomWidth: arrowSize,
-                          },
-                        ]} />
-                      </View>
-                    )}
-                    {showConstraintArrows && exitDir !== undefined && (
-                      <View
-                        style={[
-                          styles.arrowIndicator,
-                          getArrowPosition(exitDir, cellSize, arrowSize),
-                        ]}
-                      >
-                        <View style={[
-                          styles.arrowTriangle,
-                          getArrowRotation(exitDir, false),
-                          {
-                            borderBottomColor: EXIT_COLOR,
-                            borderLeftWidth: arrowSize / 2,
-                            borderRightWidth: arrowSize / 2,
-                            borderBottomWidth: arrowSize,
-                          },
-                        ]} />
-                      </View>
-                    )}
+                      {/* Constraint arrow indicators */}
+                      {showConstraintArrows && enterDir !== undefined && (
+                        <View
+                          style={[
+                            styles.arrowIndicator,
+                            getArrowPosition(enterDir, cellSize, arrowSize),
+                          ]}
+                        >
+                          <View style={[
+                            styles.arrowTriangle,
+                            getArrowRotation(enterDir, true),
+                            {
+                              borderBottomColor: ENTRY_COLOR,
+                              borderLeftWidth: arrowSize / 2,
+                              borderRightWidth: arrowSize / 2,
+                              borderBottomWidth: arrowSize,
+                            },
+                          ]} />
+                        </View>
+                      )}
+                      {showConstraintArrows && exitDir !== undefined && (
+                        <View
+                          style={[
+                            styles.arrowIndicator,
+                            getArrowPosition(exitDir, cellSize, arrowSize),
+                          ]}
+                        >
+                          <View style={[
+                            styles.arrowTriangle,
+                            getArrowRotation(exitDir, false),
+                            {
+                              borderBottomColor: EXIT_COLOR,
+                              borderLeftWidth: arrowSize / 2,
+                              borderRightWidth: arrowSize / 2,
+                              borderBottomWidth: arrowSize,
+                            },
+                          ]} />
+                        </View>
+                      )}
 
-                    {isStart && (
-                      <Text style={styles.startDot}>{'\u25C9'}</Text>
-                    )}
-                    {isMarked && !isOnPath && !isRevealed && (
-                      <Text style={styles.markedDot}>{'\u25CF'}</Text>
-                    )}
-                    {isMarked && isRevealed && !isOnPath && (
-                      <Text style={styles.constraintHint}>{'\u25CB'}</Text>
-                    )}
-                    {isOnPath && isMarked && isRevealed && (
-                      <Text style={[
-                        styles.constraintStatus,
-                        { color: isSatisfied ? '#2ecc71' : '#e74c3c' },
-                      ]}>
-                        {isSatisfied ? '\u2713' : '\u2717'}
-                      </Text>
-                    )}
-                    {isOnPath && !isMarked && !isStart && (
-                      <Text style={styles.pathNum}>
-                        {state.path.indexOf(i) + 1}
-                      </Text>
-                    )}
-                    {isLegal && !isOnPath && !isMarked && !isStart && (
-                      <Text style={styles.legalDot}>{'\u00B7'}</Text>
-                    )}
-                  </Pressable>
-                </Animated.View>
-              );
-            })}
+                      {isStart && (
+                        <Text style={styles.startDot}>{'\u25C9'}</Text>
+                      )}
+                      {isMarked && !isOnPath && !isRevealed && (
+                        <Text style={styles.markedDot}>{'\u25CF'}</Text>
+                      )}
+                      {isMarked && isRevealed && !isOnPath && (
+                        <Text style={styles.constraintHint}>{'\u25CB'}</Text>
+                      )}
+                      {isOnPath && isMarked && isRevealed && (
+                        <Text style={[
+                          styles.constraintStatus,
+                          { color: isSatisfied ? '#2ecc71' : '#e74c3c' },
+                        ]}>
+                          {isSatisfied ? '\u2713' : '\u2717'}
+                        </Text>
+                      )}
+                      {isOnPath && !isMarked && !isStart && (
+                        <Text style={styles.pathNum}>
+                          {state.path.indexOf(i) + 1}
+                        </Text>
+                      )}
+                      {isLegal && !isOnPath && !isMarked && !isStart && (
+                        <Text style={styles.legalDot}>{'\u00B7'}</Text>
+                      )}
+                    </Pressable>
+                  </Animated.View>
+                );
+              })}
+            </View>
+          ))}
+        </Animated.View>
+
+        {/* Stuck indicator */}
+        {isStuck && (
+          <View style={styles.stuckBanner}>
+            <Text style={styles.stuckText}>
+              Dead end! No moves available. Undo or reset.
+            </Text>
           </View>
-        ))}
-      </View>
+        )}
 
-      {/* Stuck indicator */}
-      {isStuck && (
-        <View style={styles.stuckBanner}>
-          <Text style={styles.stuckText}>
-            Dead end! No moves available. Undo or reset.
+        <CelebrationBurst show={solved} />
+
+        {solved && (
+          <View style={styles.endMsg}>
+            <Text style={styles.endEmoji}>
+              {moves < par
+                ? '\uD83C\uDF1F'
+                : moves === par
+                  ? '\u2B50'
+                  : '\uD83E\uDDF6'}
+            </Text>
+            <Text style={styles.endText}>
+              {moves < par
+                ? `Under par! ${moves} segments`
+                : moves === par
+                  ? `At par! ${moves} segments`
+                  : `Solved in ${moves} segments`}
+            </Text>
+            <ShareButton text={buildShareText()} />
+          </View>
+        )}
+
+        <View style={styles.howTo}>
+          <Text style={styles.howToTitle}>How to play</Text>
+          <Text style={styles.howToText}>
+            Draw a closed loop that passes through every marked cell (purple dots).
+            {'\n\n'}
+            Each marked cell has a hidden directional constraint revealed when your
+            loop reaches it. Blue arrow = entry direction (points into cell), gold
+            arrow = exit direction (points out of cell). Match both to satisfy the
+            constraint (green check). If violated, the cell shows a red X — undo and
+            reroute!
+            {'\n\n'}
+            Undo preserves discovered constraints, but full reset clears them all.
+            {'\n\n'}
+            The loop must close back at the green start cell. Par: {par} segments.
           </Text>
         </View>
-      )}
 
-      {/* Controls */}
-      {!solved && (
-        <View style={styles.btnRow}>
+        {/* Spacer so content doesn't hide behind fixed bottom bar */}
+        {!solved && moves > 0 && <View style={{ height: 72 }} />}
+
+        {showStats && stats && (
+          <StatsModal stats={stats} onClose={() => setShowStats(false)} />
+        )}
+      </ScrollView>
+
+      {/* UX Fix 3: Fixed bottom bar for controls */}
+      {!solved && moves > 0 && (
+        <View style={styles.fixedBottomBar}>
           {history.length > 1 && (
             <Pressable style={styles.undoBtn} onPress={handleUndo}>
               <Text style={styles.undoText}>Undo</Text>
             </Pressable>
           )}
-          {moves > 0 && (
-            <Pressable style={styles.resetBtn} onPress={handleReset}>
-              <Text style={styles.resetText}>Reset</Text>
+          {hasBatchUndo && (
+            <Pressable style={styles.batchUndoBtn} onPress={handleUndoToLastMarked}>
+              <Text style={styles.batchUndoText}>{'\u23EA'} Last Cell</Text>
             </Pressable>
           )}
+          <Pressable style={styles.resetBtn} onPress={handleReset}>
+            <Text style={styles.resetText}>Reset</Text>
+          </Pressable>
         </View>
       )}
-
-      <CelebrationBurst show={solved} />
-
-      {solved && (
-        <View style={styles.endMsg}>
-          <Text style={styles.endEmoji}>
-            {moves < par
-              ? '\uD83C\uDF1F'
-              : moves === par
-                ? '\u2B50'
-                : '\uD83E\uDDF6'}
-          </Text>
-          <Text style={styles.endText}>
-            {moves < par
-              ? `Under par! ${moves} segments`
-              : moves === par
-                ? `At par! ${moves} segments`
-                : `Solved in ${moves} segments`}
-          </Text>
-          <ShareButton text={buildShareText()} />
-        </View>
-      )}
-
-      <View style={styles.howTo}>
-        <Text style={styles.howToTitle}>How to play</Text>
-        <Text style={styles.howToText}>
-          Draw a closed loop that passes through every marked cell (purple dots).
-          {'\n\n'}
-          Each marked cell has a hidden directional constraint revealed when your
-          loop reaches it. Blue arrow = entry direction (points into cell), gold
-          arrow = exit direction (points out of cell). Match both to satisfy the
-          constraint (green check). If violated, the cell shows a red X — undo and
-          reroute!
-          {'\n\n'}
-          Undo preserves discovered constraints, but full reset clears them all.
-          {'\n\n'}
-          The loop must close back at the green start cell. Par: {par} segments.
-        </Text>
-      </View>
-
-      {showStats && stats && (
-        <StatsModal stats={stats} onClose={() => setShowStats(false)} />
-      )}
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    flex: 1,
+    backgroundColor: '#121213',
+  },
   container: {
     flexGrow: 1,
     alignItems: 'center',
@@ -685,7 +749,21 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   stuckText: { color: '#e74c3c', fontSize: 13, fontWeight: '600' },
-  btnRow: { flexDirection: 'row', gap: 12, marginTop: 12 },
+  /* UX Fix 3: Fixed bottom bar */
+  fixedBottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#1a1a1c',
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+  },
   undoBtn: {
     backgroundColor: '#3a3a3c',
     paddingHorizontal: 24,
@@ -693,6 +771,13 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   undoText: { color: '#ffffff', fontWeight: '600', fontSize: 14 },
+  batchUndoBtn: {
+    backgroundColor: '#2c3e50',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  batchUndoText: { color: '#3498db', fontWeight: '600', fontSize: 14 },
   resetBtn: {
     backgroundColor: '#4a1a1a',
     paddingHorizontal: 24,
