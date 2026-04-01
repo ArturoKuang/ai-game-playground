@@ -39,6 +39,8 @@ export type KnotState = {
   markedSet: number[];
   /** Number of pre-revealed constraints (difficulty knob) */
   preRevealed: number;
+  /** How many discovered constraints survive a full reset (difficulty knob) */
+  constraintMemory: number;
   /** Par (optimal + buffer) */
   par: number;
   /** Whether game is complete */
@@ -258,6 +260,9 @@ export function generatePuzzle(seed: number, difficulty: number): KnotState {
   const size = difficulty <= 2 ? 5 : difficulty <= 4 ? 6 : 7;
   const markedCount = difficulty <= 1 ? 5 : difficulty <= 2 ? 6 : difficulty <= 3 ? 7 : difficulty <= 4 ? 8 : 10;
   const preRevealed = difficulty <= 1 ? 2 : difficulty <= 2 ? 1 : 0;
+  // Constraint memory: how many discovered constraints survive a full reset
+  // Monday: 1 persists (free hint); Friday: 0 (full amnesia)
+  const constraintMemory = difficulty <= 1 ? 1 : 0;
   const parBuffer = difficulty <= 1 ? 4 : difficulty <= 2 ? 3 : difficulty <= 3 ? 2 : difficulty <= 4 ? 2 : 1;
 
   const minLength = Math.max(markedCount + 3, Math.floor(size * size * 0.35));
@@ -314,6 +319,7 @@ export function generatePuzzle(seed: number, difficulty: number): KnotState {
     marked: markedCells,
     markedSet: markedIndices,
     preRevealed,
+    constraintMemory,
     par: loopPath.length + parBuffer,
     closed: false,
     optimalLength: loopPath.length,

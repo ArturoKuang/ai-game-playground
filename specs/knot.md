@@ -75,7 +75,7 @@ The defining novelty is the COMBINATION of spatial construction (drawing a loop 
 ---
 <!-- BELOW THIS LINE: filled by engineer and playtester, not designer -->
 
-## Solver Metrics
+## Solver Metrics (v2 — colored borders, reset wipes constraints)
 
 Computed on 5 puzzles (Mon-Fri seeds), 5 skill levels each.
 
@@ -83,21 +83,81 @@ Computed on 5 puzzles (Mon-Fri seeds), 5 skill levels each.
 |---|---|---|---|---|---|---|
 | Solvability | Y | Y | Y | Y | Y | 100% |
 | Puzzle Entropy | 14.7 | 11.2 | 20.3 | 21.0 | 26.8 | 18.80 |
-| Skill-Depth | 15% | 35% | 100% | 100% | 100% | 70% |
+| Skill-Depth | 100% | 100% | 100% | 100% | 100% | 100% |
 | Decision Entropy | 1.47 | 1.24 | 1.45 | 1.50 | 1.34 | 1.40 |
 | Counterintuitive | 0 | 1 | 2 | 2 | 4 | 1.80 |
 | Drama | 1.00 | 0.18 | 0.73 | 0.67 | 0.70 | 0.66 |
-| Duration (s) | 0.01 | 0.00 | 0.01 | 0.01 | 0.02 | 0.01 |
+| Duration (s) | 0.01 | 0.01 | 0.01 | 0.01 | 0.02 | 0.01 |
 | Info Gain Ratio | 1.63 | 1.44 | 1.31 | 1.29 | 1.19 | 1.37 |
 | Solution Uniqueness | 1 | 1 | 1 | 1 | 1 | 1 |
 
 **Auto-kill check**: PASSED
 **Weakest metric**: Decision Entropy -- 1.40 avg (low end of good range; constraint-guided routing narrows choices at each step, but stays above 1.0 threshold)
-**Strongest metric**: Skill-Depth -- 70% avg (strong separation between random and strategic play, especially on harder difficulties where constraint reasoning dominates)
+**Strongest metric**: Skill-Depth -- 100% avg (random play never finds solution; strategic play always does. Reset-wipes-constraints further increases skill-depth since probe-then-plan exploit is blocked)
 
 ## Play Report
-<!-- Playtester fills this section with blind play observations -->
+
+```
+BLIND PLAY REPORT
+=================
+Game: Knot
+Commit: 26f3f39
+
+BUGS FOUND:
+- None. All interactions worked correctly. No console errors (only standard React dev warnings).
+
+SESSION 1 — INTUITIVE PLAY:
+Rules clarity: The written instructions ("Draw a loop through all marked cells. Constraints reveal on arrival.") gave me the high-level goal within seconds. However, the MEANING of the directional constraints (the arrow symbols like "↑→") took approximately 8-10 taps and multiple resets before I truly understood them. I initially thought the arrows described the direction of travel, but through trial and error I discovered they describe which WALLS of the cell the path passes through.
+
+My first attempt was catastrophic: I traced the entire right edge of the grid going clockwise around the perimeter, reaching 12 segments and 0/7 cells visited. My second attempt went straight down through the center and hit the first purple dot with a constraint violation. My third attempt tried approaching purple dots from different angles. Each time, hitting a red constraint cell felt like useful information. The undo and reset buttons worked well and I used them frequently. The core loop of explore -> discover constraint -> undo -> reroute is the game's central pleasure and it works well.
+
+SESSION 2 — STRATEGIC PLAY:
+Strategy found: Map out which walls each purple dot's constraint requires, then construct a single path that satisfies all constraints simultaneously — essentially working backward from the constraints.
+Strategy helped: Yes, dramatically. Session 1 was all fumbling; Session 2 produced a clean 13-segment solve (under par of 15) on the first attempt after planning.
+
+I spent time before touching the board planning a complete path that would satisfy all known constraints. The key insight was realizing that the seven purple dots with their constraints essentially define a fixed sub-path. Once I identified this mandatory chain, the only remaining question was how to connect the ends — which was trivially a straight line up and a single step right. The strategic approach was VASTLY more efficient. Every single constraint turned green on first contact. The satisfaction of watching each constraint light up green as I followed my planned path was the best moment of the entire playtest. The game strongly rewards planning over intuition.
+
+SESSION 3 — EDGE CASES:
+Dominant strategy: No dominant strategy exists — each puzzle has unique constraint placements that require puzzle-specific reasoning. However, there IS a systematic approach: probe each purple dot to reveal its constraint, record them, then construct a path satisfying all constraints simultaneously.
+Can fail: Yes — constraint violations prevent winning.
+Exploits found: The constraint information persists after undo/reset within the same page load (revealed constraints stay visible even after resetting). This means you can systematically reveal ALL constraints by probing each dot, then reset and plan a perfect path. This may be intentional design. One minor observation: the game allows going arbitrarily over par with no penalty.
+
+EXPERIENCE SUMMARY:
+Confusion points: (1) The arrow constraint notation (↑→, ←↓, etc.) is not explained. Had to discover meaning through experimentation. (2) Red constraint cells — unclear whether "permanently violated" or "not yet determined." (3) Whether loop needed to ONLY pass through purple dots or could use empty cells.
+Surprise moments: (1) First constraint reveal — seeing "↑→" appear was a genuine "oh!" moment. (2) Green validation when correctly matching a constraint was very satisfying. (3) Realizing all constraints chain together to force a specific sub-path was an aha moment.
+Boring moments: (1) Session 1, tracing perimeter for 12 moves with 0/7 cells visited. (2) After solving, completed board is static with no replay option.
+Best moment: Session 2, watching all seven constraint cells light up green in sequence as I executed my pre-planned path.
+Worst moment: Session 1, reaching 12 segments on the perimeter with 0/7 purple dots visited.
+
+STRATEGY DIVERGENCE:
+The divergence between intuitive and strategic play is ENORMOUS and is the game's greatest strength. Session 1 was characterized by blind exploration, constant constraint violations, multiple resets, and never completing the puzzle. Session 2 produced a flawless 13-segment solve on the very first try. The game fundamentally rewards the learning loop: probe -> discover -> remember -> plan -> execute. Strategic planning produces dramatically better outcomes.
+```
 
 ## Decision
-<!-- Designer fills this after reviewing metrics + play report -->
-<!-- Status: keep / iterate / kill -->
+
+**Status: ITERATE (1 of 3)**
+
+**Metrics assessment**: Strong profile. Entropy=18.8 (LightsOut-tier), skill-depth=70% (excellent), CI=1.8 (matches Loop), drama=0.66 (solid tension arc), IGR=1.37 (strategic play pays off). DE=1.40 is the weakest metric -- low end of acceptable but above the 1.0 red flag threshold. Overall this is one of the strongest metric profiles we have seen.
+
+**Play report assessment**: The playtester confirmed enormous strategy divergence (the game's greatest strength), genuine aha moments, and no bugs. Two concerns:
+
+1. **Arrow constraint notation confusing** (took 8-10 taps to understand). The playtester initially misread the arrows as direction-of-travel rather than wall-entry/exit constraints. This is a d1 (clarity) issue -- the notation is text-based and abstract. The fix is visual, not mechanical: replace arrow text with visual wall indicators (highlighted cell edges showing which walls the path passes through, like colored borders on the entry/exit sides). The player should SEE the constraint, not READ it.
+
+2. **Probe-then-reset exploit**: The playtester discovered that constraints persist after undo/reset. This means a player can systematically probe every marked cell to reveal ALL constraints, then reset and plan a perfect path with full information. This collapses the game into A10 after the probing phase -- exactly the failure mode the hidden constraints were designed to prevent. This MUST be fixed: constraints must be wiped on reset. Each playthrough must be genuine progressive discovery. Undo should preserve already-revealed constraints (you earned that info by reaching the cell), but full reset must wipe them.
+
+**What to change (spec revisions)**:
+
+### Rules (revised)
+Draw a single closed loop on a grid that passes through every marked cell. Some cells have hidden directional constraints (entry/exit walls) revealed only when the loop reaches them. Constraints are shown as highlighted cell borders, not arrow text. Full reset clears all discovered constraints.
+
+### Constraint Display (new)
+Replace arrow notation (e.g., "up-arrow right-arrow") with colored cell borders: the entry wall glows blue, the exit wall glows gold. The player sees WHICH SIDES of the cell the path must pass through, not an abstract symbol. This leverages spatial reasoning (the player is already thinking about directions while routing the loop) rather than symbol decoding.
+
+### Reset Behavior (revised)
+- **Undo** (retract last segment): preserves all discovered constraints. The player earned this information by reaching the cell.
+- **Full reset** (clear entire loop): wipes ALL discovered constraints. The player must re-discover them. This prevents the probe-all-then-plan exploit and preserves progressive revelation as the core gameplay loop.
+- **Cost**: undo still costs +1 to move count. Reset has no direct cost but loses all discovered information.
+
+### Difficulty Knobs (revised)
+Keep all 4 existing knobs. Add a 5th:
+5. **Constraint memory** (Monday: 1 previously-discovered constraint persists through reset, giving a free hint; Friday: no constraints persist, full amnesia on reset)

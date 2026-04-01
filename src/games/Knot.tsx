@@ -22,22 +22,13 @@ import {
   solve,
   type KnotState,
   type Move,
-  type Dir,
 } from '../solvers/Knot.solver';
 
 /* ─── Constants ─── */
 const GAP = 2;
-const DIR_ARROWS: Record<Dir, string> = {
-  0: '\u2191', // up
-  1: '\u2192', // right
-  2: '\u2193', // down
-  3: '\u2190', // left
-};
+const ENTRY_COLOR = '#3498db'; // blue for entry wall
+const EXIT_COLOR = '#f1c40f';  // gold for exit wall
 
-const PATH_COLORS = [
-  '#3498db', '#2980b9', '#2471a3', '#1f618d', '#1a5276',
-  '#154360', '#0e6655', '#148f77', '#1abc9c', '#16a085',
-];
 
 export default function Knot() {
   const seed = useMemo(() => getDailySeed(), []);
@@ -135,18 +126,32 @@ export default function Knot() {
   /* ─── Reset ─── */
   const handleReset = useCallback(() => {
     if (solved) return;
+    // Full reset wipes ALL discovered constraints (except constraintMemory count).
+    // This prevents the probe-all-then-plan exploit.
+    const memory = initialState.constraintMemory;
+    // Collect indices of constraints that were discovered during play (not pre-revealed)
+    const discoveredDuringPlay = state.marked
+      .map((m, i) => ({ ...m, originalIdx: i }))
+      .filter((m) => m.revealed && !initialState.marked[m.originalIdx].revealed);
+    // Keep at most `memory` of the discovered constraints (first ones found)
+    const keepSet = new Set(
+      discoveredDuringPlay.slice(0, memory).map((m) => m.originalIdx),
+    );
+
     const init: KnotState = {
       ...initialState,
       path: [],
       closed: false,
-      marked: initialState.marked.map((m) => ({
+      marked: initialState.marked.map((m, i) => ({
         ...m,
+        // Pre-revealed stay revealed; others only if in keepSet
+        revealed: m.revealed || keepSet.has(i),
         satisfied: false,
       })),
     };
     setState(init);
     setHistory([init]);
-  }, [initialState, solved]);
+  }, [initialState, state.marked, solved]);
 
   const handleShowStats = useCallback(async () => {
     const s = await loadStats('knot');
@@ -248,32 +253,65 @@ export default function Knot() {
               const isSatisfied = markedInfo?.satisfied ?? false;
 
               let bg = '#1a1a1c';
-              let borderColor = '#333';
-              let borderWidth = 1;
+              // Per-side border colors and widths for constraint display
+              let bTop = '#333', bRight = '#333', bBottom = '#333', bLeft = '#333';
+              let bwTop = 1, bwRight = 1, bwBottom = 1, bwLeft = 1;
 
               if (isStart && !isOnPath) {
                 bg = '#1a4a1a';
-                borderColor = '#2ecc71';
-                borderWidth = 2;
+                bTop = bRight = bBottom = bLeft = '#2ecc71';
+                bwTop = bwRight = bwBottom = bwLeft = 2;
               } else if (isOnPath) {
                 const pathIdx = state.path.indexOf(i);
                 const frac = pathIdx / Math.max(1, state.path.length - 1);
-                // Cool-to-warm gradient
                 bg = frac < 0.5 ? '#1a3d5c' : '#3d1a1a';
-                borderColor = isLast ? '#f1c40f' : '#555';
-                borderWidth = isLast ? 3 : 1;
+                const baseColor = isLast ? '#f1c40f' : '#555';
+                const baseWidth = isLast ? 3 : 1;
+                bTop = bRight = bBottom = bLeft = baseColor;
+                bwTop = bwRight = bwBottom = bwLeft = baseWidth;
                 if (isMarked && isRevealed) {
-                  borderColor = isSatisfied ? '#2ecc71' : '#e74c3c';
-                  borderWidth = 3;
+                  // Satisfied/violated overall glow
+                  const statusColor = isSatisfied ? '#2ecc71' : '#e74c3c';
+                  bTop = bRight = bBottom = bLeft = statusColor;
+                  bwTop = bwRight = bwBottom = bwLeft = 2;
+                  // Overlay entry (blue) and exit (gold) on specific walls
+                  const enterDir = markedInfo!.constraint.enter;
+                  const exitDir = markedInfo!.constraint.exit;
+                  // Entry wall = blue
+                  if (enterDir === 0) { bwTop = 4; bTop = ENTRY_COLOR; }
+                  if (enterDir === 1) { bwRight = 4; bRight = ENTRY_COLOR; }
+                  if (enterDir === 2) { bwBottom = 4; bBottom = ENTRY_COLOR; }
+                  if (enterDir === 3) { bwLeft = 4; bLeft = ENTRY_COLOR; }
+                  // Exit wall = gold
+                  if (exitDir === 0) { bwTop = 4; bTop = EXIT_COLOR; }
+                  if (exitDir === 1) { bwRight = 4; bRight = EXIT_COLOR; }
+                  if (exitDir === 2) { bwBottom = 4; bBottom = EXIT_COLOR; }
+                  if (exitDir === 3) { bwLeft = 4; bLeft = EXIT_COLOR; }
                 }
               } else if (isMarked) {
                 bg = '#2c2c3e';
-                borderColor = isRevealed ? '#9b59b6' : '#6c5ce7';
-                borderWidth = 2;
+                if (isRevealed) {
+                  // Show entry/exit borders on revealed but unvisited marked cells
+                  const enterDir = markedInfo!.constraint.enter;
+                  const exitDir = markedInfo!.constraint.exit;
+                  bTop = bRight = bBottom = bLeft = '#555';
+                  bwTop = bwRight = bwBottom = bwLeft = 1;
+                  if (enterDir === 0) { bwTop = 4; bTop = ENTRY_COLOR; }
+                  if (enterDir === 1) { bwRight = 4; bRight = ENTRY_COLOR; }
+                  if (enterDir === 2) { bwBottom = 4; bBottom = ENTRY_COLOR; }
+                  if (enterDir === 3) { bwLeft = 4; bLeft = ENTRY_COLOR; }
+                  if (exitDir === 0) { bwTop = 4; bTop = EXIT_COLOR; }
+                  if (exitDir === 1) { bwRight = 4; bRight = EXIT_COLOR; }
+                  if (exitDir === 2) { bwBottom = 4; bBottom = EXIT_COLOR; }
+                  if (exitDir === 3) { bwLeft = 4; bLeft = EXIT_COLOR; }
+                } else {
+                  bTop = bRight = bBottom = bLeft = '#6c5ce7';
+                  bwTop = bwRight = bwBottom = bwLeft = 2;
+                }
               } else if (isLegal) {
                 bg = 'rgba(52,152,219,0.2)';
-                borderColor = '#3498db';
-                borderWidth = 2;
+                bTop = bRight = bBottom = bLeft = '#3498db';
+                bwTop = bwRight = bwBottom = bwLeft = 2;
               }
 
               return (
@@ -292,8 +330,14 @@ export default function Knot() {
                         width: cellSize,
                         height: cellSize,
                         backgroundColor: bg,
-                        borderColor,
-                        borderWidth,
+                        borderTopColor: bTop,
+                        borderRightColor: bRight,
+                        borderBottomColor: bBottom,
+                        borderLeftColor: bLeft,
+                        borderTopWidth: bwTop,
+                        borderRightWidth: bwRight,
+                        borderBottomWidth: bwBottom,
+                        borderLeftWidth: bwLeft,
                       },
                     ]}
                   >
@@ -303,13 +347,16 @@ export default function Knot() {
                     {isMarked && !isOnPath && !isRevealed && (
                       <Text style={styles.markedDot}>{'\u25CF'}</Text>
                     )}
-                    {isMarked && isRevealed && (
-                      <View style={styles.constraintBox}>
-                        <Text style={styles.constraintArrow}>
-                          {DIR_ARROWS[markedInfo!.constraint.enter]}
-                          {DIR_ARROWS[markedInfo!.constraint.exit]}
-                        </Text>
-                      </View>
+                    {isMarked && isRevealed && !isOnPath && (
+                      <Text style={styles.constraintHint}>{'\u25CB'}</Text>
+                    )}
+                    {isOnPath && isMarked && isRevealed && (
+                      <Text style={[
+                        styles.constraintStatus,
+                        { color: isSatisfied ? '#2ecc71' : '#e74c3c' },
+                      ]}>
+                        {isSatisfied ? '\u2713' : '\u2717'}
+                      </Text>
                     )}
                     {isOnPath && !isMarked && !isStart && (
                       <Text style={styles.pathNum}>
@@ -379,9 +426,12 @@ export default function Knot() {
         <Text style={styles.howToText}>
           Draw a closed loop that passes through every marked cell (purple dots).
           {'\n\n'}
-          Each marked cell has a hidden directional constraint (entry/exit
-          directions) that is revealed when your loop reaches it. If the
-          constraint is violated, the cell glows red — undo and reroute!
+          Each marked cell has a hidden directional constraint revealed when your
+          loop reaches it. Blue border = entry wall, gold border = exit wall.
+          Match both to satisfy the constraint (green check). If violated, the cell
+          shows a red X — undo and reroute!
+          {'\n\n'}
+          Undo preserves discovered constraints, but full reset clears them all.
           {'\n\n'}
           The loop must close back at the green start cell. Par: {par} segments.
         </Text>
@@ -445,14 +495,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
-  constraintBox: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  constraintArrow: {
-    color: '#ffffff',
-    fontSize: 10,
+  constraintHint: {
+    color: '#9b59b6',
+    fontSize: 14,
     fontWeight: '700',
+  },
+  constraintStatus: {
+    fontSize: 16,
+    fontWeight: '800',
   },
   pathNum: {
     color: 'rgba(255,255,255,0.3)',
