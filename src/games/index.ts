@@ -8,6 +8,7 @@ import IceSlide from './IceSlide';
 import DropPop from './DropPop';
 import BitMap from './BitMap';
 import Claim from './Claim';
+import Slide from './Slide';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -71,6 +72,13 @@ const games: GameMeta[] = [
     emoji: '\uD83C\uDFC6',
     description: 'Pick cells to score — neighbors shrink!',
     component: Claim,
+  },
+  {
+    id: 'slide',
+    name: 'Slide',
+    emoji: '\ud83e\udde9',
+    description: 'Slide tiles into order',
+    component: Slide,
   },
 ];
 export default games;
