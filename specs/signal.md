@@ -153,3 +153,45 @@ Colors: Mon/Tue=3, Wed/Thu=4, Fri=5.
 3. **Increase constraint coupling to drive CI up.** When a player commits a wrong guess, reveal which color that cell actually is (partial negative feedback, like Wordle's yellow). This creates a new information channel that rewards bold guessing -- a counterintuitive "guess wrong on purpose" strategy where the penalty (lost broadcast) is worth the info gained.
 
 **Target metrics for iteration 2:** CI >= 2, info-gain-ratio >= 1.5, no single dominant strategy across all puzzles. The game should FEEL like Wordle's guess-and-feedback loop applied to a spatial grid.
+
+## Solver Metrics (v2)
+
+Computed on 5 puzzles (Mon-Fri seeds), 5 skill levels each. Changes: cell-guessing, directional broadcasts, wrong-guess feedback.
+
+| Metric | Avg |
+|---|---|
+| Solvability | 100% |
+| Puzzle Entropy | 36.5 |
+| Skill-Depth | 58.8% |
+| Decision Entropy | 3.32 |
+| Counterintuitive | 1.4 avg (7 total) |
+| Info Gain Ratio | 2.45 |
+
+## Play Report (v2)
+
+**BUG**: Color picker panel below fold — requires scroll to access guessing mechanic.
+**BUG**: Broadcasts that reveal 0 cells give no feedback — silent trap for players.
+**BUG**: Undo completely reverses wrong guesses including Wrong counter — may undermine risk.
+
+**Session 1 (Intuitive)**: Broadcast mechanic clear after 2 taps. Cell-guessing discoverable but picker below fold. Left/right broadcasts on same row give genuinely different info — strong "aha." Used 7/8 budget on broadcasts, 0 guesses. Game felt unfinished.
+
+**Session 2 (Strategic)**: Strategy = exhaust all columns first, then rows. BACKFIRED — row broadcasts after column saturation revealed 0 new cells. 11/25 known after 8 broadcasts (at par), 0 budget for guessing. Strategic play WORSE than intuitive (11/25 vs 14/25).
+
+**Session 3 (Edge Cases)**: No dominant strategy (good). Wrong guesses correctly penalize AND reveal actual color. Undo completely reverses everything including Wrong counter. Locked cells correctly ignored on tap.
+
+**Strategy Divergence**: Strategic play produced WORSE results than intuitive. Systematic column-then-row approach is a trap. Optimal strategy (interleave directions, save budget for confident guesses) is non-obvious and requires deep understanding of "first of each color" constraint. Game rewards theory knowledge not discovery through play. Broadcasts that add 0 cells are the core missing feedback signal.
+
+**Best Moment**: Left broadcast on row 1 revealed 3 cells that right broadcast on same row missed — "aha, opposite direction = different info."
+**Worst Moment**: 2 row broadcasts revealing 0 new cells with no feedback. Silent waste felt punishing and opaque.
+
+## Decision (v2)
+
+**Status: KILL**
+
+**Reasoning:** Signal's metrics improved on paper (skill-depth 59%, CI 1.4, info-gain 2.45 -- all passing thresholds), but the playtester revealed a fatal design flaw: **strategic play performed WORSE than intuitive play** (11/25 in 8 broadcasts vs 14/25 in 8 broadcasts). A systematic column-then-row approach -- the kind of thing a thoughtful player would try -- was a trap that yielded 0 new cells on late broadcasts. This is not a bug; it is a structural property of the "first-of-each-color" broadcast mechanic. The optimal strategy requires deep Bayesian reasoning about information overlap that humans cannot perform in real-time.
+
+When the game punishes the player for trying to think systematically, the emotional arc is broken. The "aha" moment the spec promises -- "I can DEDUCE this cell" -- never arrived for the playtester across 3 sessions. Instead, the experience was: broadcasts that silently reveal 0 cells (no feedback), a color picker hidden below the fold (persistent UX bug), and an undo that completely reverses wrong guesses (destroying the risk-reward tension that was supposed to drive CI). The game rewards opaque theory knowledge, not discoverable insight through play.
+
+This is iteration 2 of 3. A third iteration could attempt to fix the feedback gap and the strategy opacity, but the core problem is architectural: the broadcast mechanic's information yield is too unpredictable for human reasoning. Broadcasts that reveal 0 cells are not an edge case -- they are inherent to directional first-of-each-color scanning when colors overlap spatially. No amount of UI polish fixes the fact that the player cannot reliably estimate which broadcast will be useful.
+
+**Lesson learned:** Sequential spatial probing with structured partial reveals (first-of-each-color) creates information overlap that is mathematically rich but humanly opaque. The solver can compute optimal information gain; the human cannot. When a game's skill expression requires Bayesian inference over a 25-cell constraint graph, the strategy becomes invisible to the player. Hidden-info games need feedback that is IMMEDIATELY INTERPRETABLE (Wordle's green/yellow/gray) not feedback that requires cross-referencing 4+ previous observations. Add to exhausted families: "directional spatial probing with structured partial reveals."

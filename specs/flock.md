@@ -91,10 +91,25 @@ Skill scores by level (moves to solve):
 **Strongest metric**: Skill-Depth -- 88.2% (random play uses ~10x more moves than optimal; strategic sequencing is essential)
 
 ## Play Report
-<!-- Playtester fills this section with blind play observations -->
+
+**BUG (minor)**: Stats modal shows stale "Best Score" after Play Again. Best Score stayed at 10 even after 9-move solve.
+**BUG (minor)**: D-pad below viewport fold; requires scrolling to discover.
+
+**Session 1 (Intuitive)**: Rules understood instantly (0 confusion taps). First tap (UP) felt great — all birds slide simultaneously. Scattered counter provides clear feedback. Solved in 10 moves (par 8). Circular rotation pattern (right→down→left→up) emerged naturally. Early moves feel flat (Scattered stays at 7-8 for first 3-4 taps). Late acceleration (5→3→1→0) is satisfying.
+
+**Session 2 (Strategic)**: Strategy = watch Scattered counter, try deliberate direction choices. Reached Scattered=1 at move 8 (at par). Starting direction matters: different rotations give 9-11 moves. But once circular pattern identified, execution is mechanical.
+
+**Session 3 (Edge Cases)**: DOMINANT STRATEGY EXISTS: any circular 4-direction rotation solves in 9-11 moves. No mid-game branching decisions. Brute-force the 4 starting directions to find par. Repeated same-direction presses are idempotent (no state change). No loss condition. Undo/Reset work correctly.
+
+**Strategy Divergence**: Strategic play marginally better (9 vs 10 moves, 10% improvement). Depth lives ENTIRELY in starting direction choice (only 4 options). After the circular sweep pattern is learned, every subsequent move is automatic. Game feels "solved not mastered" after 3 sessions.
+
+**Best Moment**: Moves 5-7 watching Scattered drop 7→5→3→1 in rapid sequence — puzzle collapsing felt exciting.
+**Worst Moment**: Early rotation grind — 3-4 moves with no visible progress (Scattered=7→7→7→8).
 
 ## Decision
-<!-- Designer fills this after reviewing metrics + play report -->
-<!-- Status: keep / iterate / kill -->
-<!-- If iterate: what to change and why -->
-<!-- If kill: lesson learned for learnings.md -->
+
+**Status: KILL**
+
+**Reason:** Dominant strategy exists. Any circular 4-direction rotation (right-down-left-up) solves every puzzle in 9-11 moves. Depth lives entirely in starting direction choice (only 4 options to brute-force). Strategic play is only 10% better than intuitive. After 3 sessions the game feels "solved not mastered" -- no mid-game decisions, no genuine branching. The high solver Skill-Depth (88%) is misleading because the solver explores the full search tree, but a human who discovers the circular sweep pattern bypasses it entirely. Fails Litmus Test 1 (Dominant Strategy).
+
+**Lesson for learnings.md:** Global-direction simultaneous-agent movement with only 4 inputs per step creates a trivially small per-move branching factor. Even with 12+ agents and collision physics, if the ACTION SPACE is tiny (4 directions), players will exhaustively search it. Depth requires enough options per move that brute-forcing is impractical -- Decision Entropy 1.65 (barely in range) was the warning sign. Games with < 2.0 Decision Entropy and a repeating-pattern solution structure will be solved by pattern discovery, not strategic thinking.

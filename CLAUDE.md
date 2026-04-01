@@ -20,13 +20,13 @@ You treat every experiment as if real players will judge it. You hold yourself t
 
 ## How You Work
 
-Your process is defined in **`program.md`** -- read it before every design session. It contains:
+Your process is a **three-agent funnel** defined in **`program.md`** -- read it before every design session. The funnel splits the work into three specialized roles:
 
-- **Core Design Principles** -- the non-negotiable rules that separate good puzzle games from forgettable ones. Internalize these. They are your compass.
-- **The Loop** -- an 8-step cycle: design, build prototype + solver, commit, compute quality metrics, blind play review, decide, polish, log. Follow it rigorously.
-- **Computable Quality Metrics** -- the primary evaluation tool. Solver-based metrics (entropy, skill-depth, drama, counterintuitive moves, information gain ratio) replace subjective scoring. Inspired by Browne's Ludi system which produced Yavalath from pure computation.
-- **Blind Play Review** -- a separate reviewer agent plays the game WITHOUT reading source code and reports observations (not scores). Cross-validates computed metrics.
-- **Design Introspection** -- litmus tests (stare test, dominant strategy test) to filter bad concepts before building.
+- **Designer** (`prompts/designer.md`) -- brainstorms concepts, filters through litmus tests, makes keep/iterate/kill decisions based on metrics and play reports. Never writes code.
+- **Engineer** (`prompts/engineer.md`) -- builds prototypes + solvers, computes quality metrics, auto-kills on fatal metric thresholds. Never makes taste calls.
+- **Playtester** (`tools/review-prompt.md`) -- plays blind (no source code), reports observations. Never scores or decides.
+
+The funnel shape means cheap design work filters before expensive engineering. The designer brainstorms 5-8 concepts, filters to 2-3 specs, and only those reach the engineer. Specs live in `specs/` as the single source of truth for each concept's lifecycle.
 
 ## Critical Mindset
 
@@ -64,8 +64,14 @@ src/
   utils/          -- seeding, scoring, stats persistence, sharing
   types.ts        -- shared types
 App.tsx           -- navigation shell with game menu
-program.md        -- agent instructions and design loop (READ THIS FIRST)
+program.md        -- funnel orchestrator (READ THIS FIRST)
+prompts/
+  designer.md     -- designer agent prompt
+  engineer.md     -- engineer agent prompt
+tools/
+  review-prompt.md -- playtester agent prompt
+  playtest.mjs     -- browser automation harness
+specs/            -- one spec per concept (lifecycle documents)
 learnings.md      -- design patterns and quality metric heuristics
 results.tsv       -- experiment log (solver metrics, not subjective scores)
-tools/            -- playtest harness and review prompt
 ```

@@ -93,11 +93,85 @@ Lock density: Mon 12%, Tue 16%, Wed 20%, Thu 24%, Fri 28%.
 **Weakest metric**: Counterintuitive Moves -- 1 total across all puzzles (barely passes threshold of >=1). The double Latin square constraint landscape allows most optimal solutions to monotonically reduce violations. The hidden locks create routing challenges but rarely force heuristic-worsening moves in the optimal path.
 **Strongest metric**: Skill-Depth -- 100% (random play cannot solve any puzzle; strategic play solves all). Decision Entropy 2.84 is solidly in the good range, indicating meaningful choices at each step.
 
+## Solver Metrics (v2)
+
+Computed on 5 puzzles (Mon-Fri seeds), 5 skill levels each. CI measured from greedy solver (L2) path which represents typical player experience (hits locks, must reroute). Other metrics from lock-naive solver path.
+
+| Metric | Mon | Tue | Wed | Thu | Fri | Avg |
+|---|---|---|---|---|---|---|
+| Solvability | 100% | 100% | 100% | 100% | 100% | 100% |
+| Puzzle Entropy | 55.6 | 24.5 | 32.6 | 40.8 | 73.3 | 45.4 |
+| Skill-Depth | 100% | 100% | 100% | 100% | 100% | 100% |
+| Decision Entropy | 2.68 | 2.72 | 2.65 | 2.43 | 2.32 | 2.55 |
+| Counterintuitive | 3 | 0 | 0 | 0 | 0 | 0.6 |
+| Drama | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| Duration (ms) | 5 | 2 | 3 | 4 | 6 | 4 |
+| Info Gain Ratio | 14.27 | 26.26 | 18.93 | 14.88 | 8.47 | 16.56 |
+| Solution Uniqueness | 1 | 2 | 1 | 1 | 3 | 1.6 |
+
+### Solve steps by skill level (v2)
+
+| Day | L1 | L2 | L3 | L4 | L5 |
+|---|---|---|---|---|---|
+| Mon | FAIL | 7 | FAIL | 2 | 2 |
+| Tue | FAIL | 3 | 4 | 3 | 3 |
+| Wed | FAIL | 4 | 4 | 4 | 4 |
+| Thu | FAIL | 5 | 5 | 5 | 5 |
+| Fri | FAIL | 9 | 8 | 7 | 7 |
+
+### Par calibration (v2)
+
+Par = lock-naive solver optimal + buffer (Mon +3, Fri +2).
+
+| Day | Naive Steps | Par | Lock Density | Initial Violations |
+|---|---|---|---|---|
+| Mon | 2 | 5 | 12% | 6 |
+| Tue | 3 | 6 | 16% | 15 |
+| Wed | 4 | 6 | 20% | 14 |
+| Thu | 5 | 7 | 24% | 15 |
+| Fri | 7 | 9 | 28% | 23 |
+
+### v2 changes implemented
+
+1. **Interior lock placement**: Locks placed in rows 1-3, cols 1-3 (0-indexed) to create routing detours while keeping corners unlocked for early success.
+2. **Controlled disorder**: Monday targets 3 tiles out of place (1 cycle), Friday targets 10 (multiple cycles + swaps). Disorder scales via cycle count.
+3. **Lock-naive par**: Par computed using a solver that starts with zero lock knowledge and discovers locks through failed swaps, matching player information. Buffer: Mon +3, Fri +2.
+4. **UX fixes**: Selection indicator upgraded to 4px cyan border with shadow glow. Pressable component handles both touch and mouse events natively.
+
+**Auto-kill check**: PASSED
+**Weakest metric**: Counterintuitive Moves -- 3 total, concentrated on Monday (greedy solver hits locks and must reroute). Tue-Fri greedy solver finds smooth paths. The double Latin square constraint landscape remains fundamentally smooth for strategic players; CI depends on the player attempting greedy swaps that happen to hit interior locks.
+**Strongest metric**: Skill-Depth -- 100% (random play cannot solve any puzzle; strategic play solves all). Decision Entropy 2.55 is solidly in the good range. Par calibration now realistic: Mon par 5 (naive 2 + buffer 3), Fri par 9 (naive 7 + buffer 2).
+
 ## Play Report
-<!-- Playtester fills this section with blind play observations -->
+
+**BUG (minor)**: Game requires touch events, not mouse clicks. Desktop browser without touch emulation silently ignores clicks.
+**BUG (minor)**: Selection indicator (tile border highlight) too subtle — missed for 2 full sessions.
+
+**Session 1 (Intuitive)**: Rules clear after 2-3 taps. "Swap tiles so no shape or color repeats" is straightforward. First swap dropped Conflicts 23→20, felt great. But subsequent moves oscillated 19-24 with no steady improvement. Discovered locked tiles on move 5 — genuine surprise ("trap springing"). Ended 10 moves / 24 conflicts (WORSE than start). Game felt overwhelming.
+
+**Session 2 (Strategic)**: Strategy = map board first, find swaps that fix row AND column constraints simultaneously. Reached 17 conflicts in 8 moves (at par), solving Row 1 entirely. But couldn't get below 17 — fixing one row breaks columns. Patch-break-repatch cycle. Lock mechanic adds real cognitive load.
+
+**Session 3 (Edge Cases)**: No dominant strategy. Greedy does not converge. Can fail meaningfully (conflicts increase). Tapping same tile twice = deselect (no move cost). Lock reveal costs inconsistent (sometimes 0, sometimes 1 move). Neither session solved the puzzle.
+
+**Strategy Divergence**: Strategic play DRAMATICALLY better than intuitive (17 conflicts in 8 moves vs 24 in 10). Planning which swaps fix multiple constraints is genuine skill. But neither approach solved the puzzle — gap between "somewhat strategic" and "optimal" seems very large. Par 8 from 23 conflicts requires near-perfect play. May be too hard for casual players.
+
+**Best Moment**: Session 2 move 7 — swapping tiles dropped conflicts cleanly from 20→17. Strategy paying off.
+**Worst Moment**: Session 1 ending at 24 conflicts (worse than start) after 10 moves of trying. No feedback that play was wrong.
 
 ## Decision
-<!-- Designer fills this after reviewing metrics + play report -->
-<!-- Status: keep / iterate / kill -->
-<!-- If iterate: what to change and why -->
-<!-- If kill: lesson learned for learnings.md -->
+
+**Status: ITERATE (iteration 1 of 3)**
+
+**Reason:** The dual-layer mechanic (visible Latin square + hidden locks) is structurally novel and creates genuine surprise. Skill-Depth 100% and Decision Entropy 2.84 are excellent. Strategic play dramatically outperforms intuitive (17 conflicts in 8 moves vs 24 in 10). But two problems must be fixed:
+
+**Problem 1: Par is unachievable.** Neither playtest session solved the puzzle. The player ended at 17 conflicts after 8 moves (at par) but could not reach 0. Par must be calibrated so that a strategic human player can actually WIN, not just improve. The experience of "I played well but still lost" kills retention. Monday par should allow 30-40% wasted moves (failed lock probes). Friday can be tight.
+
+**Problem 2: CI is too low (1.0).** The double Latin square constraint landscape is too smooth -- optimal solutions monotonically reduce violations. The game needs situations where the player must INCREASE conflicts temporarily to route around a lock cluster. Possible fix: increase lock density in the CENTER of the grid (not edges) so that obvious swaps are blocked and the player must take detour swaps that temporarily worsen the board. The aha should be: "I need to make this row WORSE so I can unlock a path to fix two rows at once."
+
+**What the game should feel like after iteration:** The player should be able to solve Monday in 6-8 moves with 1-2 lock discoveries. Friday should take 12-15 moves with 4-5 lock discoveries and at least 2 moments where the "obvious" swap is blocked and the player must find a creative reroute. Every session should end with the puzzle SOLVED (0 conflicts), not abandoned at a plateau.
+
+**Specific spec changes:**
+1. Reduce initial disorder on Monday (2-3 tiles out of place, not 4+). Keep Friday at 8-10.
+2. Recompute par using a lock-naive solver that discovers locks through failed swaps (matching player information). Add generous buffer: par = lock-naive optimal + 3 on Monday, + 2 on Friday.
+3. Place locks preferentially in grid interior (rows 2-4, columns 2-4) to create routing detours without blocking corner-first strategies that give early success.
+4. Fix bugs: selection indicator too subtle (use thick colored border), ensure mouse click works on desktop (not just touch events).

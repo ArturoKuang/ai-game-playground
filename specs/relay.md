@@ -88,10 +88,33 @@ Computed on 5 puzzles (Mon-Fri seeds), 5 skill levels each.
 - Solution Uniqueness is high (avg 7.6) meaning many activation orderings work, suggesting decisions between activations aren't very meaningful.
 
 ## Play Report
-<!-- Playtester fills this section with blind play observations -->
+
+**CRITICAL BUG**: Submit button below viewport fold (y=729 on 600px viewport). Not discoverable without scrolling.
+
+**BUG**: Duplicate receiver assignments silently permitted. Two transmitters can claim same receiver with no warning.
+
+**Session 1 (Intuitive)**: Rules clear after 2 taps. Activated all 4 transmitters. Wire paths lit up clearly and persisted. But every wire path pointed unambiguously at exactly one receiver. No overlap, no confusion. Solved correctly with 4 activations (at par).
+
+**Session 2 (Strategic)**: Strategy = read spatial layout before activating. Transmitters and receivers share rows/columns making answer deducible by inspection. Solved with 2 activations (confirmation only), substantially beating par. Could have solved with 0 activations.
+
+**Session 3 (Edge Cases)**: Solvable WITHOUT ANY activations. Layout leaks the answer. Transmitter-receiver pairs share rows/columns. Duplicate receiver assignment allowed. Wall-mashing not applicable.
+
+**Strategy Divergence**: Strategic play better numerically (2 vs 4 activations) but same underlying reasoning. Core mechanic (activation) is completely skippable. This is fatal: if the puzzle layout leaks the solution before the player engages the mechanic, the mechanic has no function.
+
+**Best Moment**: C activation lighting up 5 cells running down a column into receiver 3.
+**Worst Moment**: Realizing correct answers submittable without any activations — the defining mechanic is vestigial.
 
 ## Decision
-<!-- Designer fills this after reviewing metrics + play report -->
-<!-- Status: keep / iterate / kill -->
-<!-- If iterate: what to change and why -->
-<!-- If kill: lesson learned for learnings.md -->
+
+**Status: KILL**
+
+**Reasoning:** The core mechanic is fatally broken in a way that cannot be iterated out. The puzzle is solvable WITHOUT ANY activations -- the spatial layout of transmitters and receivers leaks the answer. The playtester confirmed: "transmitter-receiver pairs share rows/columns," making the mapping deducible by inspection. This is A10 (fully-visible optimization) in disguise: despite the "hidden wires" framing, the spatial arrangement of endpoints gives away the answer before the player engages the mechanic.
+
+The metrics confirm the structural problem:
+- **Info-gain ratio = 1.13** (below the 1.2 red flag threshold) -- strategic activation is barely better than random because activations provide almost no new information beyond what's already visible.
+- **Solution uniqueness = 7.6** -- many activation orderings "work" because the decisions between activations are meaningless.
+- **Greedy solver achieves 100%** just by activating all transmitters and matching by endpoint -- no set-intersection reasoning needed.
+
+The overlap ambiguity that the spec depended on never materialized. Even if wire overlap were increased, the receiver positions still leak the mapping. To fix this, you would need to hide receiver positions entirely -- but then the game becomes a different game (closer to Signal's probing mechanic). There is no version of "deduce visible-endpoint-to-visible-endpoint connections" that resists spatial inspection.
+
+**Lesson learned:** Hidden-info puzzles where the ENDPOINTS are visible and spatially constrained will always leak the mapping through spatial proximity. For hidden-routing deduction to work, at least one endpoint set must be hidden or the routing must be non-spatial (logical, not geometric).

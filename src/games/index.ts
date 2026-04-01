@@ -11,8 +11,10 @@ import Claim from './Claim';
 import Slide from './Slide';
 import Loop from './Loop';
 import Signal from './Signal';
+import Relay from './Relay';
 import Herd from './Herd';
 import Flock from './Flock';
+import Sift from './Sift';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -99,6 +101,13 @@ const games: GameMeta[] = [
     component: Signal,
   },
   {
+    id: 'relay',
+    name: 'Relay',
+    emoji: '\ud83d\udd0c',
+    description: 'Activate transmitters to trace hidden wires',
+    component: Relay,
+  },
+  {
     id: 'herd',
     name: 'Herd',
     emoji: '\uD83E\uDD8A',
@@ -111,6 +120,13 @@ const games: GameMeta[] = [
     emoji: '\uD83D\uDC26',
     description: 'Slide all birds at once to cluster by color',
     component: Flock,
+  },
+  {
+    id: 'sift',
+    name: 'Sift',
+    emoji: '\ud83d\udd00',
+    description: 'Swap tiles to complete the double Latin square',
+    component: Sift,
   },
 ];
 export default games;

@@ -14,7 +14,7 @@ import {
   applyMove,
   isGoal,
   countViolations,
-  solve,
+  computePar,
   type SiftState,
   type Move,
 } from '../solvers/Sift.solver';
@@ -25,6 +25,9 @@ const GAP = 3;
 const SHAPE_EMOJIS = ['\u25cf', '\u25a0', '\u25b2', '\u2605', '\u25c6']; // circle, square, triangle, star, diamond
 const SHAPE_NAMES = ['Circle', 'Square', 'Triangle', 'Star', 'Diamond'];
 const TILE_COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6']; // red, blue, green, yellow, purple
+
+/* ─── Selection highlight color ─── */
+const SELECTION_COLOR = '#00e5ff';
 
 /* ─── Seed helpers (inline since shared utils may not exist on this branch) ─── */
 function getDailySeed(): number {
@@ -59,10 +62,10 @@ export default function Sift() {
     [seed, difficulty],
   );
 
+  // v2: Par computed via lock-naive solver + buffer
   const par = useMemo(() => {
-    const sol = solve(initialState, 5);
-    return sol ? sol.steps : initialState.maxMoves;
-  }, [initialState]);
+    return computePar(initialState, difficulty);
+  }, [initialState, difficulty]);
 
   const [state, setState] = useState<SiftState>(() => ({
     ...initialState,
@@ -251,14 +254,15 @@ export default function Sift() {
               const hasViolation = shapeViolation || colorViolation;
 
               const bg = TILE_COLORS[tile.color];
+              // v2: Much more visible selection indicator — thick cyan border
               let borderColor = '#333';
               let borderWidth = 1;
               if (isKnownLock) {
                 borderColor = '#c0392b';
                 borderWidth = 3;
               } else if (isSelected) {
-                borderColor = '#f1c40f';
-                borderWidth = 3;
+                borderColor = SELECTION_COLOR;
+                borderWidth = 4;
               } else if (hasViolation && !solved) {
                 borderColor = '#e74c3c55';
                 borderWidth = 2;
@@ -274,6 +278,7 @@ export default function Sift() {
                     ],
                   }}
                 >
+                  {/* v2: Use onPress (Pressable) which handles both touch AND mouse clicks */}
                   <Pressable
                     onPress={() => handleTap(r, c)}
                     style={[
@@ -286,6 +291,8 @@ export default function Sift() {
                         borderWidth,
                         opacity: isKnownLock ? 0.5 : 1,
                       },
+                      // v2: Add shadow glow for selected tile
+                      isSelected && styles.cellSelected,
                     ]}
                   >
                     {isKnownLock ? (
@@ -414,6 +421,14 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // v2: Glow effect for selected tile (visible on web via shadow)
+  cellSelected: {
+    shadowColor: SELECTION_COLOR,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
+    elevation: 8,
   },
   shapeEmoji: {
     color: '#ffffff',

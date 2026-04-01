@@ -86,8 +86,10 @@ async function cmdStart(gameId) {
   // Clear console log
   fs.writeFileSync(CONSOLE_FILE, '[]');
 
+  const userDataDir = path.join(TMPDIR, 'playtest-chrome-profile-' + Date.now());
   const browser = await puppeteer.launch({
     headless: 'new',
+    userDataDir,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu', '--disable-singleton-lock'],
   });
 
