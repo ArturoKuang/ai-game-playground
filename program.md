@@ -181,65 +181,134 @@ Avoid these at all costs:
 
 ## The Loop — REPEAT FOREVER
 
-### Step 0: Learn
+This loop is built on one key insight from automated game design research: **subjective "fun" scoring by AI is unreliable, but computable quality metrics from solver-based analysis are predictive.** Cameron Browne's Ludi system produced Yavalath (top 2.5% of abstract board games) using purely computed metrics — drama, depth, uncertainty — with zero subjective scoring. We follow the same approach.
 
-- Read `learnings.md` — the **recursive self-improvement knowledge base**.
-- Identify which **Proven Patterns (P1-P8)** apply to your target game.
-- Check the **Anti-Patterns (A1-A5)** to avoid repeating past mistakes.
-- Use the **Score Prediction Heuristics** to estimate expected score before implementing.
-- For new games, run through the **New Game Design Checklist** (must pass 8/10).
+### Step 1: Design
 
-### Step 1: Observe
+- Skim `learnings.md` core patterns (P1-P9) and the explored families list below.
+- Read `results.tsv` — know what's been tried.
+- Brainstorm a concept. Run 2 quick mental tests:
+  - **Stare test**: Can a patient player solve by pre-planning everything? If yes → needs hidden info or exponential coupling.
+  - **One-sentence test**: Can you describe the optimal strategy in one sentence? If yes → too shallow.
+- Both pass → build it. Either fails → redesign.
 
-- `git log --oneline -10` — know where you are.
-- Read `results.tsv` — know what has been tried and what worked.
-- Read current game code to understand the baseline.
+### Step 2: Build Prototype + Solver
 
-### Step 2: Hypothesize
+Build the **core mechanic only**:
+- Interactive game board + basic tap animation (P5)
+- Win/loss detection
+- **NO share text, NO stats, NO difficulty scaling yet** — polish comes after mechanic validation
 
-Propose **one** experiment. This can be:
+**Write a solver module** — a file at `src/solvers/<GameName>.solver.ts` that exports:
 
-| Category             | Examples                                                                 |
-| -------------------- | ------------------------------------------------------------------------ |
-| **New game**         | A brand-new mini-game — physics, spatial, logic, pattern, reaction-based |
-| **Mechanic tweak**   | Change grid size, timing, scoring, input method                          |
-| **Juice/feel**       | Animations, haptic feedback, color transitions, tap feedback             |
-| **Difficulty curve** | Adjust how puzzles scale in difficulty                                   |
-| **Visual polish**    | Improve layout, typography, color palette                                |
-| **Simplification**   | Remove complexity while keeping fun — always a win                       |
-| **Kill a game**      | Remove a game that's fundamentally boring despite iterations             |
+```typescript
+// Pure game logic — no React, no UI
+export function generatePuzzle(seed: number, difficulty: number): GameState;
+export function legalMoves(state: GameState): Move[];
+export function applyMove(state: GameState, move: Move): GameState;
+export function isGoal(state: GameState): boolean;
+export function heuristic(state: GameState): number; // lower = closer to goal
 
-Write a short hypothesis: _"I expect [change] will [improve metric] because [reason]."_
+// Parameterized solver
+export function solve(puzzle: GameState, skillLevel: 1 | 2 | 3 | 4 | 5): Solution | null;
+// Level 1: random valid moves
+// Level 2: greedy (pick move with best immediate heuristic)
+// Level 3: greedy + 1-step lookahead
+// Level 4: BFS/DFS with depth limit
+// Level 5: full search (MCTS, exhaustive, or backtracking)
+```
 
-### Step 2.5: Stress Test (New Games Only)
+The solver enables all quality metrics. **If you can't write a solver, the game's rules are probably ambiguous.** The solver itself teaches you about the game's depth.
 
-**Before writing any code**, run the three litmus tests from the Design Introspection section:
+Run `npx tsc --noEmit` to verify compilation.
 
-1. **Dominant Strategy Test**: What does a smart player do on turn 1? If the answer is one sentence ("pick the highest…", "always start at the corner…"), the game is A10. Redesign.
-2. **Stare Test**: Can a player solve this by staring at the board for 60 seconds? If yes, the game lacks execution uncertainty. Add information that's revealed through play, or ensure the interaction space exceeds working memory.
-3. **Mechanic Family Test**: Does this game occupy the same family as an existing game in the collection? If yes, verify d8 will be ≥ 5 — otherwise kill the concept.
+### Step 3: Commit
 
-Also verify:
-- Is this **constraint satisfaction** or **optimization**? If optimization, confirm the costs are incommensurable per the Incommensurable Cost Principle.
-- **Play 5 turns mentally.** Narrate what a smart player thinks. If their reasoning is purely arithmetic ("7 > 5, pick 7"), the decisions are too shallow.
-- **Effective branching factor test (constraint satisfaction only)**: When clues are tight enough for a unique solution, most theoretical positions are invalid. Count ACTUAL valid options at each step after constraint propagation. If average < 3, the puzzle is A10 in disguise despite a large theoretical space. (Evidence: Fit 6×6 with 3 shapes had 100k+ theoretical positions but ~2-3 valid positions per shape after clue pruning. Scored 39.)
+```bash
+git add -A && git commit -m "prototype: [game] — [one-line mechanic]"
+```
 
-If any test fails, go back to Step 2 with a different concept. Do NOT proceed to implementation.
+### Step 4: Compute Quality Metrics
 
-### Step 3: Implement
+Run the solver against 5 generated puzzles (Mon-Fri seeds) at all 5 skill levels. Compute these metrics — they are the **primary evaluation**, replacing subjective dimension scoring:
 
-- Edit the game source files under `src/games/`.
-- Keep changes **small and focused** — one idea per experiment.
-- The game must remain playable after your change (no crashes).
-- **Run `npx tsc --noEmit`** after every change to verify it compiles.
+| Metric | How to Compute | What It Measures | Good Range |
+|---|---|---|---|
+| **Solvability** | solved_count / total_puzzles at skill level 5 | Can the puzzle always be solved? | 100% |
+| **Puzzle Entropy** | `SUM(log2(legalMoves(state_i)))` across each step of the optimal solution | Total bits of information needed to solve. How much must the player think? | 10–25 bits |
+| **Skill-Depth** | `(score_level5 - score_level1) / score_level5` | Does thinking help? Does better strategy produce better results? | > 30% |
+| **Decision Entropy** | Average Shannon entropy of legal moves at each step: `H = -SUM(p * log2(p))` where p is uniform over legal moves | How many meaningful choices per step? | 1.5–3.5 bits |
+| **Counterintuitive Moves** | Count steps in optimal solution where `heuristic(next) > heuristic(current)` — moves that look "worse" but are necessary | Proxy for aha moments — must move away from goal to ultimately reach it | >= 2 per puzzle |
+| **Drama** | `max(progress_before_backtrack) / total_steps` across solver runs at level 3. Progress = fraction of goal achieved. | Does the solver get tantalizingly close before hitting dead ends? | > 0.5 |
+| **Duration Fitness** | Solver time at level 3 (proxy for human session length) | Is the session the right length? | 30s – 3min |
+| **Information Gain Ratio** | `entropy(best_move_outcome) / entropy(random_move_outcome)` | Is the best move meaningfully better than random? Does thinking pay off? | > 1.5 |
+| **Solution Uniqueness** | Number of distinct optimal/near-optimal solutions | For constraint puzzles: 1 is ideal (deduction path IS the game). For optimization: moderate multiplicity creates strategy diversity. | 1–5 |
 
-### Step 4: Test — Verify It Actually Works
+**How to interpret the metrics:**
 
-Before committing, **run the game and verify it is bug-free.** Type-checking alone is not enough — the game must actually run.
+- **Puzzle Entropy < 8**: Too simple — the puzzle plays itself. Player makes < 3 real decisions.
+- **Puzzle Entropy > 30**: Too complex — exceeds working memory, player resorts to trial-and-error.
+- **Skill-Depth < 15%**: Strategy doesn't matter — random play is nearly as good as expert play.
+- **Counterintuitive Moves = 0**: No aha moments — greedy play IS optimal play. The game is transparent.
+- **Drama < 0.3**: No tension — the solver either completes easily or fails early. No near-miss moments.
+- **Information Gain Ratio < 1.2**: Thinking barely helps — all moves are roughly equivalent.
 
-1. **Start the dev server:** `npx expo start --web` (or use the already-running server).
-2. **Launch the game** in a browser or simulator and play through at least one full session.
-3. **Check for these common failures:**
+### Step 5: Blind Play Review
+
+Spawn a reviewer agent using `tools/review-prompt.md`. The reviewer:
+
+1. **Does NOT read source code** — plays the game cold, like a real player
+2. Plays **3 complete sessions** with different approaches:
+   - **Session 1: Intuitive** — play naturally, follow instincts
+   - **Session 2: Strategic** — think carefully before each move, try to optimize
+   - **Session 3: Exploratory** — try unusual moves, test edge cases
+3. **Narrates experience**: what was confusing, what was surprising, what was boring, what felt good
+4. Checks for **bugs** (crashes, broken UI, console errors, broken win condition)
+5. Reports **strategy divergence**: did playing strategically produce noticeably better results than playing intuitively? (This cross-validates the computed Skill-Depth metric)
+6. **Does NOT score dimensions** — returns observations, not numbers
+
+### Step 6: Decide
+
+Based on computed metrics AND reviewer observations:
+
+**PROMOTE to polish** if ALL of:
+- Solvability = 100%
+- Puzzle Entropy 10–25
+- Skill-Depth > 30%
+- Counterintuitive Moves >= 2 average
+- Drama > 0.5
+- Reviewer could understand the rules within 1 session
+- Reviewer's strategic play outperformed intuitive play (confirms Skill-Depth)
+- No critical bugs
+
+**ITERATE on mechanic** if:
+- 1–2 metrics miss threshold but the mechanic shows structural promise
+- Reviewer found specific, fixable issues (unclear UI, missing feedback, solvability bug)
+- The metrics that DO pass suggest depth exists (e.g., high entropy but low skill-depth → the game has decisions but doesn't reward good ones yet)
+
+**TRY NEXT CONCEPT** if:
+- Skill-Depth < 10% (thinking doesn't help)
+- Decision Entropy < 1.0 (no choices — path is forced) or > 4.5 (random — choices don't matter)
+- Counterintuitive Moves = 0 across all puzzles (no aha moments possible)
+- Reviewer found the game impossible to understand after 3 sessions
+
+**SHELVE** (not kill) if:
+- After 5 iterations without promotion — the mechanic might work with a fundamentally different approach later
+- Log what was tried and why it didn't work
+
+**KILL** only if:
+- Solver proves the game is trivially solvable at skill level 1 (greedy is optimal — the game has no depth, period)
+- The game is mechanically identical to an existing frozen game (clone)
+
+### Step 7: Polish (promoted prototypes only)
+
+Add production features:
+- Day-of-week difficulty scaling (P4) — verify via solver that Mon is easier than Fri
+- Share text (P6)
+- Stats integration
+- Refined animations
+- Re-run metrics to verify polish didn't break depth
+- Full bug check (the 9-point checklist)
 
 | #   | Check                        | How to verify                                                    |
 | --- | ---------------------------- | ---------------------------------------------------------------- |
@@ -253,196 +322,36 @@ Before committing, **run the game and verify it is bug-free.** Type-checking alo
 | 8   | Daily seed is deterministic  | Reload the page — the same puzzle should appear                  |
 | 9   | No console errors            | Check the browser/simulator console for warnings or errors       |
 
-4. **If any check fails:** fix the bug and re-test. Do not proceed until all checks pass.
-5. **If the bug is not trivially fixable:** revert your changes and log it as a "crash" in Step 8.
+After polish, run a final blind review. If reviewer experience is positive and metrics hold → **KEEP**.
 
-### Step 5: Commit
+### Step 8: Log & Loop
 
-```bash
-git add -A && git commit -m "experiment: [short description]"
-```
-
-### Step 6: Evaluate — Automated Playtest Review
-
-**Do NOT self-evaluate.** Spawn an independent review agent that plays the game in a real browser.
-
-**Prerequisites:** The Expo web server must be running (`npx expo start --web` on port 8081).
-
-**Dispatch the review agent:**
+Append to `results.tsv`:
 
 ```
-Read tools/review-prompt.md → use its contents as the agent prompt.
-Append the game ID and commit hash to the prompt.
-Spawn via: Agent(subagent_type="general-purpose", prompt=<review_prompt + game details>)
+commit_hash	entropy	skill_depth	counterintuitive	drama	decision_entropy	info_gain_ratio	status	game	description
 ```
 
-The review agent will:
-1. Read the game source (without builder bias)
-2. Launch the game in a headless browser via `tools/playtest.mjs`
-3. Play a full session (10-20 clicks with screenshots between each)
-4. Check for bugs (crash, console errors, broken win condition)
-5. Score the rubric based on actual play experience
-6. Return a structured evaluation with scores, narration, and bugs
+Status is one of: `keep`, `iterate`, `promote`, `shelve`, `killed`.
 
-**Use the review agent's scores for Step 7 (Keep/Discard).** If the review agent finds bugs, fix them before re-evaluating.
+Include 1–2 sentences about what the weakest metric is and what would improve it.
 
-#### Fallback: Manual playtest simulation
+**Update learnings if (and only if)** the experiment revealed a genuinely new, reusable insight not already captured. Do NOT add game-specific notes. The anti-pattern list (A1–A11) is frozen — merge, don't grow.
 
-If the browser harness is unavailable, fall back to mental simulation. Narrate tap-by-tap:
-
-Then evaluate using the rubric below. **Every question uses a graduated 0–10 scale.** A score of 3–4 is the default for any functional game — you must justify scores of 5 or above with specific evidence from your narration.
-
-#### Evaluation Rubric (score each dimension 0–10)
-
-| #   | Dimension                                                                                | 0–2 (Weak)                                                                       | 3–4 (Functional)                                                                   | 5–7 (Good)                                                                                   | 8–10 (Excellent)                                                                                                      |
-| --- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| 1   | **Instant clarity** — Can a new player understand the goal without reading instructions? | Confusing, needs a paragraph of explanation                                      | Rules are simple but require reading the how-to-play                               | Goal is obvious from the UI within 5 seconds                                                 | Zero-text onboarding — the first tap teaches you everything                                                           |
-| 2   | **First-tap satisfaction** — Does the very first interaction feel good?                  | Nothing visible happens, or the feedback is delayed/confusing                    | Something changes on screen but it's bland (color swap, no animation)              | Clear visual response with animation or color transition                                     | Visceral delight — sound, haptics, bounce, particle effects that make you want to tap again immediately               |
-| 3   | **Meaningful decisions** — Does the player face genuine strategic choices?               | No decisions — there's one obvious move at every step, or outcomes are random    | Occasional choices but one option is almost always clearly better                  | Multiple viable strategies; different players would reasonably disagree on the best move     | Rich decision space — every move involves tradeoffs, and expert play looks fundamentally different from beginner play |
-| 4   | **Tension arc** — Does the session build emotional tension toward the end?               | Flat experience — no difference between move 1 and the last move                 | Mild awareness of a counter/timer ticking, but no real stakes                      | Genuine "will I make it?" moments in the final moves; leaning-forward energy                 | White-knuckle finish — the last 2-3 moves feel high-stakes, heart rate elevated, one wrong move ruins everything      |
-| 5   | **The "one more day" pull** — After finishing, do you want to play tomorrow?             | No desire to return — once solved, there's nothing new to discover               | Mild interest in maintaining a streak, but wouldn't miss it                        | Active anticipation — thinking about what tomorrow's puzzle might look like                  | Compulsive pull — the kind of game you check at midnight when the new puzzle drops                                    |
-| 6   | **Shareability** — Would a player screenshot or share their result unprompted?           | No reason to share — the result is unremarkable                                  | Share button exists but the shared text is generic or confusing                    | Share text tells a story (shows your journey, not just a number) and is visually distinctive | Share text is iconic — instantly recognizable in a group chat, provokes reactions and comparisons                     |
-| 7   | **Skill ceiling** — Is there a visible gap between casual and expert play?               | No skill expression — random play and careful play produce similar results       | Some skill matters but the gap between beginner and expert scores is small (< 20%) | Clear skill gradient — experts consistently score 40-60% better than beginners               | Mastery is aspirational — perfect play is theoretically possible but extremely rare, creating a long-term goal        |
-| 8   | **Uniqueness** — Does this game feel distinct from the other games in the collection?    | Near-duplicate of another game in the collection (same mechanic, different skin) | Shares a core mechanic with another game but has a twist                           | Distinct mechanic that fills a unique niche in the collection                                | Nothing else in the collection (or anywhere) feels like this — it has its own identity                                |
-| 9   | **Session pacing** — Does the game respect the player's time?                            | Way too long (> 5 min) or way too short (< 15 sec) with no depth                 | Appropriate length but has dead time (waiting, obvious moves, repetitive phases)   | Tight pacing — every moment is engaged, finishes in 1-3 minutes                              | Perfect density — not a single wasted second, the player is thinking or acting the entire time                        |
-| 10  | **The "aha!" test** — Does the game produce moments of insight or surprise?              | Pure mechanical execution — no surprises, no discoveries                         | Occasional small insights ("oh, I should have done X first")                       | At least one genuine "aha!" per session where the player sees the puzzle differently         | The game regularly creates moments players would describe out loud to someone nearby                                  |
-
-**Score = total points out of 100.**
-
-#### Scoring Integrity Rules
-
-**You MUST be brutally honest.** The old rubric produced 11/11 for almost every game, which means it was worthless. Apply these guardrails:
-
-1. **The "default 3–4" rule.** A score of 3–4 on any dimension means "functional but unremarkable." This is the baseline for any working game. If you're giving 7s and above to everything, you're inflating.
-2. **The 70/100 ceiling.** A score above 70 should be **rare** — reserved for games that genuinely compete with the best daily puzzles on the market (Wordle, Connections, Mini Crossword). If more than 1 in 5 experiments scores above 70, you are grading too generously.
-3. **The comparison test.** Before finalizing a score, ask: "Is this game actually as good as [best game in the collection]?" If it's clearly worse, it cannot score higher.
-4. **No rounding up.** When in doubt between two scores, always take the lower one. It is far more harmful to keep a mediocre game than to discard a decent one.
-5. **Evidence required.** For any dimension scored 8 or above, write one sentence explaining _specifically_ what earns that score. "The trajectory preview creates genuine prediction-vs-reality moments that make you rethink your angle" is evidence. "It feels really good" is not.
-
-#### Red Flags — Automatic Deductions
-
-If any of these are true, subtract 10 points from the total (minimum score 0):
-
-- **The optimal strategy is obvious from move 1** — no exploration or discovery required.
-- **A player could solve it by tapping randomly** within a reasonable number of attempts.
-- **The game has no way to fail or play poorly** — there's no meaningful difference between a good and bad attempt.
-- **The game is essentially a clone** of a well-known existing game (Wordle, 2048, etc.) with no meaningful twist.
-
-### Step 7: Keep or Discard
-
-- If score **>= 60 AND >= previous best for this game** → KEEP.
-- If score **50–59** → game has potential. KEEP but flag for iteration — log what specific dimensions scored low and what changes might improve them.
-- If score **< 50** → `git reset --hard HEAD~1`. Discard. The game is not good enough.
-- If the game **crashes** → attempt a fix. If not trivial, discard and log as "crash".
-
-**Kill rules (any triggers deletion):**
-- **3-strike rule:** 3+ iterations and never reached 60 → kill.
-- **Mercy kill:** v1 scores < 40 OR triggers a red flag → kill immediately. The core mechanic is broken; iteration won't fix it.
-- **Regression kill:** v(N) scores lower than v(N-1) → kill. Regression means you've hit the mechanic's ceiling and over-correction is making it worse.
-- **Session pattern kill:** If 2+ games have been killed for the SAME anti-pattern in one session, stop and run the Session Pattern Check (see Design Introspection) before designing the next game.
-- **Cull rule:** If the total game count exceeds 8, kill the lowest-scoring game to make room. A tight collection of great games beats a bloated collection of okay games.
-
-### Step 8: Log
-
-Append a row to `results.tsv`:
-
-```
-commit_hash	score	d1	d2	d3	d4	d5	d6	d7	d8	d9	d10	red_flags	status	game	description
-```
-
-- `d1`–`d10`: individual dimension scores (0-10 each)
-- `red_flags`: number of red flag deductions applied (0-4), -10 points each
-- Status is one of: `keep`, `iterate`, `discard`, `crash`, `killed`.
-
-**When logging, also write 1-2 sentences about what the game's weakest dimension is and what would improve it.** This prevents repeating the same mistakes.
-
-### Step 8.5: Update Learnings (Recursive Self-Improvement)
-
-After every experiment, ask these questions about `learnings.md`:
-
-1. **New pattern?** Did this experiment reveal a reusable design insight not already captured? If yes, add it to Proven Patterns or Anti-Patterns with evidence (commit hash, score delta, dimensions affected).
-2. **Contradicted pattern?** Did this experiment contradict an existing learning? If yes, update or remove the old entry and note the contradiction.
-3. **Score prediction accuracy?** Compare the actual score to what the Score Prediction Heuristics would have predicted. If off by 3+, investigate why and update the heuristics.
-4. **Unsolved problem progress?** Did this experiment make progress on any Unsolved Problem (U1-U3)? If yes, update the hypotheses.
-5. **Checklist update?** Should the New Game Design Checklist be updated based on this experiment?
-
-**Do NOT add trivial or game-specific learnings.** Only add insights that apply to future games — things another designer would benefit from knowing.
-
-### Step 9: Check if Process Retrospective is Needed
-
-Before looping back, check whether the PROCESS itself needs updating. A retrospective is triggered by any of these:
-
-- **2+ kills with the same root cause** in this session
-- **3+ consecutive discards** (no keep or iterate)
-- **A game passed the design checklist (10+/13) but scored < 40** — the checklist has a blind spot
-- **Score prediction was off by > 15 points** — your mental model is miscalibrated
-
-If none triggered → go to Step 0.
-If any triggered → proceed to Step 9.5.
-
-### Step 9.5: Update program.md (Recursive Process Improvement)
-
-Step 8.5 improves `learnings.md` — WHAT makes games good (content knowledge).
-This step improves `program.md` — WHAT makes the design process effective (meta knowledge).
-
-#### 1. Log process metrics
-
-Append to the Process Log section at the bottom of this file (or create it):
-
-```
-session_date | games_designed | total_iterations | kills | keeps | most_common_failure | wasted_iterations
-```
-
-"Wasted iterations" = iterations on games that ultimately scored < 40. These represent complete process failures — better filtering at Step 2/2.5 would have avoided them.
-
-#### 2. Run the five diagnostic questions
-
-1. **Repeated anti-pattern?** Count how many kills share a root cause. If ≥ 2: what checklist item or litmus test would have caught it? Add it.
-
-2. **Checklist blind spots?** For each killed game, review its pre-implementation checklist score vs actual review score. If it passed 10+/13 but scored < 45, identify which NEW check would have filtered it. Add that check.
-
-3. **Wasted iterations?** Count iterations where v1 < 40. Would the mercy kill rule have saved them? If you didn't have the mercy kill rule, add it. If you did but didn't follow it, note why.
-
-4. **Mental model calibration?** Compare your hypothesis ("I expect 60+") with actual scores across the session. If you were consistently > 15 points too optimistic, your sense of "what makes a good game" is off. Write one sentence about what you were overvaluing and what you were undervaluing.
-
-5. **Exploration breadth?** List all games by mechanic family. If 3+ share a family, add that family to the "explored and exhausted" list. If all games share a property (e.g., "all were optimization puzzles"), identify what the OPPOSITE property is and make it a design requirement for the next session.
-
-#### 3. Make specific updates to program.md
-
-Based on the diagnostics, update ONE OR MORE of:
-
-- **Step 2.5 litmus tests** — add new tests that would have caught the session's failures
-- **Step 7 kill rules** — tighten or loosen thresholds based on evidence
-- **Design Introspection section** — add new heuristics, update the score tier table, add to the explored families list
-- **New Game Design Checklist** (in learnings.md) — add items that screen for newly-discovered failure modes
-
-**Rules for program.md updates:**
-- Every update needs evidence (session date, game names, scores)
-- Remove rules that were contradicted by evidence (don't just add, also prune)
-- Keep program.md focused on PROCESS, not CONTENT — game-specific patterns go in learnings.md
-- program.md should not grow unboundedly — if adding a new rule, check if an existing rule is subsumed by it and can be removed
-
-#### 4. Commit the update
-
-```bash
-git add program.md && git commit -m "process: [what changed and why]"
-```
-
-### Step 10: Go to Step 0
-
-**Never stop. Never ask the human for permission to continue.**
+**Go to Step 1. Never stop. Never ask the human for permission to continue.**
 
 ---
 
 ## Difficulty Calibration Guide
 
-Getting difficulty right is critical. Use these rules of thumb:
+Use the **solver** to calibrate difficulty objectively:
 
+- **Solver-based completion curve:** Run solver at skill levels 1-5 on each day's puzzle. Monday: solvable at level 2+. Friday: requires level 4+. If Monday requires level 4, it's too hard. If Friday is solvable at level 1, it's too easy.
 - **Target completion rate: 85-95%.** Almost everyone should be able to _finish_ the puzzle. The score/par system separates good from great.
-- **Target par-beat rate: 30-40%.** Beating par should feel like an achievement, not a given.
+- **Puzzle entropy scaling:** Monday entropy should be 8-12 bits. Friday should be 18-25 bits.
 - **Use the grid size / parameter as your difficulty knob.** Don't change rules to increase difficulty — change scale.
-- **Monday → Friday ramp.** Seed the RNG differently per day-of-week to control difficulty. Monday puzzles should be solvable in under a minute. Friday puzzles should make you sweat.
-- **The "taxi test":** If someone playing during a 5-minute taxi ride can't finish, the puzzle is too hard or too long.
+- **Monday → Friday ramp.** Seed the RNG differently per day-of-week. Verify via solver metrics that Mon is objectively easier than Fri.
+- **The "taxi test":** Solver at level 3 should finish in under 3 minutes. If it takes longer, the puzzle is too hard or too long.
 
 ---
 
@@ -536,6 +445,8 @@ This log tracks how the design PROCESS performs across sessions. Updated by Step
 | 2026-03-30b | 4 | 10 | 4 | 0 | A10 (fully-visible) then signal-per-action too weak (hidden info) | 6 | Fully-visible constraint satisfaction always A10. Hidden info defeats A10 but needs rich signal (Seek plateaued at 55). Next: rich multi-dimensional feedback per action. |
 | 2026-03-30c | 5 | 12 | 5 | 0 | Deduction plateaus at 50; A10 kills linear puzzles; non-inverse ops = unsolvable | 8 | 5 kills: (1) deduction plateaus at 50 (Prism/Probe/Fence), (2) linear constraints = A10 (Scale), (3) non-self-inverse ops = unsolvable (Turn). Next: ONLY self-inverse toggle ops on grids (like LightsOut), or pure optimization with incommensurable costs (like Claim). |
 | 2026-03-31 | 11 | 18 | 11 | 0 | A10 (3), d8-clones (3), feedback-generous (1), computation>intuition (1), known-puzzle (1), cascades-rare+intractable (2) | 18 | 11 games, 18 iters, 0 keeps. Sandpile/overflow mechanic (d8=7) shelved: BFS intractable for near-critical boards + cascades rare on 4×4 + arithmetic not intuition. Trace (52) remains best lead. Next: pattern recognition (IQ-test style), or visual sequence prediction, or revisit hidden-info with REDUCED feedback (Mastermind-style summary counts on spatial grid). |
+| 2026-03-31b | — | — | — | — | PROCESS OVERHAUL: 26 games, 42 iterations, 0 keeps | — | Kill rules were too aggressive. Loosened kill rules, removed red flag deductions, froze anti-pattern list. |
+| 2026-03-31c | — | — | — | — | EVALUATION OVERHAUL | — | Replaced subjective 10-dimension scoring with computable solver-based metrics (entropy, skill-depth, drama, counterintuitive moves, info gain ratio). Inspired by Browne's Ludi system (produced Yavalath from pure computation) and Togelius's skill-depth research. Reviewer now plays BLIND (no source code reading), narrates experience, does NOT score. Solver module required for every game. Two-phase build: prototype first, polish only after metrics validate mechanic. Loop reduced from 13 steps to 8. |
 
 ### Explored & Exhausted Families
 

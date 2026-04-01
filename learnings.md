@@ -321,48 +321,41 @@ Animated.sequence([
 
 ---
 
-## Score Prediction Heuristics
+## Quality Metric Heuristics
 
-Use these to sanity-check rubric scores before logging. If your score disagrees with the prediction by more than 3 points, re-examine your narration.
+Use these to sanity-check computed metrics before deciding. Based on research by Browne (Ludi/Yavalath), Togelius (skill-depth), and Chen & Sturtevant (puzzle entropy).
 
-### Baseline Expectations
-
-| Feature Present | Expected Score Range |
-|----------------|---------------------|
-| Functional game, no special features | 10-13 |
-| + Day-of-week difficulty | +1-2 |
-| + Animated tap feedback (spring) | +1 |
-| + Pre-commitment info visibility | +1-2 |
-| + Iconic emoji share text | +1 |
-| + Multi-step decisions (3+) | +1-2 |
-| + Guaranteed solvability | +1 |
-| + Super-linear scoring | +1 |
-| **Ceiling for a well-polished game** | **18-22** |
-
-### Red Flag Penalties
-
-| Red Flag | Penalty |
-|----------|---------|
-| Random play can win | -3 |
-| No way to fail/play poorly | -3 |
-| Optimal strategy obvious from move 1 | -3 |
-| Clone without twist | -3 |
-| Full-solution preview | -2 (soft) |
-| No animation on core action | -1 (soft) |
-
-### Dimension Correlation Map
-
-Some dimensions are correlated — improving one often improves another:
+### Metric Correlation Map
 
 ```
-d3 (decisions) <---> d7 (skill ceiling)     [strong: more decisions = more skill expression]
-d3 (decisions) <---> d10 (aha)              [strong: decisions create insight moments]
-d4 (tension)   <---> d5 (one-more-day)      [moderate: tension creates memorable sessions]
-d2 (first-tap) <---> d9 (pacing)            [moderate: satisfying taps make time fly]
-d6 (share)     <---> d5 (one-more-day)      [moderate: sharing creates social accountability]
+Puzzle Entropy    <---> Skill-Depth           [strong: more decisions = more room for skill]
+Counterintuitive  <---> Drama                 [strong: counterintuitive moves create near-miss tension]
+Skill-Depth       <---> Info Gain Ratio       [strong: if thinking helps, best moves are better than random]
+Decision Entropy  <---> Puzzle Entropy        [moderate: more choices per step = more total info]
 ```
 
-Improving d3 is the **highest-leverage single improvement** — it correlates with d7, d10, and indirectly d4.
+### Red Flags in Metrics
+
+| Metric Pattern | What It Means | Likely Problem |
+|---|---|---|
+| Skill-Depth < 10% | Random play ≈ strategic play | A10: game is solvable by staring, or decisions don't matter |
+| Counterintuitive = 0 | Greedy IS optimal | No aha moments — game is strategically transparent |
+| Decision Entropy < 1.0 | Path is forced | A8: low branching factor, only 1-2 valid moves per step |
+| Decision Entropy > 4.5 | Too many choices, all equivalent | Choices don't matter — game is effectively random |
+| Drama < 0.3 | Solver either completes easily or fails early | No tension arc — no near-miss moments |
+| Info Gain Ratio < 1.2 | Best move barely better than random | Strategy doesn't pay off — game rewards luck not thought |
+| Solvability < 100% | Some puzzles are unsolvable | P7 violation — player will blame themselves then quit |
+
+### What the Frozen Games Would Score
+
+For calibration — estimated metrics for the frozen collection:
+
+| Game | Entropy | Skill-Depth | Counterintuitive | Drama | Notes |
+|---|---|---|---|---|---|
+| LightsOut | ~15-20 | High (cross-toggle coupling creates 2^25 states) | High (must "break" cells to fix others) | High (near-solved states are common) | Gold standard for constraint coupling |
+| Claim | ~18-22 | High (locking creates incommensurable costs) | Moderate (locking a neighbor you later need) | Moderate (resource pressure builds) | Gold standard for optimization depth |
+| PathWeaver | ~12-18 | Moderate (dead ends require backtracking) | Moderate (counterintuitive routing) | High (path "almost" works then fails) | Good constraint satisfaction |
+| FloodFill | ~10-15 | Moderate (greedy vs strategic diverge) | Low-Moderate | Low-Moderate | Simpler but polished |
 
 ---
 
@@ -402,24 +395,24 @@ These are dimensions or challenges where we haven't found reliable solutions yet
 
 ## New Game Design Checklist
 
-Before building a new game, verify it has:
+Before building a new game, verify at design time:
 
-- [ ] **3+ genuine decision points** per session (P3)
-- [ ] **A way to fail** — measurable difference between good and bad play (A2)
-- [ ] **Guaranteed solvability** — every seed has a valid solution (P7)
-- [ ] **1-sentence rules** — if it needs a paragraph, simplify
-- [ ] **Not a clone** — describe the twist in one sentence (A4)
-- [ ] **Day-of-week difficulty** designed with 2+ linked parameters (P4)
-- [ ] **Pre-commit preview** — player sees consequences before acting (P1)
-- [ ] **Animated tap feedback** — spring animation on every state change (P5)
-- [ ] **Iconic share text** — emoji grid showing game state (P6)
-- [ ] **Scoring that rewards mastery** — super-linear or par-based (P8)
-- [ ] **Not A10** — player cannot solve by staring before touching (Design Introspection Stare Test)
-- [ ] **No dominant strategy** — best approach cannot be described in one sentence (Design Introspection Test 1)
-- [ ] **Correct puzzle type** — if optimization, costs are incommensurable per P10; if constraint satisfaction, constraints couple non-trivially
-- [ ] **Effective branching factor > 3** — for constraint satisfaction, count ACTUAL valid options per step after constraint propagation, not theoretical positions. Tight uniqueness clues can prune 99% of options, making A10 apply despite large boards (Fit: 6×6 grid, 100k+ theoretical positions, ~3 actual valid options per shape = A10)
+**Core mechanic (must pass all 3):**
+- [ ] **Stare test passes** — player cannot solve by pre-planning everything. Needs hidden info, or state space exceeds working memory.
+- [ ] **No one-sentence strategy** — optimal play depends on the specific board, not a simple rule.
+- [ ] **Not a clone** — occupies a different mechanic family from existing frozen games.
 
-If a game can't check 11/14 of these at design time, reconsider the mechanic. The last 4 items are the most important — they predict the 40-vs-60 split that the first 10 cannot.
+**Expected solver metrics (estimate before building):**
+- [ ] **Decision entropy ~ 1.5-3.5 bits** — player has 3-10 viable options at each step, not 1-2 (forced) or 20+ (random).
+- [ ] **Counterintuitive moves >= 2** — greedy play is NOT optimal. Solver must sometimes move "away" from the goal.
+- [ ] **Skill-depth > 30%** — a smart solver should significantly outperform a greedy solver.
+
+**Implementation requirements:**
+- [ ] **Solver is writeable** — you can describe how to solve this game algorithmically at multiple skill levels. If not, the rules are ambiguous.
+- [ ] **1-sentence rules** — if it needs a paragraph, simplify.
+- [ ] **Guaranteed solvability** — every seed must have a valid solution (P7).
+
+If a game can't pass the top 3, don't build it. The solver metric estimates are predictions — build the game and compute them for real. A v1 that misses a metric target is worth iterating on if the mechanic has structural promise.
 
 ---
 

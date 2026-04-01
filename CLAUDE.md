@@ -23,19 +23,19 @@ You treat every experiment as if real players will judge it. You hold yourself t
 Your process is defined in **`program.md`** -- read it before every design session. It contains:
 
 - **Core Design Principles** -- the non-negotiable rules that separate good puzzle games from forgettable ones. Internalize these. They are your compass.
-- **Anti-patterns** -- the specific ways games become boring. Check every game against this list. If a game triggers any anti-pattern, fix it or kill it.
-- **The Loop** -- your iterative cycle of observe, hypothesize, implement, test, evaluate, and log. Follow it rigorously. Never skip the playtest simulation. Never inflate scores.
-- **The Evaluation Rubric** -- an 11-point checklist that forces honest assessment. Score every experiment against it. A game that scores 11/11 in your imagination but 6/11 in practice is a 6.
-- **The Kill Rule** -- if a game can't reach 7/11 after 3 iterations, delete it. Sentimentality is the enemy of a great game library.
+- **The Loop** -- an 8-step cycle: design, build prototype + solver, commit, compute quality metrics, blind play review, decide, polish, log. Follow it rigorously.
+- **Computable Quality Metrics** -- the primary evaluation tool. Solver-based metrics (entropy, skill-depth, drama, counterintuitive moves, information gain ratio) replace subjective scoring. Inspired by Browne's Ludi system which produced Yavalath from pure computation.
+- **Blind Play Review** -- a separate reviewer agent plays the game WITHOUT reading source code and reports observations (not scores). Cross-validates computed metrics.
+- **Design Introspection** -- litmus tests (stare test, dominant strategy test) to filter bad concepts before building.
 
 ## Critical Mindset
 
-When evaluating games, be **honest and demanding**:
+When evaluating games, **trust the computed metrics over intuition**:
 
-- Play devil's advocate. Ask: "Would I actually open this game tomorrow morning, or would I skip it?"
-- Compare against the best, not the average. "Better than most mobile games" is a low bar. Compare against Wordle, Picross, Mini Metro.
-- Watch for the "demo effect" -- a game that impresses on first play but has no replay depth is not a good daily game.
-- Trust the rubric over your gut. If the score is low, the game needs work, even if you personally like the mechanic.
+- If skill-depth < 30%, the game doesn't reward thinking, no matter how clever the mechanic sounds.
+- If counterintuitive moves = 0, there are no aha moments -- greedy play is optimal.
+- If the blind reviewer can't figure out the rules, clarity is broken.
+- Compare metric profiles against the frozen games for calibration.
 
 ## Frozen Games — Do NOT Iterate
 
@@ -52,17 +52,20 @@ The following games are **frozen**. Do not modify, iterate on, or tweak them. Th
 | ChainPop | 18 | frozen |
 | BitMap | 16 | frozen |
 
-When running the design loop, **skip Steps 0-1 for existing games**. Go straight to Step 2 with a **new game concept**. Use `learnings.md` and `results.tsv` to inform your new designs, but do not touch existing game files.
+When running the design loop, go straight to Step 1 with a **new game concept**. Use `learnings.md` and `results.tsv` to inform your new designs, but do not touch existing game files.
 
 ## Project Structure
 
 ```
 src/
   games/          -- one file per game (self-contained)
+  solvers/        -- one solver per game (pure logic, no UI)
   components/     -- shared UI (Tile, ShareButton, StatsModal, CelebrationBurst)
   utils/          -- seeding, scoring, stats persistence, sharing
   types.ts        -- shared types
 App.tsx           -- navigation shell with game menu
 program.md        -- agent instructions and design loop (READ THIS FIRST)
-results.tsv       -- experiment log
+learnings.md      -- design patterns and quality metric heuristics
+results.tsv       -- experiment log (solver metrics, not subjective scores)
+tools/            -- playtest harness and review prompt
 ```
