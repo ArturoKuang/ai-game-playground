@@ -24,6 +24,7 @@ import Etch from './Etch';
 import Peel from './Peel';
 import Surge from './Surge';
 import Thaw from './Thaw';
+import Knot from './Knot';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -199,6 +200,13 @@ const games: GameMeta[] = [
     emoji: '\u2744\uFE0F',
     description: 'Melt all ice with limited heat taps',
     component: Thaw,
+  },
+  {
+    id: 'knot',
+    name: 'Knot',
+    emoji: '\uD83E\uDDF6',
+    description: 'Draw a loop through cells with hidden constraints',
+    component: Knot,
   },
 ];
 export default games;
