@@ -25,6 +25,7 @@ import Peel from './Peel';
 import Surge from './Surge';
 import Thaw from './Thaw';
 import Knot from './Knot';
+import Sieve from './Sieve';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -207,6 +208,13 @@ const games: GameMeta[] = [
     emoji: '\uD83E\uDDF6',
     description: 'Draw a loop through cells with hidden constraints',
     component: Knot,
+  },
+  {
+    id: 'sieve',
+    name: 'Sieve',
+    emoji: '\uD83D\uDD0D',
+    description: 'Sieve icons to deduce hidden attribute groups',
+    component: Sieve,
   },
 ];
 export default games;
