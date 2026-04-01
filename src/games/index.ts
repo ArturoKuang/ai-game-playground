@@ -22,6 +22,8 @@ import Fold from './Fold';
 import Ferry from './Ferry';
 import Etch from './Etch';
 import Peel from './Peel';
+import Bloom2 from './Bloom2';
+import Thaw from './Thaw';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -183,6 +185,20 @@ const games: GameMeta[] = [
     emoji: '\uD83D\uDCC4',
     description: 'Peel layers to satisfy row & column color targets',
     component: Peel,
+  },
+  {
+    id: 'bloom2',
+    name: 'Bloom2',
+    emoji: '\uD83C\uDF31',
+    description: 'Place seeds that grow into the target pattern',
+    component: Bloom2,
+  },
+  {
+    id: 'thaw',
+    name: 'Thaw',
+    emoji: '\uD83D\uDD25',
+    description: 'Melt all ice using heat conduction through water',
+    component: Thaw,
   },
 ];
 export default games;
