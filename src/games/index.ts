@@ -11,6 +11,7 @@ import Claim from './Claim';
 import Slide from './Slide';
 import Loop from './Loop';
 import Signal from './Signal';
+import Flock from './Flock';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -95,6 +96,13 @@ const games: GameMeta[] = [
     emoji: '\ud83d\udce1',
     description: 'Broadcast from edges to deduce the hidden color grid',
     component: Signal,
+  },
+  {
+    id: 'flock',
+    name: 'Flock',
+    emoji: '\uD83D\uDC26',
+    description: 'Slide all birds at once to cluster by color',
+    component: Flock,
   },
 ];
 export default games;
