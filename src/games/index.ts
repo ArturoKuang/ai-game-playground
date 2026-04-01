@@ -22,8 +22,7 @@ import Fold from './Fold';
 import Ferry from './Ferry';
 import Etch from './Etch';
 import Peel from './Peel';
-import Bloom2 from './Bloom2';
-import Thaw from './Thaw';
+import Surge from './Surge';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -187,18 +186,11 @@ const games: GameMeta[] = [
     component: Peel,
   },
   {
-    id: 'bloom2',
-    name: 'Bloom2',
-    emoji: '\uD83C\uDF31',
-    description: 'Place seeds that grow into the target pattern',
-    component: Bloom2,
-  },
-  {
-    id: 'thaw',
-    name: 'Thaw',
-    emoji: '\uD83D\uDD25',
-    description: 'Melt all ice using heat conduction through water',
-    component: Thaw,
+    id: 'surge',
+    name: 'Surge',
+    emoji: '\uD83C\uDF0B',
+    description: 'Tap cells to cascade pressure to target',
+    component: Surge,
   },
 ];
 export default games;
