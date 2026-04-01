@@ -61,35 +61,83 @@ The defining feature is CONCURRENT agents with mutual blocking. Each command mov
 ---
 <!-- BELOW THIS LINE: filled by engineer and playtester, not designer -->
 
-## Solver Metrics
+## Solver Metrics (v2 — lock-in-pen iteration)
 
 Computed on 5 puzzles (Mon-Fri seeds), 5 skill levels each.
 
 | Metric | Mon | Tue | Wed | Thu | Fri | Avg |
 |---|---|---|---|---|---|---|
 | Solvability | 100% | 100% | 100% | 100% | 100% | 100% |
-| Puzzle Entropy | 28.21 | 30.91 | 18.62 | 25.07 | 46.30 | 29.82 |
-| Skill-Depth | 95.0% | 94.5% | 97.0% | 96.0% | 93.0% | 95.1% |
-| Decision Entropy | 1.78 | 1.57 | 1.68 | 1.86 | 2.00 | 1.78 |
-| Counterintuitive | 2 | 3 | 2 | 2 | 3 | 2.4 |
-| Drama | 0.10 | 0.55 | 1.00 | 0.86 | 0.64 | 0.63 |
-| Duration (s) | 0.01 | 0.00 | 0.01 | 0.00 | 0.01 | 0.01 |
-| Info Gain Ratio | 3.76 | 4.54 | 6.80 | 6.53 | 3.41 | 5.01 |
-| Solution Uniqueness | 7 | 4 | 4 | 10 | 1 | 5.2 |
+| Puzzle Entropy | 16.98 | 19.47 | 37.34 | 44.52 | 40.87 | 31.84 |
+| Skill-Depth | 94.6% | 91.8% | 88.5% | 93.0% | 92.5% | 92.1% |
+| Decision Entropy | 1.58 | 1.52 | 2.21 | 2.30 | 1.99 | 1.92 |
+| Counterintuitive | 0 | 0 | 0 | 0 | 1 | 0.2 |
+| Drama | 1.00 | 1.00 | 1.00 | 1.00 | 0.67 | 0.93 |
+| Duration (s) | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+| Info Gain Ratio | 2.91 | 3.05 | 2.32 | 2.34 | 2.16 | 2.55 |
+| Solution Uniqueness | 12 | 5 | 1 | 1 | 1 | 4.0 |
 
-Optimal solution lengths: Mon=10, Tue=11, Wed=6, Thu=8, Fri=14.
+Optimal solution lengths: Mon=7, Tue=8, Wed=13, Thu=14, Fri=15.
 Grid: 5x5. Mon-Tue: 2 colors x 2 animals (4 agents). Wed-Fri: 3 colors x 2 animals (6 agents).
-L1 (random) fails all puzzles. L3 (greedy+lookahead) solves Thu only (16 moves vs 8 optimal). L5 (A*) solves all.
+L1 (random) solves Mon/Tue occasionally but inefficiently (130-201 moves). L3 solves Mon-Thu. L5 (A*) solves all.
+
+**Changes from v1:**
+- Lock-in-pen mechanic implemented: animals on matching pen are locked and immovable
+- Controls restructured: color selector tabs + D-pad, all above the fold
+- No-op moves (wall-press) no longer increment counter; shake animation feedback
+- Undo fully reverses state including move counter
+- Difficulty tuned: Mon=7 (down from 10), Tue=8 (down from 11)
 
 **Auto-kill check**: PASSED
-**Weakest metric**: Drama Mon = 0.10 (nearly monotonic progress on easiest puzzle; other days 0.55-1.00)
-**Strongest metric**: Skill-Depth = 95.1% (random play almost never solves; strategic sequencing essential)
+**Weakest metric**: Counterintuitive = 0.2 avg (lock-in-pen makes progress permanent; CI moves are rarer because the heuristic aligns better with optimal play. CI=1 on Fri only.)
+**Strongest metric**: Skill-Depth = 92.1% (random play almost never solves; strategic sequencing essential)
+**Note on CI**: The lock-in-pen mechanic fundamentally reduces CI because locked progress is irreversible. Within-color conflict (moving both animals of a color together when they need different directions) is the remaining CI source. The designer should evaluate whether this CI level is acceptable for the game's emotional arc.
 
 ## Play Report
-<!-- Playtester fills this section with blind play observations -->
+
+**CRITICAL BUG**: Puzzle is unsolvable. Exhaustive brute-force search confirms distance never reaches 0. Animals leave pens when new commands issued — no lock-in-pen mechanic.
+
+**CRITICAL BUG**: Controls below viewport fold (y=628 on 600px viewport). Completely hidden.
+
+**BUG**: Wall-press increments move counter without moving any animal.
+
+**BUG**: Undo doesn't decrement move counter.
+
+**Session 1 (Intuitive)**: Rules understood after ~5 taps (once controls found by scrolling). "All same-color move together" immediately clear. Fox→ toward adjacent pen INCREASED distance (6→8) — counterintuitive. Birds solvable via 5-move snake route (↓↓→→↑). Foxes stuck at dist=2 after 10+ moves.
+
+**Session 2 (Strategic)**: Planned fox route (→↓←), got one fox into pen. But it LEAVES on next command. Both foxes cannot be simultaneously in pens. Birds cleanly solved. Strategic play reached dist=2 faster but same outcome: never won.
+
+**Session 3 (Edge Cases)**: No win condition reachable. 64 possible 3-move fox sequences tested, minimum dist=2. No failure state either (no move limit, game runs forever).
+
+**Strategy Divergence**: Strategic play reached dist=2 in fewer moves (8 vs 10). Bird section genuinely rewarding (planning 5 steps ahead). But foxes are unsolvable, making strategy moot.
+
+**Best Moment**: Bird snake route (↓↓→→↑) — genuine puzzle-solving aha, planning 5 steps ahead.
+**Worst Moment**: Confirming via brute-force that no combination of moves produces dist=0. Puzzle is broken.
 
 ## Decision
-<!-- Designer fills this after reviewing metrics + play report -->
-<!-- Status: keep / iterate / kill -->
-<!-- If iterate: what to change and why -->
-<!-- If kill: lesson learned for learnings.md -->
+
+**Status: ITERATE (iteration 1 of 3)**
+
+**Reasoning:** Herd has the strongest raw metrics of all three specs by a wide margin: skill-depth=95%, CI=2.4 (counterintuitive detour moves are real and frequent), info-gain=5.01 (strategic play massively outperforms random), entropy=29.8 (rich decision space). The playtester confirmed the mechanic is genuinely rewarding when it works -- the bird sub-puzzle produced a "planning 5 steps ahead" aha moment, exactly the emotional peak this game is designed for.
+
+The critical bugs are all IMPLEMENTATION failures, not design flaws:
+- Animals leaving pens on subsequent commands (no lock-in-pen mechanic)
+- Controls below the viewport fold
+- Wall-press incrementing the move counter
+- Undo not decrementing the move counter
+
+These are fixable without changing the core mechanic. The design is structurally sound.
+
+**What to change:**
+
+1. **Lock-in-pen mechanic (CRITICAL).** When an animal reaches its matching pen, it is LOCKED and no longer responds to movement commands. This is the single most important fix -- it makes the puzzle solvable and preserves the core tension: "If I move blue to clear red's path, the blue that ISN'T home yet will also move and might leave its good position." The locked animals become obstacles and landmarks, changing the board state in satisfying ways as the puzzle progresses.
+
+2. **Controls must be above the fold.** The directional arrows and color selector should be integrated INTO the grid area or immediately below it, never requiring a scroll. On a 600px viewport, the grid (5x5 at ~60px per cell = 300px) plus controls (80px) plus header (60px) = 440px, well within bounds.
+
+3. **Wall-press should be a no-op.** If a command would move zero animals (all blocked or at walls), do not increment the move counter. Give a subtle shake animation to signal "nothing happened."
+
+4. **Undo must decrement the move counter.** Undo should fully reverse the game state including the counter. However, per P2, consider making undo cost something (counts against par, or limited to 1-2 undos) to preserve tension.
+
+5. **Difficulty tuning.** Monday puzzles (2 colors x 2 animals) should have optimal solutions of 4-6 moves, not 10-11 as the solver currently produces. The playtester found 10+ moves tedious even on Monday. Reduce grid clutter on easy days -- fewer blocking interactions, more direct paths, with 1 required detour for the aha moment.
+
+**Target metrics for iteration 2:** Maintain CI >= 2 and skill-depth >= 80%. Monday drama should rise above 0.10 (currently near-zero because progress is monotonic on easy puzzles -- the lock-in-pen mechanic should help by creating "I locked one in but now the other is stuck" moments). All bugs resolved, puzzle fully solvable.

@@ -4,19 +4,16 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  ScrollView,
   useWindowDimensions,
   Animated,
 } from 'react-native';
 import {
   generatePuzzle,
-  applyMove,
+  applyMoveWithInfo,
   isGoal,
   heuristic,
-  legalMoves,
   solve,
   DIRECTIONS,
-  DIR_NAMES,
   type HerdState,
   type Move,
   type Direction,
@@ -73,8 +70,9 @@ export default function Herd() {
     animals: initialState.animals.map((a) => ({ ...a, pos: { ...a.pos } })),
   }));
   const [moves, setMoves] = useState(0);
-  const [history, setHistory] = useState<HerdState[]>([]);
+  const [history, setHistory] = useState<{ state: HerdState; moveCount: number }[]>([]);
   const [solved, setSolved] = useState(false);
+  const [selectedColor, setSelectedColor] = useState<number>(0);
 
   const { width: screenWidth } = useWindowDimensions();
   const containerWidth = Math.min(screenWidth - 32, 360);
@@ -84,6 +82,9 @@ export default function Herd() {
   const cellScales = useRef(
     Array.from({ length: state.gridSize * state.gridSize }, () => new Animated.Value(1)),
   ).current;
+
+  // Shake animation for no-op moves
+  const shakeAnim = useRef(new Animated.Value(0)).current;
 
   const bounceCell = useCallback(
     (r: number, c: number) => {
@@ -107,22 +108,38 @@ export default function Herd() {
     [cellScales, state.gridSize],
   );
 
+  const shakeGrid = useCallback(() => {
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: 6, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -6, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 4, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -4, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
+    ]).start();
+  }, [shakeAnim]);
+
   /* ── Move handler ── */
   const handleMove = useCallback(
-    (color: number, dir: Direction) => {
+    (dir: Direction) => {
       if (solved) return;
-      const move: Move = { color, dir };
-      const next = applyMove(state, move);
+      const move: Move = { color: selectedColor, dir };
+      const { state: next, moved } = applyMoveWithInfo(state, move);
+
+      // If no animal moved, shake and don't increment counter
+      if (!moved) {
+        shakeGrid();
+        return;
+      }
 
       // Bounce moved animals
       for (const animal of next.animals) {
-        if (animal.color === color) {
+        if (animal.color === selectedColor) {
           bounceCell(animal.pos.r, animal.pos.c);
         }
       }
 
       const nextMoves = moves + 1;
-      setHistory((h) => [...h, state]);
+      setHistory((h) => [...h, { state, moveCount: moves }]);
       setState(next);
       setMoves(nextMoves);
 
@@ -130,15 +147,15 @@ export default function Herd() {
         setSolved(true);
       }
     },
-    [state, solved, moves, bounceCell],
+    [state, solved, moves, selectedColor, bounceCell, shakeGrid],
   );
 
-  /* ── Undo ── */
+  /* ── Undo (fully reverses state INCLUDING move counter) ── */
   const handleUndo = useCallback(() => {
     if (history.length === 0 || solved) return;
     const prev = history[history.length - 1];
-    setState(prev);
-    setMoves((m) => m - 1);
+    setState(prev.state);
+    setMoves(prev.moveCount);
     setHistory((h) => h.slice(0, -1));
     setSolved(false);
   }, [history, solved]);
@@ -152,9 +169,9 @@ export default function Herd() {
   }, [state.animals]);
 
   // Build occupancy map: position -> animal
-  const animalMap = new Map<string, { color: number; idx: number }>();
+  const animalMap = new Map<string, { color: number; idx: number; locked: boolean }>();
   state.animals.forEach((a, idx) => {
-    animalMap.set(`${a.pos.r},${a.pos.c}`, { color: a.color, idx });
+    animalMap.set(`${a.pos.r},${a.pos.c}`, { color: a.color, idx, locked: !!a.locked });
   });
 
   // Build pen map: position -> pen color
@@ -163,14 +180,22 @@ export default function Herd() {
     penMap.set(`${p.pos.r},${p.pos.c}`, p.color);
   });
 
+  // Check if selected color still has unlocked animals
+  const hasUnlocked = state.animals.some((a) => a.color === selectedColor && !a.locked);
+  // Auto-switch to first color with unlocked animals if needed
+  const activeColor = hasUnlocked
+    ? selectedColor
+    : colors.find((c) => state.animals.some((a) => a.color === c && !a.locked)) ?? selectedColor;
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <View style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Herd</Text>
         <Text style={styles.dayBadge}>Day #{puzzleDay}</Text>
       </View>
       <Text style={styles.subtitle}>
-        Move animals to their matching pens. All same-color animals move together.
+        Move animals to their matching pens. All same-color move together.
       </Text>
 
       {/* Info bar */}
@@ -191,8 +216,13 @@ export default function Herd() {
         </View>
       </View>
 
-      {/* Grid */}
-      <View style={[styles.gridContainer, { width: containerWidth }]}>
+      {/* Grid with shake animation */}
+      <Animated.View
+        style={[
+          styles.gridContainer,
+          { width: containerWidth, transform: [{ translateX: shakeAnim }] },
+        ]}
+      >
         {Array.from({ length: state.gridSize }, (_, r) => (
           <View key={r} style={styles.gridRow}>
             {Array.from({ length: state.gridSize }, (_, c) => {
@@ -222,8 +252,8 @@ export default function Herd() {
                       },
                     ]}
                   >
-                    {/* Pen marker */}
-                    {penColor !== undefined && !animal && (
+                    {/* Pen marker (show when no animal or animal of different color) */}
+                    {penColor !== undefined && (!animal || animal.color !== penColor) && (
                       <Text style={[styles.penMarker, { color: COLOR_VALUES[penColor] }]}>
                         {ANIMAL_EMOJI[penColor]}
                       </Text>
@@ -231,12 +261,12 @@ export default function Herd() {
                     {/* Animal */}
                     {animal && (
                       <View style={styles.animalContainer}>
-                        <Text style={styles.animalEmoji}>
+                        <Text style={[styles.animalEmoji, animal.locked && styles.animalLocked]}>
                           {ANIMAL_EMOJI[animal.color]}
                         </Text>
-                        {/* Show if animal is on its matching pen */}
-                        {penColor === animal.color && (
-                          <View style={[styles.homeBadge, { backgroundColor: COLOR_VALUES[animal.color] }]} />
+                        {/* Lock indicator when animal is on its pen */}
+                        {animal.locked && (
+                          <Text style={styles.lockBadge}>{'\u2705'}</Text>
                         )}
                       </View>
                     )}
@@ -246,42 +276,87 @@ export default function Herd() {
             })}
           </View>
         ))}
-      </View>
+      </Animated.View>
 
-      {/* Direction buttons per color */}
+      {/* Controls: color selector + direction pad (ABOVE the fold) */}
       {!solved && (
-        <View style={styles.controlsContainer}>
-          {colors.map((color) => (
-            <View key={color} style={styles.colorGroup}>
-              <View style={styles.colorLabelRow}>
-                <Text style={styles.colorEmoji}>{ANIMAL_EMOJI[color]}</Text>
-                <Text style={[styles.colorLabel, { color: COLOR_VALUES[color] }]}>
-                  {COLOR_NAMES[color]}
-                </Text>
-              </View>
-              <View style={styles.dirBtnRow}>
-                {DIRECTIONS.map((dir) => (
-                  <Pressable
-                    key={dir}
-                    style={[styles.dirBtn, { borderColor: COLOR_VALUES[color] }]}
-                    onPress={() => handleMove(color, dir)}
-                  >
-                    <Text style={styles.dirBtnText}>
-                      {dir === 'N' ? '\u2191' : dir === 'S' ? '\u2193' : dir === 'E' ? '\u2192' : '\u2190'}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-          ))}
-        </View>
-      )}
+        <View style={styles.controlsArea}>
+          {/* Color selector tabs */}
+          <View style={styles.colorTabs}>
+            {colors.map((color) => {
+              const colorUnlocked = state.animals.some((a) => a.color === color && !a.locked);
+              const isActive = color === activeColor;
+              return (
+                <Pressable
+                  key={color}
+                  style={[
+                    styles.colorTab,
+                    {
+                      borderColor: COLOR_VALUES[color],
+                      backgroundColor: isActive ? COLOR_VALUES[color] + '33' : 'transparent',
+                      opacity: colorUnlocked ? 1 : 0.3,
+                    },
+                  ]}
+                  onPress={() => colorUnlocked && setSelectedColor(color)}
+                  disabled={!colorUnlocked}
+                >
+                  <Text style={styles.colorTabEmoji}>{ANIMAL_EMOJI[color]}</Text>
+                  <Text style={[styles.colorTabLabel, { color: COLOR_VALUES[color] }]}>
+                    {COLOR_NAMES[color]}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
-      {/* Undo */}
-      {!solved && history.length > 0 && (
-        <Pressable style={styles.undoBtn} onPress={handleUndo}>
-          <Text style={styles.undoText}>Undo</Text>
-        </Pressable>
+          {/* D-pad style direction controls */}
+          <View style={styles.dpad}>
+            <View style={styles.dpadRow}>
+              <View style={styles.dpadSpacer} />
+              <Pressable
+                style={[styles.dpadBtn, { borderColor: COLOR_VALUES[activeColor] }]}
+                onPress={() => handleMove('N')}
+              >
+                <Text style={styles.dpadBtnText}>{'\u2191'}</Text>
+              </Pressable>
+              <View style={styles.dpadSpacer} />
+            </View>
+            <View style={styles.dpadRow}>
+              <Pressable
+                style={[styles.dpadBtn, { borderColor: COLOR_VALUES[activeColor] }]}
+                onPress={() => handleMove('W')}
+              >
+                <Text style={styles.dpadBtnText}>{'\u2190'}</Text>
+              </Pressable>
+              <View style={styles.dpadCenter}>
+                <Text style={styles.dpadCenterEmoji}>{ANIMAL_EMOJI[activeColor]}</Text>
+              </View>
+              <Pressable
+                style={[styles.dpadBtn, { borderColor: COLOR_VALUES[activeColor] }]}
+                onPress={() => handleMove('E')}
+              >
+                <Text style={styles.dpadBtnText}>{'\u2192'}</Text>
+              </Pressable>
+            </View>
+            <View style={styles.dpadRow}>
+              <View style={styles.dpadSpacer} />
+              <Pressable
+                style={[styles.dpadBtn, { borderColor: COLOR_VALUES[activeColor] }]}
+                onPress={() => handleMove('S')}
+              >
+                <Text style={styles.dpadBtnText}>{'\u2193'}</Text>
+              </Pressable>
+              <View style={styles.dpadSpacer} />
+            </View>
+          </View>
+
+          {/* Undo button */}
+          {history.length > 0 && (
+            <Pressable style={styles.undoBtn} onPress={handleUndo}>
+              <Text style={styles.undoText}>Undo</Text>
+            </Pressable>
+          )}
+        </View>
       )}
 
       {/* Win message */}
@@ -305,21 +380,21 @@ export default function Herd() {
         <Text style={styles.howToTitle}>How to play</Text>
         <Text style={styles.howToText}>
           Each colored animal must reach its matching colored pen.{'\n'}
-          Tap a direction arrow to move ALL animals of that color one step.{'\n'}
-          Animals are blocked by walls and other animals.{'\n'}
-          Solve in {par} moves or fewer for par.
+          Select a color, then tap a direction to move ALL of that color.{'\n'}
+          Animals lock in place when they reach their pen.{'\n'}
+          Blocked animals don't move. Solve in {par} moves or fewer for par.
         </Text>
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flexGrow: 1,
+    flex: 1,
     alignItems: 'center',
     backgroundColor: '#121213',
-    paddingVertical: 16,
+    paddingVertical: 12,
     paddingHorizontal: 16,
   },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -334,14 +409,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#818384',
     marginTop: 2,
-    marginBottom: 10,
+    marginBottom: 6,
     textAlign: 'center',
     maxWidth: 300,
   },
   infoBar: {
     flexDirection: 'row',
     gap: 20,
-    marginBottom: 10,
+    marginBottom: 6,
     alignItems: 'center',
   },
   infoItem: { alignItems: 'center' },
@@ -350,7 +425,7 @@ const styles = StyleSheet.create({
   infoGood: { color: '#2ecc71' },
   infoPar: { color: '#818384', fontSize: 22, fontWeight: '800' },
   gridContainer: {
-    marginBottom: 12,
+    marginBottom: 8,
   },
   gridRow: {
     flexDirection: 'row',
@@ -376,57 +451,73 @@ const styles = StyleSheet.create({
   animalEmoji: {
     fontSize: 26,
   },
-  homeBadge: {
+  animalLocked: {
+    opacity: 0.85,
+  },
+  lockBadge: {
     position: 'absolute',
-    bottom: -2,
-    right: -2,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: '#121213',
+    bottom: -4,
+    right: -6,
+    fontSize: 10,
   },
-  controlsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  colorGroup: {
+  /* ── Controls area ── */
+  controlsArea: {
     alignItems: 'center',
-    gap: 4,
+    gap: 8,
+    marginBottom: 4,
   },
-  colorLabelRow: {
+  colorTabs: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  colorTab: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 2,
   },
-  colorEmoji: { fontSize: 16 },
-  colorLabel: { fontSize: 12, fontWeight: '700' },
-  dirBtnRow: {
+  colorTabEmoji: { fontSize: 16 },
+  colorTabLabel: { fontSize: 12, fontWeight: '700' },
+  /* ── D-pad ── */
+  dpad: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  dpadRow: {
     flexDirection: 'row',
-    gap: 4,
+    gap: 2,
   },
-  dirBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  dpadBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
     backgroundColor: '#1a1a1b',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
   },
-  dirBtnText: { color: '#ffffff', fontSize: 18, fontWeight: '700' },
+  dpadBtnText: { color: '#ffffff', fontSize: 22, fontWeight: '700' },
+  dpadSpacer: { width: 44, height: 44 },
+  dpadCenter: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#2a2a2b',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dpadCenterEmoji: { fontSize: 20 },
   undoBtn: {
     backgroundColor: '#3a3a3c',
     paddingHorizontal: 24,
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderRadius: 20,
-    marginTop: 8,
   },
   undoText: { color: '#ffffff', fontWeight: '600', fontSize: 14 },
-  endMsg: { alignItems: 'center', marginTop: 20 },
+  endMsg: { alignItems: 'center', marginTop: 16 },
   endEmoji: { fontSize: 48 },
   endText: {
     color: '#ffffff',
@@ -434,7 +525,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 8,
   },
-  howTo: { marginTop: 28, paddingHorizontal: 12, maxWidth: 360 },
+  howTo: { marginTop: 16, paddingHorizontal: 12, maxWidth: 360 },
   howToTitle: {
     color: '#ffffff',
     fontSize: 15,
