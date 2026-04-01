@@ -89,5 +89,9 @@ Computed on 5 puzzles (Mon-Fri seeds), 5 skill levels each.
 <!-- Playtester fills this with blind play observations -->
 
 ## Decision
-<!-- Designer fills this after reviewing metrics + play report -->
-<!-- Status: keep / iterate / kill -->
+
+**Status: KILL**
+
+**Reason:** CI=0 across all puzzles (greedy is optimal -- no counterintuitive moves exist) and Decision Entropy=5.0 (too many equivalent choices, making individual decisions meaningless). The free-form boundary construction mechanic is fundamentally flat: every correct edge monotonically moves toward the goal, so there is no situation where placing a "wrong" edge first leads to a better outcome. The enormous partition space (110.7 bits entropy) creates the illusion of depth but the strategy is transparent -- any valid edge is as good as any other. This is an A10 variant where the optimization landscape has no local minima.
+
+**Lesson for learnings.md:** Free-form construction puzzles (draw boundaries, place edges) where every correct piece monotonically improves the state have CI=0 by definition. For CI > 0, the mechanic must create situations where progress requires temporary regression -- which construction mechanics inherently cannot do because you only ADD pieces, never remove them. Contrast with swap-based mechanics (Sift, LightsOut) where an action can both help and hurt simultaneously.

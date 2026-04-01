@@ -144,6 +144,7 @@ Dead specs stay in `specs/` — they're searchable reference for what's been tri
 | ChainPop | 3 taps, chain reactions on floating bubbles | Frozen |
 | Claim | Pick cells to score; claiming locks neighbors | Frozen |
 | Loop | Intersecting ring rotation puzzle | Frozen |
+| Herd | Multi-agent group movement with walls + lock-in-pen | Frozen |
 
 ---
 

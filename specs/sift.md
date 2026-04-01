@@ -175,8 +175,6 @@ Par = lock-naive solver optimal + buffer (Mon +3, Fri +2).
 2. Recompute par using a lock-naive solver that discovers locks through failed swaps (matching player information). Add generous buffer: par = lock-naive optimal + 3 on Monday, + 2 on Friday.
 3. Place locks preferentially in grid interior (rows 2-4, columns 2-4) to create routing detours without blocking corner-first strategies that give early success.
 4. Fix bugs: selection indicator too subtle (use thick colored border), ensure mouse click works on desktop (not just touch events).
-<<<<<<< HEAD
-=======
 
 ## Play Report (v2)
 
@@ -214,53 +212,3 @@ Par = lock-naive solver optimal + buffer (Mon +3, Fri +2).
 2. Block identical-tile swaps (same color + same shape) with a shake animation and no move cost.
 3. Increase lock density slightly on Wed-Fri (Wed: 24%, Thu: 28%, Fri: 32%) to force more rerouting moments and push CI higher. Keep Mon-Tue unchanged.
 4. Place at least one lock adjacent to the highest-violation tile on each puzzle, ensuring the "obvious first swap" is blocked and the player must find an alternative entry point. This is the primary CI driver.
-
-## Solver Metrics (v3)
-
-Computed on 5 puzzles (Mon-Fri seeds), 5 skill levels each. CI measured from greedy solver (L2) path which represents typical player experience (hits locks, must reroute). Other metrics from lock-naive solver path.
-
-| Metric | Mon | Tue | Wed | Thu | Fri | Avg |
-|---|---|---|---|---|---|---|
-| Solvability | 100% | 100% | 100% | 100% | 100% | 100% |
-| Puzzle Entropy | 55.6 | 24.5 | 32.6 | 49.0 | 57.0 | 43.7 |
-| Skill-Depth | 100% | 100% | 100% | 100% | 100% | 100% |
-| Decision Entropy | 2.66 | 2.72 | 2.52 | 2.33 | 2.16 | 2.48 |
-| Counterintuitive | 3 | 0 | 0 | 0 | 0 | 0.6 |
-| Drama | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
-| Duration (ms) | 4 | 2 | 2 | 4 | 4 | 3 |
-| Info Gain Ratio | 14.26 | 26.26 | 18.12 | 11.91 | 10.16 | 16.14 |
-| Solution Uniqueness | 1 | 2 | 1 | 1 | 1 | 1.2 |
-
-### Solve steps by skill level (v3)
-
-| Day | L1 | L2 | L3 | L4 | L5 |
-|---|---|---|---|---|---|
-| Mon | FAIL | 7 | FAIL | 2 | 2 |
-| Tue | FAIL | 3 | 4 | 3 | 3 |
-| Wed | FAIL | FAIL | FAIL | 4 | 4 |
-| Thu | FAIL | FAIL | FAIL | 6 | 6 |
-| Fri | FAIL | FAIL | FAIL | 7 | 7 |
-
-### Par calibration (v3)
-
-Par = lock-naive solver optimal + buffer (Mon +3, Fri +2).
-
-| Day | Naive Steps | Par | Lock Density | Initial Violations |
-|---|---|---|---|---|
-| Mon | 2 | 5 | 12% | 6 |
-| Tue | 3 | 6 | 16% | 15 |
-| Wed | 4 | 6 | 24% | 14 |
-| Thu | 6 | 8 | 28% | 19 |
-| Fri | 7 | 9 | 32% | 21 |
-
-### v3 changes implemented
-
-1. **Toast bug fixed**: Removed blocking toast/feedbackBar entirely. Lock discovery now communicated via inline padlock icon fade-in animation (400ms) + cell shake (250ms). No overlay, no modal, no toast. Game is never blocked.
-2. **Identical-tile swap blocked**: Swapping two tiles with same color AND shape now triggers shake animation on both tiles with zero move cost. Handled in both UI (Sift.tsx handleTap) and solver (legalMoves already excluded these in v2).
-3. **Increased lock density Wed-Fri**: Wed 24% (6 locks), Thu 28% (7 locks), Fri 32% (8 locks). Mon 12% and Tue 16% unchanged. Solvability verified via beam search (width 2000) with fallback regeneration.
-4. **Adjacent lock to highest-violation tile**: On each puzzle, at least one lock is placed adjacent to the tile with the most row/column violations. This is achieved by relocating an existing lock (never adding extra). Ensures the "obvious first swap" is blocked.
-
-**Auto-kill check**: PASSED
-**Weakest metric**: Counterintuitive Moves -- 3 total, all on Monday (greedy solver hits locks and must reroute). Tue-Fri greedy solver finds smooth paths despite increased lock density. The double Latin square constraint landscape remains fundamentally smooth; CI depends on greedy solver hitting locks that force reroutes. CI avg = 0.6, which passes auto-kill (>0) but falls short of the designer's aspirational target of >= 1.0.
-**Strongest metric**: Skill-Depth 100% (random play cannot solve; strategic play solves all). Info Gain Ratio 16.14 indicates huge strategic advantage. Decision Entropy 2.48 in good range. Solvability 100% including Friday at 32% lock density (with fallback regeneration).
->>>>>>> 9f0bf98 (iterate: Sift v3 — toast fix + identical swap block + lock density)

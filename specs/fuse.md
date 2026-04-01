@@ -100,5 +100,9 @@ Best results achieved (directed cascade, constructive generation):
 <!-- Playtester fills this with blind play observations -->
 
 ## Decision
-<!-- Designer fills this after reviewing metrics + play report -->
-<!-- Status: keep / iterate / kill -->
+
+**Status: KILL**
+
+**Reason:** Multiple fatal thresholds violated: Skill-Depth=0% (random matches optimal), CI=0 (no counterintuitive moves), Decision Entropy=0.73 (path nearly forced), Puzzle Entropy=3.7 (trivially simple), Solvability < 100% on Wed-Fri under directed cascade. The cascade mechanic is fundamentally non-strategic. Under simple cascade, entry point is irrelevant because any bomb in a same-color connected component reaches all others -- the number of required ignitions is a fixed topological property. Under directed cascade, "ignite the highest-timer bomb" is a one-sentence dominant strategy (Bloom's death). The temporal planning depth predicted in the spec does not materialize because cascade outcomes are fully determined by grid topology with no emergent complexity from timer interactions.
+
+**Lesson for learnings.md:** Cascade/chain-reaction mechanics where the outcome is fully determined by the starting state and entry point create zero strategic depth. The player's only decision is "where to start," and if any entry point within a connected component reaches all others (simple cascade) or the optimal entry is always the highest-value node (directed cascade), the decision is trivial. For cascades to create depth, the player must make MULTIPLE interleaved decisions during the cascade (like ChainPop's 3 taps) or the cascade must interact with a SECOND mechanic that creates incommensurable costs (like DropPop's gravity creating new groups after pops).

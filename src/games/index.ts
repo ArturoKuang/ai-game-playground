@@ -19,6 +19,9 @@ import Split from './Split';
 import Fuse from './Fuse';
 import Sort from './Sort';
 import Fold from './Fold';
+import Ferry from './Ferry';
+import Etch from './Etch';
+import Peel from './Peel';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -159,6 +162,27 @@ const games: GameMeta[] = [
     emoji: '\uD83D\uDCDC',
     description: 'Fold the grid to stack matching colors',
     component: Fold,
+  },
+  {
+    id: 'ferry',
+    name: 'Ferry',
+    emoji: '\u26F4\uFE0F',
+    description: 'Swap ferries along bridges to reach matching ports',
+    component: Ferry,
+  },
+  {
+    id: 'etch',
+    name: 'Etch',
+    emoji: '\uD83E\uDDF1',
+    description: 'Carve a path to match row & column targets',
+    component: Etch,
+  },
+  {
+    id: 'peel',
+    name: 'Peel',
+    emoji: '\uD83D\uDCC4',
+    description: 'Peel layers to satisfy row & column color targets',
+    component: Peel,
   },
 ];
 export default games;
