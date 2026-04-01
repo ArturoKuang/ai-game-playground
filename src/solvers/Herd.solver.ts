@@ -30,6 +30,7 @@ export type HerdState = {
   gridSize: number;
   animals: Animal[];
   pens: Pen[];
+  walls?: Pos[]; // impassable cells (Wed-Fri puzzles)
 };
 
 export type Move = {
@@ -65,11 +66,13 @@ function cloneState(state: HerdState): HerdState {
       locked: a.locked,
     })),
     pens: state.pens,
+    walls: state.walls,
   };
 }
 
 function stateKey(state: HerdState): string {
   // Sort animals by color then position for canonical key
+  // Walls are static so don't need to be in the key (same puzzle = same walls)
   const sorted = [...state.animals].sort((a, b) =>
     a.color !== b.color
       ? a.color - b.color
@@ -177,6 +180,12 @@ export function applyMoveWithInfo(state: HerdState, move: Move): { state: HerdSt
     occupied.add(`${a.pos.r},${a.pos.c}`);
   }
 
+  // Build wall set for fast lookup
+  const wallSet = new Set<string>();
+  if (next.walls) {
+    for (const w of next.walls) wallSet.add(`${w.r},${w.c}`);
+  }
+
   // Get UNLOCKED animals of the given color
   const movers = next.animals.filter((a) => a.color === move.color && !a.locked);
   // Sort so we process in direction order (front-first to avoid self-collision)
@@ -188,14 +197,16 @@ export function applyMoveWithInfo(state: HerdState, move: Move): { state: HerdSt
 
   let anyMoved = false;
 
-  // Move each animal one step (blocked by walls or other animals)
+  // Move each animal one step (blocked by grid edges, walls, or other animals)
   for (const animal of movers) {
     const newR = animal.pos.r + dr;
     const newC = animal.pos.c + dc;
-    // Check wall
+    // Check grid boundary
     if (newR < 0 || newR >= state.gridSize || newC < 0 || newC >= state.gridSize) continue;
-    // Check occupancy
     const key = `${newR},${newC}`;
+    // Check wall
+    if (wallSet.has(key)) continue;
+    // Check occupancy
     occupied.delete(`${animal.pos.r},${animal.pos.c}`);
     if (occupied.has(key)) {
       occupied.add(`${animal.pos.r},${animal.pos.c}`);
@@ -247,28 +258,207 @@ function seededRng(seed: number): () => number {
  * 3. Solve with A* to verify solvability
  * 4. Pick the best puzzle by CI count and target depth
  */
+/**
+ * Place 2-3 internal walls for Wed-Fri puzzles.
+ * Walls are placed on empty cells to create bottlenecks that force detour moves.
+ *
+ * Strategy: use predefined wall patterns that create effective corridors.
+ * These patterns are designed to bisect the grid, forcing animals to
+ * go around them (classic Sokoban detour).
+ */
+function placeWalls(
+  rng: () => number,
+  gridSize: number,
+  difficulty: number,
+  penPositions: Set<string>,
+): Pos[] {
+  if (difficulty <= 2) return []; // Mon-Tue: no walls
+
+  // Predefined wall patterns that create effective bottlenecks on 5x5 grid.
+  // Each pattern creates a barrier that forces detours.
+  const patterns2: Pos[][] = [
+    // Horizontal barrier in middle
+    [{ r: 2, c: 1 }, { r: 2, c: 2 }],
+    [{ r: 2, c: 2 }, { r: 2, c: 3 }],
+    // Vertical barrier in middle
+    [{ r: 1, c: 2 }, { r: 2, c: 2 }],
+    [{ r: 2, c: 2 }, { r: 3, c: 2 }],
+    // L-shaped corners
+    [{ r: 2, c: 2 }, { r: 2, c: 3 }],
+    [{ r: 2, c: 1 }, { r: 3, c: 1 }],
+    [{ r: 1, c: 3 }, { r: 2, c: 3 }],
+    // Diagonal barrier
+    [{ r: 1, c: 2 }, { r: 2, c: 3 }],
+    [{ r: 2, c: 1 }, { r: 3, c: 2 }],
+    [{ r: 1, c: 1 }, { r: 2, c: 2 }],
+    [{ r: 2, c: 2 }, { r: 3, c: 3 }],
+  ];
+
+  const patterns3: Pos[][] = [
+    // Horizontal wall spanning middle
+    [{ r: 2, c: 1 }, { r: 2, c: 2 }, { r: 2, c: 3 }],
+    // Vertical wall spanning middle
+    [{ r: 1, c: 2 }, { r: 2, c: 2 }, { r: 3, c: 2 }],
+    // L-shape barriers
+    [{ r: 2, c: 2 }, { r: 2, c: 3 }, { r: 3, c: 2 }],
+    [{ r: 2, c: 1 }, { r: 2, c: 2 }, { r: 1, c: 2 }],
+    [{ r: 1, c: 2 }, { r: 2, c: 2 }, { r: 2, c: 3 }],
+    [{ r: 2, c: 2 }, { r: 3, c: 2 }, { r: 2, c: 1 }],
+    // T-shape
+    [{ r: 2, c: 1 }, { r: 2, c: 2 }, { r: 3, c: 2 }],
+    [{ r: 1, c: 2 }, { r: 2, c: 2 }, { r: 2, c: 1 }],
+    // Staggered
+    [{ r: 1, c: 1 }, { r: 2, c: 2 }, { r: 3, c: 3 }],
+    [{ r: 1, c: 3 }, { r: 2, c: 2 }, { r: 3, c: 1 }],
+    // Off-center barriers
+    [{ r: 1, c: 1 }, { r: 1, c: 2 }, { r: 2, c: 2 }],
+    [{ r: 3, c: 2 }, { r: 3, c: 3 }, { r: 2, c: 3 }],
+  ];
+
+  const numWalls = difficulty <= 3 ? 2 : 3;
+  const patterns = numWalls === 2 ? patterns2 : patterns3;
+
+  // Filter patterns that don't overlap with pen positions
+  const valid = patterns.filter(p =>
+    p.every(w => !penPositions.has(`${w.r},${w.c}`))
+  );
+
+  if (valid.length === 0) {
+    // Fallback: random interior walls
+    const candidates: Pos[] = [];
+    for (let r = 1; r < gridSize - 1; r++) {
+      for (let c = 1; c < gridSize - 1; c++) {
+        if (!penPositions.has(`${r},${c}`)) candidates.push({ r, c });
+      }
+    }
+    for (let i = candidates.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+    }
+    return candidates.slice(0, numWalls);
+  }
+
+  // Pick a random valid pattern
+  const idx = Math.floor(rng() * valid.length);
+  return valid[idx].map(w => ({ ...w }));
+}
+
+/**
+ * Place walls AFTER animals are placed, specifically on cells that lie
+ * on the Manhattan path between an animal and its pen. This guarantees
+ * the wall forces a detour, which creates counterintuitive moves.
+ */
+function placeWallsStrategic(
+  rng: () => number,
+  gridSize: number,
+  difficulty: number,
+  animals: Animal[],
+  pens: Pen[],
+  occupiedPos: Set<string>,
+  penPosSet: Set<string>,
+): Pos[] {
+  if (difficulty <= 2) return []; // Mon-Tue: no walls
+
+  const numWalls = difficulty <= 3 ? 2 : 3;
+
+  // Find cells on Manhattan paths between animals and their closest pens
+  const pathCells = new Map<string, number>(); // key -> count of paths through it
+  for (const animal of animals) {
+    const ownPens = pens.filter(p => p.color === animal.color);
+    for (const pen of ownPens) {
+      // Enumerate cells in the Manhattan rectangle between animal and pen
+      const minR = Math.min(animal.pos.r, pen.pos.r);
+      const maxR = Math.max(animal.pos.r, pen.pos.r);
+      const minC = Math.min(animal.pos.c, pen.pos.c);
+      const maxC = Math.max(animal.pos.c, pen.pos.c);
+      for (let r = minR; r <= maxR; r++) {
+        for (let c = minC; c <= maxC; c++) {
+          const key = `${r},${c}`;
+          // Don't place walls on occupied cells, pens, or edges
+          if (occupiedPos.has(key)) continue;
+          if (penPosSet.has(key)) continue;
+          if (r === animal.pos.r && c === animal.pos.c) continue;
+          // Prefer interior cells
+          if (r === 0 || r === gridSize - 1 || c === 0 || c === gridSize - 1) continue;
+          pathCells.set(key, (pathCells.get(key) || 0) + 1);
+        }
+      }
+    }
+  }
+
+  // Sort by how many animal-pen paths they block (more = more impactful)
+  const candidates = Array.from(pathCells.entries())
+    .sort((a, b) => b[1] - a[1]);
+
+  // Shuffle within score tiers for variety
+  const walls: Pos[] = [];
+  const usedRows = new Set<number>();
+  const usedCols = new Set<number>();
+
+  // Take from top candidates with some randomness
+  const pool = candidates.slice(0, Math.min(12, candidates.length));
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+
+  // Re-sort so higher-count cells still preferred
+  pool.sort((a, b) => b[1] - a[1]);
+
+  for (const [key] of pool) {
+    if (walls.length >= numWalls) break;
+    const [rStr, cStr] = key.split(',');
+    const r = parseInt(rStr);
+    const c = parseInt(cStr);
+    // Avoid clustering all walls in the same row/col (spread them out)
+    if (walls.length > 0 && usedRows.has(r) && usedCols.has(c)) continue;
+    walls.push({ r, c });
+    usedRows.add(r);
+    usedCols.add(c);
+  }
+
+  // If we couldn't find enough strategic walls, fall back to pattern-based
+  if (walls.length < numWalls) {
+    const patternWalls = placeWalls(rng, gridSize, difficulty, penPosSet);
+    for (const w of patternWalls) {
+      if (walls.length >= numWalls) break;
+      const key = `${w.r},${w.c}`;
+      if (!occupiedPos.has(key) && !penPosSet.has(key)) {
+        walls.push(w);
+      }
+    }
+  }
+
+  return walls;
+}
+
 export function generatePuzzle(seed: number, difficulty: number): HerdState {
   const gridSize = 5;
 
   // Difficulty scaling
   const numColors = difficulty <= 2 ? 2 : 3;
   const animalsPerColor = 2;
-  // Target depth: Mon=4-8, Tue=5-9, Wed=6-13, Thu=8-14, Fri=10-16
-  const minDepth = difficulty <= 1 ? 4 : difficulty <= 2 ? 5 : difficulty <= 3 ? 6 : difficulty <= 4 ? 8 : 10;
-  const maxDepth = difficulty <= 1 ? 8 : difficulty <= 2 ? 9 : difficulty <= 3 ? 13 : difficulty <= 4 ? 14 : 16;
+  // Target depth: Mon=4-8, Tue=5-9, Wed=7-14, Thu=8-14, Fri=10-16
+  const minDepth = difficulty <= 1 ? 4 : difficulty <= 2 ? 5 : difficulty <= 3 ? 7 : difficulty <= 4 ? 8 : 10;
+  const maxDepth = difficulty <= 1 ? 8 : difficulty <= 2 ? 9 : difficulty <= 3 ? 14 : difficulty <= 4 ? 14 : 16;
 
   let bestState: HerdState | null = null;
   let bestCI = -1;
   let bestScore = -Infinity;
 
-  for (let attempt = 0; attempt < 200; attempt++) {
+  const maxAttempts = difficulty <= 2 ? 200 : 120;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const rng = seededRng(seed + difficulty * 9973 + attempt * 7919);
     const pens = placePensOpposing(rng, gridSize, numColors, animalsPerColor, difficulty);
 
     const penPositions = new Map<string, number>();
-    for (const p of pens) penPositions.set(`${p.pos.r},${p.pos.c}`, p.color);
+    const penPosSet = new Set<string>();
+    for (const p of pens) {
+      penPositions.set(`${p.pos.r},${p.pos.c}`, p.color);
+      penPosSet.add(`${p.pos.r},${p.pos.c}`);
+    }
 
-    // Collect all grid cells, shuffle them
+    // Collect all grid cells, shuffle them (walls placed AFTER animals for strategic blocking)
     const allCells: Pos[] = [];
     for (let r = 0; r < gridSize; r++) {
       for (let c = 0; c < gridSize; c++) {
@@ -280,7 +470,7 @@ export function generatePuzzle(seed: number, difficulty: number): HerdState {
       [allCells[i], allCells[j]] = [allCells[j], allCells[i]];
     }
 
-    // Place animals: avoid own pens, prefer cells that create blocking
+    // Place animals first (before walls)
     const animals: Animal[] = [];
     const usedPos = new Set<string>();
 
@@ -288,27 +478,20 @@ export function generatePuzzle(seed: number, difficulty: number): HerdState {
       let placed = 0;
       const ownPens = pens.filter((p) => p.color === color);
 
-      // Filter and score candidate positions
       const scored: { pos: Pos; score: number }[] = [];
       for (const pos of allCells) {
         const key = `${pos.r},${pos.c}`;
         if (usedPos.has(key)) continue;
-        if (penPositions.get(key) === color) continue; // not on own pen
+        if (penPositions.get(key) === color) continue;
 
-        // Score: distance from own pen (further = harder)
-        // + bonus for being on/near another color's pen (creates blocking)
         const distOwn = Math.min(...ownPens.map((p) =>
           Math.abs(pos.r - p.pos.r) + Math.abs(pos.c - p.pos.c)));
         const otherPenBonus = penPositions.has(key) && penPositions.get(key) !== color ? 5 : 0;
         const score = distOwn + otherPenBonus;
-
         scored.push({ pos, score });
       }
 
-      // Sort by score descending (prefer far from own pen + on other pen)
       scored.sort((a, b) => b.score - a.score);
-
-      // Take from top candidates with some randomness
       const topN = Math.min(8, scored.length);
       const candidates = scored.slice(0, topN);
       for (let i = candidates.length - 1; i > 0; i--) {
@@ -325,7 +508,6 @@ export function generatePuzzle(seed: number, difficulty: number): HerdState {
         if (placed >= animalsPerColor) break;
       }
 
-      // Fallback
       if (placed < animalsPerColor) {
         for (const pos of allCells) {
           if (placed >= animalsPerColor) break;
@@ -338,13 +520,21 @@ export function generatePuzzle(seed: number, difficulty: number): HerdState {
       }
     }
 
-    const state: HerdState = { gridSize, animals, pens };
+    // Now place walls STRATEGICALLY: on cells that lie on Manhattan paths
+    // between animals and their pens. This guarantees the wall forces a detour.
+    const wallRng = seededRng(seed + difficulty * 3571 + attempt * 1213);
+    const walls = placeWallsStrategic(wallRng, gridSize, difficulty, animals, pens, usedPos, penPosSet);
+    const wallSet = new Set<string>();
+    for (const w of walls) wallSet.add(`${w.r},${w.c}`);
+
+    const state: HerdState = { gridSize, animals, pens, walls: walls.length > 0 ? walls : undefined };
     updateLocks(state);
 
     if (isGoal(state)) continue;
 
     // Solve with A*
-    const sol = solveAStar(state, 500000);
+    const genLimit = difficulty <= 2 ? 20000 : 50000;
+    const sol = solveAStar(state, genLimit);
     if (!sol) continue;
     if (sol.steps < minDepth || sol.steps > maxDepth) continue;
 
@@ -368,15 +558,20 @@ export function generatePuzzle(seed: number, difficulty: number): HerdState {
 
   if (bestState) return bestState;
 
-  // Last resort fallback: scramble from goal without lock logic
+  // Last resort fallback: scramble from goal
   const rng = seededRng(seed + difficulty * 9973 + 999);
   const pens = placePensOpposing(rng, gridSize, numColors, animalsPerColor, difficulty);
+  const penPosSet = new Set<string>();
+  for (const p of pens) penPosSet.add(`${p.pos.r},${p.pos.c}`);
   const goalAnimals: Animal[] = pens.map((p) => ({
     color: p.color,
     pos: { ...p.pos },
     locked: false,
   }));
-  let state: HerdState = { gridSize, animals: goalAnimals, pens };
+  // For fallback, use pattern-based walls
+  const wallRng = seededRng(seed + difficulty * 3571 + 999);
+  const walls = placeWalls(wallRng, gridSize, difficulty, penPosSet);
+  let state: HerdState = { gridSize, animals: goalAnimals, pens, walls: walls.length > 0 ? walls : undefined };
   const colors = Array.from(new Set(pens.map((p) => p.color)));
   for (let i = 0; i < 30 + difficulty * 10; i++) {
     const color = colors[Math.floor(rng() * colors.length)];
@@ -398,6 +593,10 @@ function applyMoveRaw(state: HerdState, move: Move): HerdState {
   const [dr, dc] = DIR_DELTA[move.dir];
   const occupied = new Set<string>();
   for (const a of next.animals) occupied.add(`${a.pos.r},${a.pos.c}`);
+  const wallSet = new Set<string>();
+  if (next.walls) {
+    for (const w of next.walls) wallSet.add(`${w.r},${w.c}`);
+  }
   const movers = next.animals.filter((a) => a.color === move.color);
   movers.sort((a, b) => {
     if (dr !== 0) return dr > 0 ? b.pos.r - a.pos.r : a.pos.r - b.pos.r;
@@ -409,6 +608,7 @@ function applyMoveRaw(state: HerdState, move: Move): HerdState {
     const newC = animal.pos.c + dc;
     if (newR < 0 || newR >= state.gridSize || newC < 0 || newC >= state.gridSize) continue;
     const key = `${newR},${newC}`;
+    if (wallSet.has(key)) continue;
     occupied.delete(`${animal.pos.r},${animal.pos.c}`);
     if (occupied.has(key)) {
       occupied.add(`${animal.pos.r},${animal.pos.c}`);
