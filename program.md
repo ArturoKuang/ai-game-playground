@@ -467,6 +467,8 @@ These mechanic families have been tried multiple times without reaching 60. Do N
 | Hidden boundary discovery + painting | Fence (39→50→46) | 50 | Edge-by-edge scanning too low info density. Paint phase = guessing when scan budget tight. |
 | Hidden coupling discovery (toggle variant) | Dial (31) | 31 | A10 after probing: hidden couplings fully revealed in 3-4 taps, then puzzle = linear algebra mod 4. Full revelation = A10. |
 | Path optimization with quantitative damage | Reap (29) | 29 | A10: visible board + calculable value reduction. Quantitative damage (row/col -1) doesn't change option structure, just numbers. Need BINARY constraints (option removal) not numeric. |
+| Row/column rotation (4×4 and 3×3) | Twist (solver only) | CI=0.1 | Rows and columns are independent axes — minimal displacement coupling. CI requires SHARED STATE between operations. |
+| Adjacent swap sorting | Sort, Pour, Swap (solver only) | CI=0 | All swap/sort mechanics have CI=0. Swaps move exactly 2 elements — too local for cascading side effects. CI≥2 requires cyclic operations on 3+ elements. |
 
 ### Mental Model Calibration
 
