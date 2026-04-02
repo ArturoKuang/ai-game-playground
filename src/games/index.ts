@@ -32,6 +32,7 @@ import Pinch from './Pinch';
 import Rift from './Rift';
 import Pane from './Pane';
 import Crate from './Crate';
+import Tag from './Tag';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -263,6 +264,13 @@ const games: GameMeta[] = [
     emoji: '\uD83D\uDCE6',
     description: 'Load the truck in order using your staging area',
     component: Crate,
+  },
+  {
+    id: 'tag',
+    name: 'Tag',
+    emoji: '\uD83C\uDFF7\uFE0F',
+    description: 'Stamp numbers to detect duplicates instantly',
+    component: Tag,
   },
 ];
 export default games;
