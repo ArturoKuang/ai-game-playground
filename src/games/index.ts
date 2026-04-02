@@ -33,6 +33,8 @@ import Rift from './Rift';
 import Pane from './Pane';
 import Crate from './Crate';
 import Tag from './Tag';
+import Delve from './Delve';
+import Nest from './Nest';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -271,6 +273,20 @@ const games: GameMeta[] = [
     emoji: '\uD83C\uDFF7\uFE0F',
     description: 'Stamp numbers to detect duplicates instantly',
     component: Tag,
+  },
+  {
+    id: 'delve',
+    name: 'Delve',
+    emoji: '\uD83D\uDD26',
+    description: 'Explore the dungeon, find the exit',
+    component: Delve,
+  },
+  {
+    id: 'nest',
+    name: 'Nest',
+    emoji: '\uD83E\uDE86',
+    description: 'Match nested brackets from the inside out',
+    component: Nest,
   },
 ];
 export default games;

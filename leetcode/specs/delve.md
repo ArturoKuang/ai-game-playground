@@ -72,6 +72,23 @@ Level 5: "At each fork: peek → check requirements → prune impossible paths �
 
 ## Solver Metrics
 
+| Metric | Mon | Tue | Wed | Thu | Fri | Avg |
+|---|---|---|---|---|---|---|
+| Solvability | 100% | 100% | 100% | 100% | 100% | 100.0 |
+| Puzzle Entropy | 2.6 | 6.3 | 8.3 | 18.7 | 21.8 | 11.5 |
+| Skill-Depth | 66.7% | 81.8% | 69.2% | 54.5% | 50.0% | 64.4 |
+| Decision Entropy | 1.29 | 1.58 | 1.39 | 1.44 | 1.82 | 1.5 |
+| Counterintuitive | 0 | 0 | 0 | 0 | 0 | 0.0 |
+| Drama | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.0 |
+| Duration (s) | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.0 |
+| Info Gain Ratio | 2.40 | 2.68 | 1.52 | 1.58 | 2.00 | 2.0 |
+| Algorithm Alignment | 100% | 100% | 100% | 100% | 100% | 100.0 |
+| Greedy-Optimal Gap | 0% | 450% | 225% | 120% | 100% | 179.0 |
+| Optimal Steps | 2 | 4 | 8 | 15 | 13 | 8.4 |
+| Budget | 8 | 12 | 16 | 23 | 16 | 15.0 |
+
+Auto-kill checks: PASSED (solvability=100%, skill-depth=64.4%, algorithm alignment=100%)
+
 ## Play Report
 
 ## Decision
