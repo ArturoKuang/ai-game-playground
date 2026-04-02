@@ -115,4 +115,10 @@ Run: `npx tsx src/solvers/pinch-metrics.ts`
 
 ## Play Report
 
+Playtest skipped — browser harness not available in this session. Metrics-only evaluation.
+
 ## Decision
+
+**KEEP (conditional)** — Algorithm Alignment is perfect (100%) — every solver move follows the two-pointer convergence pattern. Greedy-Optimal Gap of 33.8% validates that two-pointer IS meaningfully better than brute-force. However, Skill-Depth (22.2%) and Decision Entropy (1.1) are below ideal targets. The two-pointer algorithm is inherently binary (move left or right based on sum comparison), which structurally caps Decision Entropy near 1 bit. CI is low (0.4) because the algorithm's logic is intuitive once understood. The game TEACHES the algorithm well but may lack replayability. Polish pass should add: (1) multi-target sequencing decisions, (2) optional skip mechanic for advanced players.
+
+**Concept Bridge**: This game teaches Two Pointers on sorted data. On LeetCode, this appears in: #167 Two Sum II, #11 Container With Most Water, #15 3Sum. The moment where you decide "move left or right based on sum" IS the two-pointer decision.

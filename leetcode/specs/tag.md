@@ -100,4 +100,10 @@ Level 5: "Limited registry space means I need to stamp the numbers most likely t
 
 ## Play Report
 
+Playtest skipped — browser harness not available. Metrics-only evaluation.
+
 ## Decision
+
+**KEEP** — Strongest algorithm game metrics of all Tier 1 games. Every metric passes with flying colors: Skill-Depth 89.1% (highest), Algorithm Alignment 100%, Greedy-Optimal Gap 476% (scan-only O(n²) is catastrophically worse than stamp-all O(n)). The hash set insight is dramatically demonstrated — scan-only fails at Difficulty 2+ while stamp-all breezes through all levels. Decision Entropy (4.18) and Drama (1.0) are both excellent, showing the game has genuine moment-to-moment tension and meaningful choices.
+
+**Concept Bridge**: This game teaches Hash Set/Hash Map. On LeetCode: #1 Two Sum, #217 Contains Duplicate, #347 Top K Frequent Elements, #128 Longest Consecutive Sequence. The moment where you stamp a number and later it auto-matches IS the O(1) hash lookup insight.

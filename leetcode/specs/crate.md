@@ -96,4 +96,8 @@ Level 5: "I need to plan 4-5 moves ahead. If I push this now, will I have room w
 
 ## Play Report
 
+Playtest skipped — browser harness not available. Metrics-only evaluation.
+
 ## Decision
+
+**KILL** — Despite exceptional skill-depth (86%) and greedy-gap (96%), two fatal metrics: Decision Entropy = 0.47 (well below 1.0 threshold — most steps have only 1 valid move) and Drama = 0.02 (truck loading is monotonic, zero tension). The stack-sorting conveyor mechanic creates a FORCED PATH at most steps (push is the only option when top doesn't match, pop is forced when top matches). Strategic depth exists only at discard moments, which are too infrequent to carry the gameplay. The Stack topic needs a game where the LIFO insight creates decisions at every step, not just at overflow moments. Consider: a game where the player chooses WHAT to push (selection from multiple items) rather than being forced to push the next conveyor item.
