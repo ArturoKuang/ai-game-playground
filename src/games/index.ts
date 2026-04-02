@@ -28,6 +28,7 @@ import Knot from './Knot';
 import Sieve from './Sieve';
 import Vault from './Vault';
 import Pour from './Pour';
+import Pinch from './Pinch';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -231,6 +232,13 @@ const games: GameMeta[] = [
     emoji: '\uD83E\uDD43',
     description: 'Pour liquid between glasses to match target distribution',
     component: Pour,
+  },
+  {
+    id: 'pinch',
+    name: 'Pinch',
+    emoji: '\uD83E\uDD0F',
+    description: 'Squeeze the ends to find matching pairs',
+    component: Pinch,
   },
 ];
 export default games;
