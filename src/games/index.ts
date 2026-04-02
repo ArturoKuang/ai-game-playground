@@ -28,7 +28,11 @@ import Knot from './Knot';
 import Sieve from './Sieve';
 import Vault from './Vault';
 import Pour from './Pour';
+<<<<<<< HEAD
 import Pinch from './Pinch';
+=======
+import Rift from './Rift';
+>>>>>>> 7c55381 (prototype: Rift — binary search terrain probe puzzle with cross-row inference)
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -239,6 +243,13 @@ const games: GameMeta[] = [
     emoji: '\uD83E\uDD0F',
     description: 'Squeeze the ends to find matching pairs',
     component: Pinch,
+  },
+  {
+    id: 'rift',
+    name: 'Rift',
+    emoji: '\uD83C\uDF0B',
+    description: 'Drop probes to trace the hidden fault line',
+    component: Rift,
   },
 ];
 export default games;
