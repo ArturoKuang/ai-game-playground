@@ -31,6 +31,7 @@ import Pour from './Pour';
 import Pinch from './Pinch';
 import Rift from './Rift';
 import Pane from './Pane';
+import Crate from './Crate';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -255,6 +256,13 @@ const games: GameMeta[] = [
     emoji: '\uD83D\uDD0D',
     description: 'Find the smallest window with all colors',
     component: Pane,
+  },
+  {
+    id: 'crate',
+    name: 'Crate',
+    emoji: '\uD83D\uDCE6',
+    description: 'Load the truck in order using your staging area',
+    component: Crate,
   },
 ];
 export default games;
