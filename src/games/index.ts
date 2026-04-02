@@ -28,11 +28,9 @@ import Knot from './Knot';
 import Sieve from './Sieve';
 import Vault from './Vault';
 import Pour from './Pour';
-<<<<<<< HEAD
 import Pinch from './Pinch';
-=======
 import Rift from './Rift';
->>>>>>> 7c55381 (prototype: Rift — binary search terrain probe puzzle with cross-row inference)
+import Pane from './Pane';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -250,6 +248,13 @@ const games: GameMeta[] = [
     emoji: '\uD83C\uDF0B',
     description: 'Drop probes to trace the hidden fault line',
     component: Rift,
+  },
+  {
+    id: 'pane',
+    name: 'Pane',
+    emoji: '\uD83D\uDD0D',
+    description: 'Find the smallest window with all colors',
+    component: Pane,
   },
 ];
 export default games;
