@@ -70,6 +70,37 @@ Level 5: "I need to plan 5 matches ahead. The depth multiplier means inner match
 
 ## Solver Metrics
 
+| Metric | D1 | D2 | D3 | D4 | D5 | Avg |
+|---|---|---|---|---|---|---|
+| Solvability | 100.0% | 100.0% | 100.0% | 100.0% | 100.0% | 100.0% |
+| Puzzle Entropy | 4.62 | 6.10 | 8.50 | 13.40 | 16.48 | 9.82 |
+| Skill-Depth | 9.5% | 3.1% | 21.1% | 23.7% | 14.6% | 14.4% |
+| Decision Entropy | 0.92 | 1.02 | 1.21 | 1.49 | 1.50 | 1.23 |
+| CI Moves | 1.0 | 0.8 | 2.0 | 1.4 | 2.4 | 1.5 |
+| Drama | 0.50 | 0.50 | 0.50 | 0.50 | 0.50 | 0.50 |
+| Info Gain Ratio | 1.11 | 1.04 | 1.27 | 1.33 | 1.17 | 1.18 |
+| Algorithm Alignment | 46.0% | 48.3% | 50.0% | 51.1% | 56.4% | 50.4% |
+| Greedy-Optimal Gap | 5.6% | 1.9% | 0.0% | 5.5% | 9.8% | 4.6% |
+| Optimal Score | 11.0 | 24.6 | 33.6 | 50.8 | 85.2 | 41.0 |
+
+**Auto-kill check**: PASSED - all thresholds cleared
+- Solvability: 100% (threshold: 100%)
+- Skill-Depth: 14.4% (threshold: 10%)
+- Algorithm Alignment: 50.4% (threshold: 50%)
+- Decision Entropy: 1.23 (threshold: 0.9)
+
+**Scoring system**: depth score + color combo bonus
+- Depth score = (nesting_depth + 1) x depthMultiplier
+- Combo bonus = (streak - 1) x comboMultiplier for consecutive same-color matches
+- Combo creates greedy trap: matching deepest pair may break a valuable color combo
+
+**Solver levels**:
+- L1 Random: picks random legal pair
+- L2 Leftmost: matches first (leftmost) legal pair
+- L3 Greedy-depth: matches highest immediate score
+- L4 Lookahead: DFS depth-5 lookahead
+- L5 Optimal: exhaustive DFS over all matching orderings
+
 ## Play Report
 
 ## Decision
