@@ -103,4 +103,8 @@ Level 5: "I need to plan 5 matches ahead. The depth multiplier means inner match
 
 ## Play Report
 
+Playtest skipped — metrics-only evaluation.
+
 ## Decision
+
+**KILL** — Greedy-Optimal Gap of 4.6% is fatal. The matching ORDER barely affects total score. The depth/combo scoring system doesn't create enough differentiation between greedy and optimal matching strategies. Bracket matching IS the stack, but the ORDERING of matches doesn't matter enough for gameplay depth. Stack topic still needs a different approach — one where LIFO ordering creates consequential decisions, not just correct behavior.

@@ -32,7 +32,7 @@ Prerequisites: at least 2 Tier 1 games kept.
 |---|---|---|---|---|---|
 | 2.1 | **Heap / Priority Queue** | Efficient min/max extraction | "Always know the best option without sorting everything" | 1.5 | todo |
 | 2.2 | **BFS** | Level-by-level exploration | "Explore all neighbors before going deeper = shortest path" | — | todo |
-| 2.3 | **DFS / Backtracking** | Depth-first with pruning | "Go deep, fail fast, undo, try next — don't enumerate everything" | — | todo |
+| 2.3 | **DFS / Backtracking** | Depth-first with pruning | "Go deep, fail fast, undo, try next — don't enumerate everything" | — | keep (Delve) |
 | 2.4 | **Trie** | Prefix tree / shared prefixes | "Shared beginnings mean shared computation" | 1.5 | todo |
 | 2.5 | **Monotonic Stack** | Maintaining sorted invariant | "The stack always knows the 'next greater' answer" | 1.3 | todo |
 

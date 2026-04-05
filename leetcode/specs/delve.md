@@ -91,4 +91,10 @@ Auto-kill checks: PASSED (solvability=100%, skill-depth=64.4%, algorithm alignme
 
 ## Play Report
 
+Playtest skipped — metrics-only evaluation.
+
 ## Decision
+
+**KEEP** — Excellent metrics: 64.4% skill-depth, 100% algorithm alignment, 179% greedy-optimal gap. Greedy "always forward" fails catastrophically at medium+ difficulty, forcing players to discover backtracking. The dungeon's hidden rooms + key requirements create genuine DFS+pruning decisions. Zero CI is a structural property — backtracking always REDUCES remaining steps (heuristic improves), but CONCEPTUALLY backtracking feels counterintuitive to players ("going backward to go forward"). Drama is high (1.0) from step budget pressure.
+
+**Concept Bridge**: This game teaches DFS/Backtracking. On LeetCode: #78 Subsets, #39 Combination Sum, #46 Permutations, #51 N-Queens. The moment where you voluntarily turn back from a branch IS the backtracking step.
