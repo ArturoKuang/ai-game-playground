@@ -28,6 +28,13 @@ import Knot from './Knot';
 import Sieve from './Sieve';
 import Vault from './Vault';
 import Pour from './Pour';
+import Pinch from './Pinch';
+import Rift from './Rift';
+import Pane from './Pane';
+import Crate from './Crate';
+import Tag from './Tag';
+import Delve from './Delve';
+import Nest from './Nest';
 const games: GameMeta[] = [
   {
     id: 'floodfill',
@@ -231,6 +238,55 @@ const games: GameMeta[] = [
     emoji: '\uD83E\uDD43',
     description: 'Pour liquid between glasses to match target distribution',
     component: Pour,
+  },
+  {
+    id: 'pinch',
+    name: 'Pinch',
+    emoji: '\uD83E\uDD0F',
+    description: 'Squeeze the ends to find matching pairs',
+    component: Pinch,
+  },
+  {
+    id: 'rift',
+    name: 'Rift',
+    emoji: '\uD83C\uDF0B',
+    description: 'Drop probes to trace the hidden fault line',
+    component: Rift,
+  },
+  {
+    id: 'pane',
+    name: 'Pane',
+    emoji: '\uD83D\uDD0D',
+    description: 'Find the smallest window with all colors',
+    component: Pane,
+  },
+  {
+    id: 'crate',
+    name: 'Crate',
+    emoji: '\uD83D\uDCE6',
+    description: 'Load the truck in order using your staging area',
+    component: Crate,
+  },
+  {
+    id: 'tag',
+    name: 'Tag',
+    emoji: '\uD83C\uDFF7\uFE0F',
+    description: 'Stamp numbers to detect duplicates instantly',
+    component: Tag,
+  },
+  {
+    id: 'delve',
+    name: 'Delve',
+    emoji: '\uD83D\uDD26',
+    description: 'Explore the dungeon, find the exit',
+    component: Delve,
+  },
+  {
+    id: 'nest',
+    name: 'Nest',
+    emoji: '\uD83E\uDE86',
+    description: 'Match nested brackets from the inside out',
+    component: Nest,
   },
 ];
 export default games;

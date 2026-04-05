@@ -64,7 +64,7 @@ src/
   utils/          -- seeding, scoring, stats persistence, sharing
   types.ts        -- shared types
 App.tsx           -- navigation shell with game menu
-program.md        -- funnel orchestrator (READ THIS FIRST)
+program.md        -- funnel orchestrator for Puzzle Lab (READ THIS FIRST)
 prompts/
   designer.md     -- designer agent prompt
   engineer.md     -- engineer agent prompt
@@ -75,3 +75,22 @@ specs/            -- one spec per concept (lifecycle documents)
 learnings.md      -- design patterns and quality metric heuristics
 results.tsv       -- experiment log (solver metrics, not subjective scores)
 ```
+
+## Algorithm Arcade — LeetCode Game Loop
+
+A separate agentic loop that designs games teaching algorithm/data structure concepts through play. Games where playing optimally leads the player to discover algorithms like binary search, two pointers, dynamic programming, etc.
+
+```
+leetcode/
+  program.md        -- autonomous loop orchestrator (READ THIS TO RUN)
+  curriculum.md     -- algorithm topic map + progression (Tier 1-4)
+  learnings.md      -- algorithm game design learnings
+  results.tsv       -- experiment log
+  prompts/
+    designer.md     -- algorithm game designer prompt
+    engineer.md     -- engineer prompt (standard + algorithm-specific metrics)
+    playtester.md   -- playtester with strategy evolution tracking
+  specs/            -- one spec per algorithm game concept
+```
+
+**To run**: Read `leetcode/program.md` for full instructions. The loop is designed to run overnight without human input.
