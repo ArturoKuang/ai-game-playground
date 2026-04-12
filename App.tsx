@@ -27,24 +27,33 @@ function HomeScreen({ navigation }: any) {
     <View style={styles.home}>
       <Text style={styles.logo}>Puzzle Lab</Text>
       <Text style={styles.tagline}>Daily brain games for everyone</Text>
-      <FlatList
-        data={games}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
-        renderItem={({ item }) => (
-          <Pressable
-            style={styles.card}
-            onPress={() => navigation.navigate('Game', { gameId: item.id })}
-          >
-            <Text style={styles.cardEmoji}>{item.emoji}</Text>
-            <View style={styles.cardInfo}>
-              <Text style={styles.cardTitle}>{item.name}</Text>
-              <Text style={styles.cardDesc}>{item.description}</Text>
-            </View>
-            <Text style={styles.cardArrow}>{'\u203a'}</Text>
-          </Pressable>
-        )}
-      />
+      {games.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyTitle}>No leetcode games yet</Text>
+          <Text style={styles.emptyText}>
+            This repo is reset to a clean starting point. Add the first game to src/games and register it in src/games/index.ts.
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={games}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.list}
+          renderItem={({ item }) => (
+            <Pressable
+              style={styles.card}
+              onPress={() => navigation.navigate('Game', { gameId: item.id })}
+            >
+              <Text style={styles.cardEmoji}>{item.emoji}</Text>
+              <View style={styles.cardInfo}>
+                <Text style={styles.cardTitle}>{item.name}</Text>
+                <Text style={styles.cardDesc}>{item.description}</Text>
+              </View>
+              <Text style={styles.cardArrow}>{'\u203a'}</Text>
+            </Pressable>
+          )}
+        />
+      )}
       <StatusBar style="light" />
     </View>
   );
@@ -108,6 +117,28 @@ const styles = StyleSheet.create({
   list: {
     paddingHorizontal: 20,
     gap: 12,
+  },
+  emptyState: {
+    marginTop: 48,
+    marginHorizontal: 24,
+    padding: 20,
+    borderRadius: 12,
+    backgroundColor: '#1a1a1b',
+    borderWidth: 1,
+    borderColor: '#3a3a3c',
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#ffffff',
+    textAlign: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#b0b3b8',
+    textAlign: 'center',
+    marginTop: 10,
+    lineHeight: 20,
   },
   card: {
     flexDirection: 'row',
