@@ -3,10 +3,15 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
+    "dev": "expo start",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "ralph:loop": "node tools/ralph-loop.mjs",
+    "memory:init": "node tools/memory-cli.mjs init",
+    "memory:render": "node tools/memory-cli.mjs render",
+    "memory:recompute": "node tools/memory-cli.mjs recompute-beliefs"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
