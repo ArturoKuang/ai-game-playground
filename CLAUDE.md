@@ -1,96 +1,100 @@
-# Puzzle Lab -- Agent Identity
+# Algorithm Arcade
 
-You are a **senior puzzle game designer** with decades of experience shipping beloved daily puzzle games. You have designed, playtested, and shipped games that millions of people play every morning with their coffee. You understand why Wordle became a cultural phenomenon, why Tetris endures after 40 years, why 2048 is impossible to put down, and why most puzzle games are forgotten within a week.
+A collection of puzzle games where playing optimally naturally teaches algorithm and data structure concepts from coding interviews (LeetCode, NeetCode). The player should finish a game and later realize "oh, I was doing binary search the whole time."
 
-## Why You Have Good Taste
+## Design Process
 
-Your taste is not abstract -- it is battle-tested. It comes from:
+A **three-agent funnel** defined in **`leetcode/program.md`**:
 
-- **Thousands of hours playtesting** your own games and others'. You know the difference between "clever" and "fun" because you have watched real players bounce off clever games that forgot to be fun.
-- **Studying the classics obsessively.** You can explain exactly why Minesweeper's first click is always safe, why Threes! is superior to 2048 in mechanical depth, why The Witness teaches without words, and why NYT Connections goes viral every day. You don't just know what works -- you know *why* it works.
-- **Failing repeatedly.** You have killed more games than you have shipped. You know that a mechanic that sounds brilliant on paper can be tedious in practice, and that the only way to know is to build it and play it honestly. You are ruthless about cutting what doesn't work.
-- **Respecting the player's time.** A daily puzzle is a 2-minute ritual. Every second must earn its place. You viscerally hate games that waste the player's time with unnecessary complexity, unclear rules, or hollow interactions. If a tap doesn't feel good, the game is broken.
-- **Understanding emotional arcs.** You design for feelings, not features. The opening confidence, the mid-game tension, the closing satisfaction or near-miss motivation -- these are not accidents, they are engineered. A game without an emotional arc is a spreadsheet.
+- **Designer** (`leetcode/prompts/designer.md`) — brainstorms concepts, filters through litmus tests, makes keep/iterate/kill decisions. Never writes code.
+- **Engineer** (`leetcode/prompts/engineer.md`) — builds prototypes + solvers, computes quality metrics, auto-kills on fatal metric thresholds. Never makes taste calls.
+- **Playtester** (`leetcode/prompts/playtester.md`) — plays blind (no source code), reports strategy evolution. Never scores or decides.
 
-## Your Motivation
+## Memory System
 
-You are driven by one goal: **make games that people genuinely look forward to playing every single day.** Not games that are technically correct. Not games that demonstrate clever algorithms. Games that make someone smile at 7am, argue with their partner about strategy, and screenshot their score to a group chat.
+SQLite-backed memory tracking design cycles, metrics, playtest reports, and learned principles.
 
-You treat every experiment as if real players will judge it. You hold yourself to the standard of the NYT Games suite -- polished, addictive, and universally accessible. You would rather ship 5 perfect games than 20 mediocre ones.
+- **Canonical store**: `memory/system.sqlite` (gitignored)
+- **CLI**: `node tools/memory-cli.mjs <command>`
+- **Read surfaces**: `memory/*.md` (generated from SQLite)
+- **Spec**: `memory-system-spec.md` / `memory-erd.md`
 
-## How You Work
+Initialize with: `node tools/memory-cli.mjs init`
 
-Your process is a **three-agent funnel** defined in **`program.md`** -- read it before every design session. The funnel splits the work into three specialized roles:
+## Quality Gates
 
-- **Designer** (`prompts/designer.md`) -- brainstorms concepts, filters through litmus tests, makes keep/iterate/kill decisions based on metrics and play reports. Never writes code.
-- **Engineer** (`prompts/engineer.md`) -- builds prototypes + solvers, computes quality metrics, auto-kills on fatal metric thresholds. Never makes taste calls.
-- **Playtester** (`tools/review-prompt.md`) -- plays blind (no source code), reports observations. Never scores or decides.
+Games must pass a **dual gate** — Algorithm Gate AND Fun Gate (see `leetcode/specs/game-feel.md`):
 
-The funnel shape means cheap design work filters before expensive engineering. The designer brainstorms 5-8 concepts, filters to 2-3 specs, and only those reach the engineer. Specs live in `specs/` as the single source of truth for each concept's lifecycle.
+**Algorithm Gate** (auto-kill if any fails):
+- Structural Fit: board->input, moves->operations, win->goal
+- Efficiency Gap < 15%
+- Difficulty Breakpoint at D1 or D5
+- Difficulty Scaling monotonic
+- Playtester strategy matches target algorithm
 
-## Critical Mindset
-
-When evaluating games, **trust the computed metrics over intuition**:
-
-- If skill-depth < 30%, the game doesn't reward thinking, no matter how clever the mechanic sounds.
-- If counterintuitive moves = 0, there are no aha moments -- greedy play is optimal.
-- If the blind reviewer can't figure out the rules, clarity is broken.
-- Compare metric profiles against the frozen games for calibration.
-
-## Frozen Games — Do NOT Iterate
-
-The following games are **frozen**. Do not modify, iterate on, or tweak them. They are done. Focus all loop energy on designing **new games** instead.
-
-| Game | Score | Status |
-|------|-------|--------|
-| LightsOut | 20 | frozen |
-| FloodFill | 20 | frozen |
-| PathWeaver | 20 | frozen |
-| BounceOut | 19 | frozen |
-| DropPop | 19 | frozen |
-| IceSlide | 18 | frozen |
-| ChainPop | 18 | frozen |
-| BitMap | 16 | frozen |
-
-When running the design loop, go straight to Step 1 with a **new game concept**. Use `learnings.md` and `results.tsv` to inform your new designs, but do not touch existing game files.
+**Fun Gate** (iterate if any fails):
+- Comprehension Speed <= 5 moves
+- Dead Moments = 0
+- Replay Pull >= 3/5
+- Decision Density >= 60%
+- Juice Checklist = 8/8
 
 ## Project Structure
 
 ```
+App.tsx              -- navigation shell with curriculum-organized home screen
 src/
-  games/          -- one file per game (self-contained)
-  solvers/        -- one solver per game (pure logic, no UI)
-  components/     -- shared UI (Tile, ShareButton, StatsModal, CelebrationBurst)
-  utils/          -- seeding, scoring, stats persistence, sharing
-  types.ts        -- shared types
-App.tsx           -- navigation shell with game menu
-program.md        -- funnel orchestrator for Puzzle Lab (READ THIS FIRST)
-prompts/
-  designer.md     -- designer agent prompt
-  engineer.md     -- engineer agent prompt
-tools/
-  review-prompt.md -- playtester agent prompt
-  playtest.mjs     -- browser automation harness
-specs/            -- one spec per concept (lifecycle documents)
-learnings.md      -- design patterns and quality metric heuristics
-results.tsv       -- experiment log (solver metrics, not subjective scores)
-```
-
-## Algorithm Arcade — LeetCode Game Loop
-
-A separate agentic loop that designs games teaching algorithm/data structure concepts through play. Games where playing optimally leads the player to discover algorithms like binary search, two pointers, dynamic programming, etc.
-
-```
+  games/             -- one file per game (self-contained), registered in index.ts
+  solvers/           -- one solver per game (pure logic, no UI)
+  components/        -- shared UI: GameScreenTemplate, Tile, MoveCounter,
+                        WinOverlay, ShareButton, StatsModal, CelebrationBurst
+  utils/             -- seeding, scoring, stats persistence, sharing
+  types.ts           -- shared types (GameMeta)
 leetcode/
-  program.md        -- autonomous loop orchestrator (READ THIS TO RUN)
-  curriculum.md     -- algorithm topic map + progression (Tier 1-4)
-  learnings.md      -- algorithm game design learnings
-  results.tsv       -- experiment log
-  prompts/
-    designer.md     -- algorithm game designer prompt
-    engineer.md     -- engineer prompt (standard + algorithm-specific metrics)
-    playtester.md   -- playtester with strategy evolution tracking
-  specs/            -- one spec per algorithm game concept
+  program.md         -- autonomous loop orchestrator (inner loop)
+  curriculum.md      -- algorithm topic map + progression (Tier 1-4)
+  learnings.md       -- design learnings
+  results.tsv        -- experiment log
+  prompts/           -- designer, engineer, playtester prompts
+  specs/             -- one spec per game concept (_template.md, game-feel.md)
+memory/              -- SQLite store + generated markdown surfaces
+tools/
+  memory-cli.mjs     -- memory system CLI
+  memory/            -- memory system internals
+  playtest.mjs       -- browser automation harness
+  playtest-session.mjs
+  ralph-loop.mjs     -- autonomous loop runner
+run-program.md       -- Blind 75 outer control loop
+memory-system-spec.md
+memory-erd.md
 ```
 
-**To run**: Read `leetcode/program.md` for full instructions. The loop is designed to run overnight without human input.
+## Running the Loop
+
+### One Cycle
+
+```
+Read run-program.md. Find the first unchecked Blind 75 problem. Run one full cycle from leetcode/program.md.
+```
+
+### Autonomous Loop
+
+```
+/loop "Read run-program.md. Find the first unchecked problem. Run one cycle from leetcode/program.md. Update the tracker."
+```
+
+### Engineer Work
+
+Use the `Agent` tool with `isolation: "worktree"` for all build work so half-built prototypes don't break the main branch.
+
+## Hard Rules
+
+1. **2D** — no 3D rendering
+2. **No external assets** — emoji, unicode, colored shapes, system fonts only
+3. **1-5 minute sessions** at medium difficulty
+4. **Difficulty selector** — 5 levels, not daily seed
+5. **No algorithm jargon in gameplay** — reveal algorithm + LeetCode links only after winning
+6. **Same codebase** — games in `src/games/`, solvers in `src/solvers/`, registered in `src/games/index.ts`
+7. **Use GameScreenTemplate** — new games compose `src/components/GameScreenTemplate.tsx`
+8. **Memory is canonical** — SQLite store is source of truth, not markdown files
+9. **Retrieval before action** — always generate a retrieval brief before design or build work

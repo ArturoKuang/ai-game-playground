@@ -39,3 +39,10 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# memory system database
+memory/*.sqlite*
+
+# loop runner artifacts
+ralph-loop.log
+ralph-loop.pid

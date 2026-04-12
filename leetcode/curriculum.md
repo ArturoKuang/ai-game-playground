@@ -18,11 +18,11 @@ These have no prerequisites. Start here.
 
 | # | Topic | Algorithm Concept | Core Insight to Teach | Status |
 |---|---|---|---|---|
-| 1.1 | **Binary Search** | Halving search space | "Always cut the remaining space in half — don't scan linearly" | keep (Rift) |
-| 1.2 | **Two Pointers** | Converging pointers on sorted data | "Two ends converging is O(n), not O(n^2)" | keep (Pinch) |
+| 1.1 | **Binary Search** | Halving search space | "Always cut the remaining space in half — don't scan linearly" | todo |
+| 1.2 | **Two Pointers** | Converging pointers on sorted data | "Two ends converging is O(n), not O(n^2)" | todo |
 | 1.3 | **Stack** | LIFO ordering / matching | "Most-recent-first processing solves nested structure problems" | todo |
-| 1.4 | **Sliding Window** | Variable-width window maintenance | "Expand right, shrink left — never restart from scratch" | keep (Pane) |
-| 1.5 | **Hash Map** | O(1) lookup / frequency counting | "Trade space for time — precompute to avoid re-scanning" | keep (Tag) |
+| 1.4 | **Sliding Window** | Variable-width window maintenance | "Expand right, shrink left — never restart from scratch" | todo |
+| 1.5 | **Hash Map** | O(1) lookup / frequency counting | "Trade space for time — precompute to avoid re-scanning" | todo |
 
 ## Tier 2: Data Structure Intuition
 
@@ -32,7 +32,7 @@ Prerequisites: at least 2 Tier 1 games kept.
 |---|---|---|---|---|---|
 | 2.1 | **Heap / Priority Queue** | Efficient min/max extraction | "Always know the best option without sorting everything" | 1.5 | todo |
 | 2.2 | **BFS** | Level-by-level exploration | "Explore all neighbors before going deeper = shortest path" | — | todo |
-| 2.3 | **DFS / Backtracking** | Depth-first with pruning | "Go deep, fail fast, undo, try next — don't enumerate everything" | — | keep (Delve) |
+| 2.3 | **DFS / Backtracking** | Depth-first with pruning | "Go deep, fail fast, undo, try next — don't enumerate everything" | — | todo |
 | 2.4 | **Trie** | Prefix tree / shared prefixes | "Shared beginnings mean shared computation" | 1.5 | todo |
 | 2.5 | **Monotonic Stack** | Maintaining sorted invariant | "The stack always knows the 'next greater' answer" | 1.3 | todo |
 

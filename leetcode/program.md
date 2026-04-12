@@ -1,6 +1,6 @@
-# Algorithm Arcade — Autonomous Design Loop
+# Algorithm Arcade — Claude Code Design Loop
 
-An overnight-capable agentic loop that designs, builds, tests, and iterates on puzzle games teaching algorithm/data structure concepts. Runs without human intervention. Takes inspiration from the Puzzle Lab funnel (`../program.md`) but adds algorithm-specific metrics, difficulty progression, and a curriculum-driven topic selector.
+An agentic loop that designs, builds, tests, and iterates on puzzle games teaching algorithm/data structure concepts. Designed to run autonomously in Claude Code using the `/loop` skill, `Agent` tool with worktree isolation, and the SQLite memory system.
 
 ---
 
@@ -9,114 +9,270 @@ An overnight-capable agentic loop that designs, builds, tests, and iterates on p
 ```
  ORCHESTRATOR (this file — you)
  │
- ├─ reads: curriculum.md, results.tsv, learnings.md
+ ├─ reads: curriculum.md, memory/designer_brief.md, memory/run_summary.md
  ├─ picks next topic(s) from curriculum
  ├─ tracks budget: iterations remaining, games kept, games killed
  │
  └─── LOOP (repeat until budget exhausted or all Tier 1-2 topics covered)
       │
-      ├── STEP 1: DESIGNER (leetcode/prompts/designer.md)
-      │   ├─ reads: curriculum.md, learnings.md, results.tsv, specs/
+      ├── PHASE 1: START RUN
+      │   └─ create-run in SQLite memory
+      │
+      ├── PHASE 2: RETRIEVE
+      │   ├─ generate designer brief
+      │   ├─ generate engineer brief
+      │   └─ render markdown surfaces
+      │
+      ├── PHASE 3: DESIGN (designer role)
+      │   ├─ reads: memory/designer_brief.md + curriculum.md + learnings.md
       │   ├─ picks 1-2 algorithm topics
       │   ├─ brainstorms 3-5 concepts per topic
       │   ├─ filters through 5 litmus tests
-      │   └─ outputs: 2-3 specs in leetcode/specs/<game>.md
+      │   ├─ writes predicted scorecard to memory
+      │   └─ outputs: 1-2 specs in leetcode/specs/<game>.md
       │
-      ├── STEP 2: ENGINEER (leetcode/prompts/engineer.md) ← parallel per spec
-      │   ├─ reads: one spec + code patterns
-      │   ├─ builds prototype + solver (Level 5 = target algorithm)
+      ├── PHASE 4: BUILD (engineer role — use Agent with worktree isolation)
+      │   ├─ reads: memory/engineer_brief.md + spec
+      │   ├─ builds prototype + solver
       │   ├─ computes standard + algorithm-specific metrics
+      │   ├─ writes actual scorecard to memory
       │   ├─ auto-kills if metrics fatal
-      │   └─ outputs: metrics in spec + committed prototype
+      │   └─ outputs: committed prototype + metrics in spec
       │
-      ├── STEP 3: PLAYTESTER (leetcode/prompts/playtester.md) ← per survivor
-      │   ├─ reads: nothing (blind play)
+      ├── PHASE 5: PLAYTEST (playtester role)
+      │   ├─ reads: memory/playtester_packet.md ONLY (blind)
       │   ├─ plays Easy → Medium → Hard progression
-      │   ├─ reports strategy evolution + pattern discovery
-      │   └─ outputs: blind play report in spec
+      │   ├─ reports bugs, strategy evolution, pattern discovery
+      │   └─ outputs: blind play report in spec + bug reports in memory
       │
-      ├── STEP 4: DESIGNER DECISION
-      │   ├─ reads: spec + metrics + play report
+      ├── PHASE 6: QA FIX LOOP (if bugs found)
+      │   ├─ engineer fixes blocking bugs
+      │   ├─ playtester retests
+      │   └─ repeat until no blocking bugs remain
+      │
+      ├── PHASE 7: DESIGNER DECISION
+      │   ├─ reads: spec + metrics + play report + bug status
       │   ├─ decides: keep / iterate / kill
-      │   ├─ if iterate: revises spec → back to STEP 2 (max 3 iterations)
-      │   ├─ if keep: update curriculum.md, go to STEP 5
-      │   └─ if kill: log to results.tsv + learnings.md
+      │   ├─ if iterate: revises spec → back to PHASE 4 (max 3 iterations)
+      │   ├─ if keep: proceed to PHASE 8
+      │   └─ if kill: log to memory + results.tsv + learnings.md
       │
-      ├── STEP 5: POLISH (keep only)
-      │   ├─ ENGINEER adds: difficulty UI, concept bridge, share text, stats
-      │   └─ PLAYTESTER does final review
+      ├── PHASE 8: POLISH (keep only)
+      │   ├─ engineer adds: difficulty UI, concept bridge, share text, stats
+      │   └─ playtester does final review
       │
-      └── STEP 6: LOG & CONTINUE
-          ├─ append to results.tsv
-          ├─ update learnings.md if new insight
-          ├─ update curriculum.md status
-          └─ loop back to STEP 1
+      ├── PHASE 9: DISTILL
+      │   ├─ emit candidate principles, anti-patterns, evidence
+      │   └─ recompute beliefs
+      │
+      ├── PHASE 10: AUDIT & RENDER
+      │   ├─ audit retrieval usefulness
+      │   ├─ render markdown surfaces
+      │   └─ update curriculum.md, results.tsv, learnings.md
+      │
+      └── REPEAT
 ```
 
 ---
 
-## How to Run This Overnight
+## How to Run in Claude Code
 
-### Option A: Single Long-Running Session
+### Option A: Autonomous Loop (Recommended)
 
-Launch a single Claude Code session with this prompt:
+Use the `/loop` skill for self-paced autonomous cycles:
 
 ```
-Read leetcode/program.md and execute the full autonomous loop.
-
-Budget: 8 hours or 20 game concepts (whichever comes first).
-Start with Tier 1 topics from leetcode/curriculum.md.
-For each cycle, use Agent tool with worktree isolation for engineers.
-Commit after each prototype and each polish pass.
-Log everything to leetcode/results.tsv.
-
-If you get stuck on a concept after 3 iterations, kill it and move on.
-Bias toward breadth (more topics covered) over depth (perfect games).
+/loop "Read leetcode/program.md and execute ONE cycle of the algorithm game loop. Follow the 10-phase sequence exactly."
 ```
 
-### Option B: Batched Sessions (More Reliable)
+This lets Claude Code self-pace — it runs one cycle, then schedules the next wake-up automatically.
 
-Run one cycle per session. Use this kickoff prompt:
+### Option B: Single Cycle
+
+Run one cycle per conversation. Use this kickoff prompt:
 
 ```
 Read leetcode/program.md. Execute ONE cycle of the algorithm game loop:
-1. Read curriculum.md — pick the next unlocked topic
-2. Spawn designer → produce 2-3 specs
-3. Spawn engineers (parallel, worktree isolation) → build + measure
-4. Spawn playtesters (parallel) → blind play report
-5. Spawn designer decision round → keep/iterate/kill
-6. If keep: spawn engineer polish pass
-7. Log results, update curriculum.md, update learnings.md
-8. Commit all changes
+1. Initialize memory: node tools/memory-cli.mjs init (if first run)
+2. Create run in memory
+3. Generate retrieval briefs + render
+4. Design: pick next unlocked topic, brainstorm, filter, output specs
+5. Build: use Agent tool (worktree isolation) per spec → prototype + metrics
+6. Playtest: blind play → strategy evolution report + bug reports
+7. QA fix loop: fix blocking bugs, retest
+8. Designer decision: keep/iterate/kill
+9. If keep: polish pass
+10. Distill + recompute beliefs + audit retrieval + render
+11. Update curriculum.md, results.tsv, learnings.md
+12. Commit all changes
 
-Then report: what was tried, what survived, what was learned.
+Report: what was tried, what survived, what was learned.
 ```
 
-### Option C: Full Auto with Loop Command
+### Option C: Timed Loop
 
-Use the `/loop` skill to run batched cycles:
+Use the `/loop` skill with a fixed interval:
 
 ```
-/loop 30m "Execute one cycle of leetcode/program.md"
+/loop 20m "Execute one cycle of leetcode/program.md"
 ```
-
-This runs a cycle every 30 minutes, allowing ~16 cycles in 8 hours.
 
 ---
 
-## Orchestrator Decision Logic
+## Claude Code Agent Strategy
 
-### Topic Selection
+### Engineer Work: Use Agent with Worktree Isolation
+
+Build work should use the `Agent` tool with `isolation: "worktree"` so the engineer agent works on an isolated copy of the repo. This prevents half-built prototypes from breaking the main branch.
+
+```
+Agent({
+  description: "Build <GameName> prototype",
+  isolation: "worktree",
+  prompt: "Read leetcode/specs/<game>.md. Build the prototype in src/games/<GameName>.tsx and solver in src/solvers/<GameName>.solver.ts. Compute metrics. Report back with the actual scorecard. Commit your work."
+})
+```
+
+### Playtester Work: Use Agent (No Code Access)
+
+The playtester agent should NOT read source code. Launch it with strict instructions:
+
+```
+Agent({
+  description: "Blind playtest <GameName>",
+  prompt: "Read memory/playtester_packet.md. Start the dev server, open <GameName> in browser. Play blind at Easy, Medium, Hard. Report strategy evolution, bugs, pattern discovery. Do NOT read any source code."
+})
+```
+
+### Parallel Engineering
+
+When multiple specs survive design filtering, launch engineer agents in parallel:
+
+```
+// In a single message, launch multiple agents:
+Agent({ description: "Build GameA", isolation: "worktree", prompt: "..." })
+Agent({ description: "Build GameB", isolation: "worktree", prompt: "..." })
+```
+
+---
+
+## Phase Details
+
+### Phase 1: Start Run
+
+```bash
+node tools/memory-cli.mjs create-run --json '{
+  "namespace": "leetcode",
+  "loopType": "algorithm_arcade",
+  "status": "active",
+  "summary": "Algorithm Arcade cycle — targeting [TOPIC]"
+}'
+```
+
+### Phase 2: Retrieve
+
+Generate role-specific retrieval briefs before design or build work:
+
+```bash
+node tools/memory-cli.mjs create-brief --json '{"runId":"RUN_ID","role":"designer","task":"Select or revise an algorithm concept","tags":["TOPIC_TAGS"]}'
+node tools/memory-cli.mjs create-brief --json '{"runId":"RUN_ID","role":"engineer","task":"Build and measure the next algorithm prototype","tags":["TOPIC_TAGS"]}'
+node tools/memory-cli.mjs render
+```
+
+### Phase 3: Design
+
+Designer reads `memory/designer_brief.md` + curriculum + learnings. Outputs:
+- Concept record in memory
+- Concept version record
+- Predicted scorecard
+- Spec file in `leetcode/specs/<game>.md`
+
+### Phase 4: Build
+
+Engineer reads `memory/engineer_brief.md` + spec. Outputs:
+- Game file: `src/games/<GameName>.tsx`
+- Solver: `src/solvers/<GameName>.solver.ts`
+- Registered in `src/games/index.ts`
+- Actual scorecard in memory
+- Artifacts recorded
+
+### Phase 5: Playtest
+
+Playtester reads `memory/playtester_packet.md` ONLY. Must NOT see:
+- Target algorithm
+- Expected strategy
+- Actual metrics
+- Concept lineage
+
+Reports: blind play at Easy → Medium → Hard, strategy evolution, bugs.
+
+### Phase 6: QA Fix Loop
+
+```bash
+# Playtester reports bug
+node tools/memory-cli.mjs report-bug --json '{...}'
+
+# Engineer fixes
+node tools/memory-cli.mjs record-bugfix --json '{...}'
+
+# Playtester retests
+node tools/memory-cli.mjs record-qa-retest --json '{...}'
+```
+
+Repeat until no blocking bugs remain.
+
+### Phase 7: Designer Decision
+
+Do NOT decide while blocking bugs are open. Evaluate against BOTH gates (see `leetcode/specs/game-feel.md`):
+
+- **KEEP**: Algorithm Gate passes (Structural Fit, Breakpoint D3-D4, Efficiency Gap ≥ 20%, Wasted Work ≥ 30%, Scaling monotonic, Strategy Match) AND Fun Gate passes (Comprehension ≤ 5, Dead Moments 0, Confusion ≤ 2, Shift ≥ 1, Replay Pull ≥ 3/5, Best Moment ≥ 3/5, Decision Density > 60%, Juice 8/8)
+- **ITERATE (polish)**: Algorithm Gate passes, Fun Gate fails → polish iteration (max 2 rounds)
+- **ITERATE (mechanic)**: Structural fit strong but solver metrics miss → revise spec (max 3 iterations)
+- **KILL**: Efficiency Gap < 15%, or Structural Fit fails, or algorithm doesn't emerge from play
+
+### Phase 8: Polish (Keep Only)
+
+1. Difficulty level UI (clear selector)
+2. Concept bridge card (post-win reveal)
+3. Share text (emoji grid)
+4. Stats integration
+5. Animations
+6. Re-run metrics to verify
+
+### Phase 9: Distill
+
+Emit structured memory objects:
+- Candidate principles / anti-patterns / procedures / open questions
+- Evidence rows linking version to principle
+
+```bash
+node tools/memory-cli.mjs recompute-beliefs --json '{"namespace":"leetcode"}'
+```
+
+### Phase 10: Audit & Render
+
+Audit every retrieval item: `useful`, `irrelevant`, `misleading`, `unknown`.
+
+```bash
+node tools/memory-cli.mjs audit-brief --json '{...}'
+node tools/memory-cli.mjs render
+```
+
+Update `leetcode/curriculum.md`, `leetcode/results.tsv`, `leetcode/learnings.md`.
+
+---
+
+## Topic Selection Logic
 
 ```
 1. Read curriculum.md
 2. Find all topics where status = "todo" AND all prereqs have status = "keep"
-3. Prefer Tier 1 over Tier 2 (breadth first within the current tier)
+3. Prefer Tier 1 over Tier 2 (breadth first within current tier)
 4. If multiple candidates: pick the one with the most downstream dependents
 5. Select 1-2 topics per cycle
 ```
 
-### Budget Management
+## Budget Management
 
 ```
 per_cycle:
@@ -126,16 +282,15 @@ per_cycle:
 
 total_budget:
   max_cycles: 20
-  max_hours: 8
   stop_early_if: all Tier 1 topics have status != "todo"
 ```
 
-### When to Stop
+## When to Stop
 
-1. **All Tier 1 topics processed** — either kept or killed with lessons logged
-2. **Budget exhausted** — 20 cycles or 8 hours
-3. **Stuck** — 3 consecutive cycles with 0 keeps and no new learnings
-4. **Success** — 5+ games kept across different topics
+1. All Tier 1 topics processed — either kept or killed with lessons logged
+2. Budget exhausted — 20 cycles
+3. Stuck — 3 consecutive cycles with 0 keeps and no new learnings
+4. Success — 5+ games kept across different topics
 
 ---
 
@@ -145,57 +300,14 @@ total_budget:
 |---|---|---|---|
 | **Reads code** | Never | Yes | Never |
 | **Writes code** | Never | Yes | Never |
-| **Reads curriculum.md** | Yes | Yes (for alignment validation) | Never |
-| **Reads learnings.md** | Yes (leetcode + puzzle lab) | Never | Never |
+| **Reads curriculum.md** | Yes | Yes (alignment) | Never |
+| **Reads learnings.md** | Yes | Never | Never |
+| **Reads memory briefs** | designer_brief | engineer_brief | playtester_packet |
 | **Reads metrics** | Yes (raw) | Produces them | Never |
 | **Reads play reports** | Yes | Never | Produces them |
 | **Makes taste calls** | Yes | Never | Never |
-| **Makes kill decisions** | Yes | Auto-kill only (metrics) | Never |
-| **Names algorithms** | Yes | Yes (in solver) | **Never** (plain English only) |
-
----
-
-## Results Log Format
-
-Append to `leetcode/results.tsv`:
-
-```
-commit	entropy	skill_depth	CI	drama	DE	IGR	algo_align	greedy_gap	insight_inflect	status	game	algorithm	description
-```
-
-Status: `keep`, `iterate`, `kill`, `auto-kill`.
-
----
-
-## The Algorithm Alignment Validation
-
-This is the key metric that distinguishes algorithm games from regular puzzle games. After the engineer reports metrics:
-
-1. **Designer reads Algorithm Alignment score.** If < 50%, auto-kill — the game doesn't teach the target algorithm regardless of how fun it is.
-2. **Designer reads the playtester's "The Pattern" description.** If the playtester's plain-English description of the winning strategy doesn't match the target algorithm, the game fails even if metrics are good.
-3. **Both must pass.** Metrics prove the algorithm is optimal; playtester proves a human can discover it.
-
-### Example validation:
-
-**Target**: Binary Search
-**Solver alignment**: 85% (each move eliminates ~half the remaining space) ✓
-**Playtester pattern**: "Always guess the middle of what's left" ✓✓ — perfect match
-**Decision**: Metrics + human discovery aligned → KEEP candidate
-
-**Target**: Dynamic Programming  
-**Solver alignment**: 90% (solver reuses subproblem results) ✓
-**Playtester pattern**: "I just tried different paths until one worked" ✗ — they brute-forced it
-**Decision**: Algorithm is optimal but humans don't discover it → ITERATE (make subproblem reuse more visible/rewarding)
-
----
-
-## Learnings Integration
-
-After each cycle:
-
-1. **If a game is killed**: Log WHY in `leetcode/learnings.md`. What about the algorithm made it hard to gamify?
-2. **If a game is kept**: Log what WORKED. What game mechanic successfully embodied the algorithm?
-3. **Cross-reference** with puzzle lab learnings (`../learnings.md`). Algorithm games must satisfy BOTH sets of constraints.
+| **Makes kill decisions** | Yes | Auto-kill only | Never |
+| **Names algorithms** | Yes | Yes (in solver) | **Never** |
 
 ---
 
@@ -205,7 +317,11 @@ After each cycle:
 2. **No external assets** — emoji, unicode, colored shapes, system fonts
 3. **1-5 minute sessions** at medium difficulty
 4. **Difficulty selector** — 5 levels (Easy/Medium/Hard), not daily seed
-5. **No algorithm jargon in gameplay** — the game never says "binary search" or "O(n log n)"
-6. **Concept bridge AFTER completion only** — reveal the algorithm name + LeetCode links after winning
-7. **Same codebase** — games go in `src/games/`, solvers in `src/solvers/`, registered in `src/games/index.ts`
+5. **No algorithm jargon in gameplay** — the game never says "binary search"
+6. **Concept bridge AFTER completion only** — reveal algorithm + LeetCode links after winning
+7. **Same codebase** — games in `src/games/`, solvers in `src/solvers/`, registered in `src/games/index.ts`
 8. **Stats per difficulty level** — track completion rate and move count per difficulty
+9. **Memory is canonical** — do not treat `leetcode/learnings.md` as the source of truth; the SQLite store is canonical
+10. **Retrieval before action** — never start design or build without generating a retrieval brief first
+11. **No decision with open bugs** — do not record keep/iterate/kill while blocking bugs remain
+12. **Render after beliefs** — always render markdown surfaces after recomputing beliefs
