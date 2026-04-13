@@ -33,7 +33,7 @@ Execute these steps in order. Do NOT start a second problem in the same pass.
 ### 1. Bootstrap (first run only)
 
 ```bash
-node tools/memory-cli.mjs init
+node tools/memory-cli.js init
 ```
 
 Skip if `memory/system.sqlite` already exists.
@@ -116,12 +116,12 @@ Done when every problem is `[x]` and every reused game has per-problem Concept B
 
 ### Arrays & Hashing
 
-- [ ] `#1 Two Sum` | <https://leetcode.com/problems/two-sum/> | Game:
-- [ ] `#217 Contains Duplicate` | <https://leetcode.com/problems/contains-duplicate/> | Game:
-- [ ] `#242 Valid Anagram` | <https://leetcode.com/problems/valid-anagram/> | Game:
-- [ ] `#49 Group Anagrams` | <https://leetcode.com/problems/group-anagrams/> | Game:
-- [ ] `#347 Top K Frequent Elements` | <https://leetcode.com/problems/top-k-frequent-elements/> | Game:
-- [ ] `#238 Product of Array Except Self` | <https://leetcode.com/problems/product-of-array-except-self/> | Game:
+- [x] `#1 Two Sum` | <https://leetcode.com/problems/two-sum/> | Game: Pair Up
+- [x] `#217 Contains Duplicate` | <https://leetcode.com/problems/contains-duplicate/> | Game: Pair Up (shared)
+- [x] `#242 Valid Anagram` | <https://leetcode.com/problems/valid-anagram/> | Game: Tally
+- [x] `#49 Group Anagrams` | <https://leetcode.com/problems/group-anagrams/> | Game: Pair Up (shared)
+- [x] `#347 Top K Frequent Elements` | <https://leetcode.com/problems/top-k-frequent-elements/> | Game: Top Pick
+- [x] `#238 Product of Array Except Self` | <https://leetcode.com/problems/product-of-array-except-self/> | Game: Power Line
 - [ ] `#36 Valid Sudoku` | <https://leetcode.com/problems/valid-sudoku/> | Game:
 - [ ] `#128 Longest Consecutive Sequence` | <https://leetcode.com/problems/longest-consecutive-sequence/> | Game:
 
