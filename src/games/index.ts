@@ -3,6 +3,7 @@ import PairUp from './PairUp';
 import Tally from './Tally';
 import TopPick from './TopPick';
 import PowerLine from './PowerLine';
+import SpotCheck from './SpotCheck';
 
 const games: GameMeta[] = [
   {
@@ -43,7 +44,17 @@ const games: GameMeta[] = [
     component: PowerLine,
     algorithm: 'Prefix/Suffix Products',
     tier: 1,
-    leetcodeProblems: [238],
+    leetcodeProblems: [238],  },
+  {
+    id: 'spot-check',
+    name: 'Spot Check',
+    emoji: '📡',
+    description: 'Scan a grid of hidden radio towers to find interfering frequencies. Reveal towers, track values per row/column/sector, and flag all duplicate clashes before energy runs out. Teaches Hash Set Membership (LC #36 Valid Sudoku, LC #128 Longest Consecutive Sequence) -- the same set.has() pattern used to validate Sudoku boards in O(n) per group.',
+    component: SpotCheck,
+    algorithm: 'Hash Set',
+    tier: 1,
+    leetcodeProblems: [36, 128],
   },
 ];
+
 export default games;

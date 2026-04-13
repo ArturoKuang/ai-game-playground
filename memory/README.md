@@ -16,7 +16,7 @@ The canonical memory store is `memory/system.sqlite`. Markdown files in this dir
 ## Bootstrap
 
 ```bash
-node tools/memory-cli.mjs init
+node tools/memory-cli.js init
 ```
 
 Creates the schema, seeds metric definitions, and renders the markdown surfaces.
@@ -24,21 +24,21 @@ Creates the schema, seeds metric definitions, and renders the markdown surfaces.
 ## Core Commands
 
 ```bash
-node tools/memory-cli.mjs create-run --json '{...}'
-node tools/memory-cli.mjs upsert-concept --json '{...}'
-node tools/memory-cli.mjs create-version --json '{...}'
-node tools/memory-cli.mjs write-scorecard --json '{...}'
-node tools/memory-cli.mjs write-playtest --json '{...}'
-node tools/memory-cli.mjs report-bug --json '{...}'
-node tools/memory-cli.mjs record-bugfix --json '{...}'
-node tools/memory-cli.mjs record-qa-retest --json '{...}'
-node tools/memory-cli.mjs list-bugs --json '{...}'
-node tools/memory-cli.mjs upsert-principle --json '{...}'
-node tools/memory-cli.mjs add-evidence --json '{...}'
-node tools/memory-cli.mjs recompute-beliefs --json '{"namespace":"leetcode"}'
-node tools/memory-cli.mjs create-brief --json '{...}'
-node tools/memory-cli.mjs audit-brief --json '{...}'
-node tools/memory-cli.mjs render
+node tools/memory-cli.js create-run --json '{...}'
+node tools/memory-cli.js upsert-concept --json '{...}'
+node tools/memory-cli.js create-version --json '{...}'
+node tools/memory-cli.js write-scorecard --json '{...}'
+node tools/memory-cli.js write-playtest --json '{...}'
+node tools/memory-cli.js report-bug --json '{...}'
+node tools/memory-cli.js record-bugfix --json '{...}'
+node tools/memory-cli.js record-qa-retest --json '{...}'
+node tools/memory-cli.js list-bugs --json '{...}'
+node tools/memory-cli.js upsert-principle --json '{...}'
+node tools/memory-cli.js add-evidence --json '{...}'
+node tools/memory-cli.js recompute-beliefs --json '{"namespace":"leetcode"}'
+node tools/memory-cli.js create-brief --json '{...}'
+node tools/memory-cli.js audit-brief --json '{...}'
+node tools/memory-cli.js render
 ```
 
 ## Record A Whole Cycle
@@ -50,8 +50,8 @@ For normal loop work, prefer `record-cycle` so the run writes stay coherent.
 Designer and engineer work must start by generating retrieval briefs:
 
 ```bash
-node tools/memory-cli.mjs create-brief --json '{"runId":"...","role":"designer","task":"...","tags":["search","hidden-information"]}'
-node tools/memory-cli.mjs create-brief --json '{"runId":"...","role":"engineer","task":"...","tags":["search","budget-pressure"]}'
+node tools/memory-cli.js create-brief --json '{"runId":"...","role":"designer","task":"...","tags":["search","hidden-information"]}'
+node tools/memory-cli.js create-brief --json '{"runId":"...","role":"engineer","task":"...","tags":["search","budget-pressure"]}'
 ```
 
 The playtester does not read history. Its packet is rendered from the memory store and contains only the blind protocol, rubric, and optional unrelated calibration.
@@ -59,7 +59,7 @@ The playtester does not read history. Its packet is rendered from the memory sto
 ## QA Loop Commands
 
 ```bash
-node tools/memory-cli.mjs report-bug --json '{
+node tools/memory-cli.js report-bug --json '{
   "versionId":"VERSION_ID",
   "playtestId":"PLAYTEST_ID",
   "title":"Reset button does not restore initial board",
@@ -70,13 +70,13 @@ node tools/memory-cli.mjs report-bug --json '{
   "blocking":true
 }'
 
-node tools/memory-cli.mjs record-bugfix --json '{
+node tools/memory-cli.js record-bugfix --json '{
   "bugId":"BUG_ID",
   "engineerRole":"engineer",
   "summary":"Reset now rehydrates the initial seeded state."
 }'
 
-node tools/memory-cli.mjs record-qa-retest --json '{
+node tools/memory-cli.js record-qa-retest --json '{
   "bugId":"BUG_ID",
   "testerRole":"playtester",
   "status":"fixed",

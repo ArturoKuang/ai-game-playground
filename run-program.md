@@ -122,8 +122,8 @@ Done when every problem is `[x]` and every reused game has per-problem Concept B
 - [x] `#49 Group Anagrams` | <https://leetcode.com/problems/group-anagrams/> | Game: Pair Up (shared)
 - [x] `#347 Top K Frequent Elements` | <https://leetcode.com/problems/top-k-frequent-elements/> | Game: Top Pick
 - [x] `#238 Product of Array Except Self` | <https://leetcode.com/problems/product-of-array-except-self/> | Game: Power Line
-- [ ] `#36 Valid Sudoku` | <https://leetcode.com/problems/valid-sudoku/> | Game:
-- [ ] `#128 Longest Consecutive Sequence` | <https://leetcode.com/problems/longest-consecutive-sequence/> | Game:
+- [x] `#36 Valid Sudoku` | <https://leetcode.com/problems/valid-sudoku/> | Game: Spot Check
+- [x] `#128 Longest Consecutive Sequence` | <https://leetcode.com/problems/longest-consecutive-sequence/> | Game: Spot Check (shared)
 
 ### Two Pointers
 

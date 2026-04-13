@@ -3,3 +3,4 @@ commit	entropy	skill_depth	CI	drama	DE	IGR	algo_align	greedy_gap	insight_inflect
 2026-04-12	0.70	5	0	0.70	0.842	0	0.457	0.842	D3	keep	Tally	Hash Map	Flip/tally tiles to compare frequency distributions across two shelves (frequency counting)
 2026-04-12	0.72	5	0	0.75	0.235	0	1.0	0.235	D3	keep	Top Pick	Hash Map	Flip tiles to discover types, track frequencies, nominate the top K most common (hash map + top K extraction)
 2026-04-13	0.70	5	0	0.75	Inf	0	1.0	Inf	D3	keep	Power Line	Prefix/Suffix Products	Scan hidden power cells from both ends to map bypass power (prefix/suffix products)
+2026-04-13	0.68	5	0	0.72	0.62	0	1.0	0.62	D3	keep	Spot Check	Hash Set	Scan hidden radio towers to find interfering frequencies using hash set membership (set.has() per row/column/sector)
