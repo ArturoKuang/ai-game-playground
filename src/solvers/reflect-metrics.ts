@@ -1,0 +1,22 @@
+import { computeMetrics } from './Reflect.solver';
+
+const m = computeMetrics();
+console.log('=== Reflect Solver Metrics ===');
+console.log('Efficiency Gap (D3):', (m.efficiencyGap * 100).toFixed(1) + '%');
+console.log('Wasted Work Ratio (D3):', (m.wastedWork * 100).toFixed(1) + '%');
+console.log('Decision Density (D3 L5):', (m.decisionDensity * 100).toFixed(1) + '%');
+console.log('Algorithm Alignment (D3 L5):', (m.algorithmAlignment * 100).toFixed(1) + '%');
+console.log('Avg L2 reveals (D3):', m.avgL2Reveals.toFixed(1));
+console.log('Avg L5 reveals (D3):', m.avgL5Reveals.toFixed(1));
+console.log('L2 Win Rates:', m.l2WinRates.map((r, i) => 'D' + (i+1) + ':' + (r*100).toFixed(0) + '%').join(' '));
+console.log('L5 Win Rates:', m.l5WinRates.map((r, i) => 'D' + (i+1) + ':' + (r*100).toFixed(0) + '%').join(' '));
+console.log('Solvability (L5):', m.solvability.map((r, i) => 'D' + (i+1) + ':' + (r*100).toFixed(0) + '%').join(' '));
+console.log('Difficulty Breakpoint:', m.breakpoint === -1 ? 'none (L2 always wins)' : 'D' + m.breakpoint);
+console.log('');
+console.log('--- Auto-Kill Check ---');
+console.log('Solvability 100%?', m.solvability.every(s => s === 1) ? 'PASS' : 'FAIL');
+console.log('Efficiency Gap >= 20%?', m.efficiencyGap >= 0.20 ? 'PASS (' + (m.efficiencyGap*100).toFixed(1) + '%)' : m.efficiencyGap >= 0.15 ? 'WARN (' + (m.efficiencyGap*100).toFixed(1) + '%)' : 'FAIL (' + (m.efficiencyGap*100).toFixed(1) + '%)');
+console.log('Wasted Work >= 30%?', m.wastedWork >= 0.30 ? 'PASS (' + (m.wastedWork*100).toFixed(1) + '%)' : m.wastedWork >= 0.20 ? 'WARN (' + (m.wastedWork*100).toFixed(1) + '%)' : 'FAIL (' + (m.wastedWork*100).toFixed(1) + '%)');
+console.log('Breakpoint D3-D4?', (m.breakpoint >= 3 && m.breakpoint <= 4) ? 'PASS (D' + m.breakpoint + ')' : (m.breakpoint === 1 || m.breakpoint === -1) ? 'FAIL (D' + m.breakpoint + ')' : 'WARN (D' + m.breakpoint + ')');
+console.log('Decision Density > 60%?', m.decisionDensity > 0.60 ? 'PASS (' + (m.decisionDensity*100).toFixed(1) + '%)' : m.decisionDensity > 0.40 ? 'WARN (' + (m.decisionDensity*100).toFixed(1) + '%)' : 'FAIL (' + (m.decisionDensity*100).toFixed(1) + '%)');
+console.log('Algorithm Alignment >= 90%?', m.algorithmAlignment >= 0.90 ? 'PASS (' + (m.algorithmAlignment*100).toFixed(1) + '%)' : 'FAIL (' + (m.algorithmAlignment*100).toFixed(1) + '%)');

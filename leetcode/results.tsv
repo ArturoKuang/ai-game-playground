@@ -4,3 +4,5 @@ commit	entropy	skill_depth	CI	drama	DE	IGR	algo_align	greedy_gap	insight_inflect
 2026-04-12	0.72	5	0	0.75	0.235	0	1.0	0.235	D3	keep	Top Pick	Hash Map	Flip tiles to discover types, track frequencies, nominate the top K most common (hash map + top K extraction)
 2026-04-13	0.70	5	0	0.75	Inf	0	1.0	Inf	D3	keep	Power Line	Prefix/Suffix Products	Scan hidden power cells from both ends to map bypass power (prefix/suffix products)
 2026-04-13	0.68	5	0	0.72	0.62	0	1.0	0.62	D3	keep	Spot Check	Hash Set	Scan hidden radio towers to find interfering frequencies using hash set membership (set.has() per row/column/sector)
+2026-04-14	0.70	5	0	0.70	0.354	0	1.0	0.262	D3	keep	Reflect	Two Pointers	Reveal face-down tiles from both ends to detect palindromes with early-exit on mismatch (two-pointer convergence)
+2026-04-13	0.70	5	0	0.70	0.338	0	1.0	0.338	D2	kill	Equilibrium	Two Pointers (3Sum)	Fix anchor + converge two pointers on sorted array; killed: L2 non-monotonic (sum-guided inner loop identical to L5)

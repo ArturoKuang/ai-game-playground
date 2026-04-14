@@ -127,9 +127,9 @@ Done when every problem is `[x]` and every reused game has per-problem Concept B
 
 ### Two Pointers
 
-- [ ] `#125 Valid Palindrome` | <https://leetcode.com/problems/valid-palindrome/> | Game:
-- [ ] `#15 3Sum` | <https://leetcode.com/problems/3sum/> | Game:
-- [ ] `#11 Container With Most Water` | <https://leetcode.com/problems/container-with-most-water/> | Game:
+- [x] `#125 Valid Palindrome` | <https://leetcode.com/problems/valid-palindrome/> | Game: Reflect
+- [x] `#15 3Sum` | <https://leetcode.com/problems/3sum/> | Game: Reflect (shared)
+- [x] `#11 Container With Most Water` | <https://leetcode.com/problems/container-with-most-water/> | Game: Reflect (shared)
 
 ### Sliding Window
 

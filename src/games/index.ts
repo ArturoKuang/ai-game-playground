@@ -4,6 +4,7 @@ import Tally from './Tally';
 import TopPick from './TopPick';
 import PowerLine from './PowerLine';
 import SpotCheck from './SpotCheck';
+import Reflect from './Reflect';
 
 const games: GameMeta[] = [
   {
@@ -54,6 +55,16 @@ const games: GameMeta[] = [
     algorithm: 'Hash Set',
     tier: 1,
     leetcodeProblems: [36, 128],
+  },
+  {
+    id: 'reflect',
+    name: 'Reflect',
+    emoji: '🪞',
+    description: 'Reveal face-down tiles to check if each row is a palindrome — but energy is limited across all rounds. Checking from both ends lets you bail early on mismatches. Teaches Two Pointers (LC #125 Valid Palindrome) — the same converging-pointer technique used to check palindromes in O(n).',
+    component: Reflect,
+    algorithm: 'Two Pointers',
+    tier: 1,
+    leetcodeProblems: [125, 15, 11],
   },
 ];
 
