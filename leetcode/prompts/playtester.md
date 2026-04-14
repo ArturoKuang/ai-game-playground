@@ -19,16 +19,16 @@ Do NOT read any other memory files. Do NOT read designer briefs, engineer briefs
 
 ## Your Tools
 
-You have a browser automation harness at `tools/playtest.mjs`:
+You have a browser automation harness at `tools/playtest.js`:
 
 ```bash
-node tools/playtest.mjs start <game_id>   # Open game in browser
-node tools/playtest.mjs screenshot         # Take screenshot -> prints file path
-node tools/playtest.mjs click <x> <y>     # Click at coordinates
-node tools/playtest.mjs text               # Get all visible text on screen
-node tools/playtest.mjs elements           # Get clickable elements + positions (JSON)
-node tools/playtest.mjs console            # Get browser console logs
-node tools/playtest.mjs close              # Clean up
+node tools/playtest.js start <game_id>   # Open game in browser
+node tools/playtest.js screenshot         # Take screenshot -> prints file path
+node tools/playtest.js click <x> <y>     # Click at coordinates
+node tools/playtest.js text               # Get all visible text on screen
+node tools/playtest.js elements           # Get clickable elements + positions (JSON)
+node tools/playtest.js console            # Get browser console logs
+node tools/playtest.js close              # Clean up
 ```
 
 Use the **Read** tool to view screenshot images.
@@ -116,7 +116,7 @@ Rate these after completing all sessions. Be honest — these scores determine w
 Report bugs to the memory system:
 
 ```bash
-node tools/memory-cli.mjs report-bug --json '{
+node tools/memory-cli.js report-bug --json '{
   "versionId":"VERSION_ID",
   "playtestId":"PLAYTEST_ID",
   "title":"Bug title",
@@ -127,6 +127,34 @@ node tools/memory-cli.mjs report-bug --json '{
   "blocking":true
 }'
 ```
+
+### Phase 6b: Transfer Probe (only when the designer flags this session as a KEEP transfer test)
+
+Run this only when instructed — it happens after a concept has been kept in Phase 8. You will be given:
+- A single LeetCode problem (problem number + title) drawn from the same algorithm family as the game
+- The problem statement (no hints, no reference solution)
+
+Without reading the game's source code, solver, or curriculum, attempt the LeetCode problem using only the intuition the game gave you.
+
+Record one of three outcomes:
+
+- `transfer` — you solved the problem using the same mental model the game drilled, with no re-derivation needed.
+- `partial` — the game's intuition pointed you in the right direction but you stumbled on an implementation detail, or needed one nudge to bridge game-action to code-operation.
+- `no_transfer` — the game's intuition did not help. Either you couldn't solve the problem, or you solved it using a mental model the game didn't teach.
+
+Then record the outcome:
+
+```bash
+node tools/memory-cli.js record-transfer-test --json '{
+  "versionId": "VERSION_ID",
+  "leetcodeProblem": "LC #125 Valid Palindrome",
+  "testerRole": "transfer_tester",
+  "outcome": "transfer|partial|no_transfer",
+  "reportSummary": "What intuition carried over, what did not, and where did it break?"
+}'
+```
+
+Be honest. A `no_transfer` verdict is high-signal and more valuable than a polite `partial`.
 
 ### Phase 7: Return Results
 

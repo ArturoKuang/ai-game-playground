@@ -15,11 +15,11 @@ A **three-agent funnel** defined in **`leetcode/program.md`**:
 SQLite-backed memory tracking design cycles, metrics, playtest reports, and learned principles.
 
 - **Canonical store**: `memory/system.sqlite` (gitignored)
-- **CLI**: `node tools/memory-cli.mjs <command>`
+- **CLI**: `node tools/memory-cli.js <command>`
 - **Read surfaces**: `memory/*.md` (generated from SQLite)
 - **Spec**: `memory-system-spec.md` / `memory-erd.md`
 
-Initialize with: `node tools/memory-cli.mjs init`
+Initialize with: `node tools/memory-cli.js init`
 
 ## Quality Gates
 
@@ -30,6 +30,7 @@ Games must pass a **dual gate** — Algorithm Gate AND Fun Gate (see `leetcode/s
 - Efficiency Gap < 15%
 - Difficulty Breakpoint at D1 or D5
 - Difficulty Scaling monotonic
+- Algorithm Alignment >= 90% (L5 moves must match target algorithm pattern)
 - Playtester strategy matches target algorithm
 
 **Fun Gate** (iterate if any fails):
@@ -59,11 +60,11 @@ leetcode/
   specs/             -- one spec per game concept (_template.md, game-feel.md)
 memory/              -- SQLite store + generated markdown surfaces
 tools/
-  memory-cli.mjs     -- memory system CLI
+  memory-cli.js     -- memory system CLI
   memory/            -- memory system internals
-  playtest.mjs       -- browser automation harness
-  playtest-session.mjs
-  ralph-loop.mjs     -- autonomous loop runner
+  playtest.js       -- browser automation harness
+  playtest-session.js
+  ralph-loop.js     -- autonomous loop runner
 run-program.md       -- Blind 75 outer control loop
 memory-system-spec.md
 memory-erd.md

@@ -19,10 +19,10 @@ These have no prerequisites. Start here.
 | # | Topic | Algorithm Concept | Core Insight to Teach | Status |
 |---|---|---|---|---|
 | 1.1 | **Binary Search** | Halving search space | "Always cut the remaining space in half — don't scan linearly" | todo |
-| 1.2 | **Two Pointers** | Converging pointers on sorted data | "Two ends converging is O(n), not O(n^2)" | todo |
+| 1.2 | **Two Pointers** | Converging pointers on sorted data | "Two ends converging is O(n), not O(n^2)" | keep |
 | 1.3 | **Stack** | LIFO ordering / matching | "Most-recent-first processing solves nested structure problems" | todo |
 | 1.4 | **Sliding Window** | Variable-width window maintenance | "Expand right, shrink left — never restart from scratch" | todo |
-| 1.5 | **Hash Map** | O(1) lookup / frequency counting | "Trade space for time — precompute to avoid re-scanning" | todo |
+| 1.5 | **Hash Map** | O(1) lookup / frequency counting | "Trade space for time — precompute to avoid re-scanning" | keep |
 
 ## Tier 2: Data Structure Intuition
 

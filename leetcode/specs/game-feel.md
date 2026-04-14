@@ -46,6 +46,7 @@ A game must pass BOTH gates to ship.
 | A4 | **Wasted Work Ratio** | L2 spends ≥ 30% more moves than L5 at D3 | Solver |
 | A5 | **Difficulty Scaling** | L2 win rate drops monotonically D1→D5 | Solver |
 | A6 | **Strategy Match** | Playtester's evolved strategy matches target algorithm in plain English | Playtester report |
+| A7 | **Algorithm Alignment** | ≥ 90% of L5 moves match target algorithm pattern | Solver |
 
 ### Fun Gate (all must pass)
 
@@ -63,7 +64,6 @@ A game must pass BOTH gates to ship.
 ### Optional Diagnostics (not gates)
 
 These are available for debugging but do not block ship decisions:
-- **Algorithm Alignment** — % of L5 moves matching target algorithm pattern
 - **Counterintuitive Moves** — steps where heuristic worsens in optimal path
 - **Solvability** — sanity check, should always be 100%
 

@@ -13,20 +13,22 @@ Your specific mission: **design games where playing optimally naturally leads th
 Before starting any design work:
 
 1. Read `memory/designer_brief.md` — your retrieval brief with relevant principles, anti-patterns, and prior concept history
-2. Read `leetcode/curriculum.md` — the algorithm topic map
-3. Read `leetcode/learnings.md` — what's been tried, what works, what fails
-4. Read `leetcode/results.tsv` — experiment log
-5. Read `leetcode/specs/` — existing specs (avoid retreading)
+2. Read `memory/portfolio_review.md` — **Portfolio Critique**: mechanic family distribution across kept games. Surface any homogeneity warnings before brainstorming.
+3. Read `memory/contradictions.md` — principles that newer evidence has challenged. Do not build on contested beliefs.
+4. Read `leetcode/curriculum.md` — the algorithm topic map
+5. Read `leetcode/learnings.md` — what's been tried, what works, what fails
+6. Read `leetcode/results.tsv` — experiment log
+7. Read `leetcode/specs/` — existing specs (avoid retreading)
 
 After your work, record your outputs to the memory system:
 
 ```bash
 # Record concept
-node tools/memory-cli.mjs upsert-concept --json '{...}'
+node tools/memory-cli.js upsert-concept --json '{...}'
 # Record version with hypothesis
-node tools/memory-cli.mjs create-version --json '{...}'
+node tools/memory-cli.js create-version --json '{...}'
 # Record predicted scorecard
-node tools/memory-cli.mjs write-scorecard --json '{...}'
+node tools/memory-cli.js write-scorecard --json '{...}'
 ```
 
 ---
@@ -36,9 +38,11 @@ node tools/memory-cli.mjs write-scorecard --json '{...}'
 ### Phase 1: Brainstorm & Filter
 
 1. **Pick 1-2 algorithm topics** from `curriculum.md` (status = `todo`, prerequisites met).
-2. **For each topic, brainstorm 3-5 game concepts.** For each, write a 2-sentence description of the core mechanic and HOW it maps to the algorithm.
-3. **Filter each concept** through the five litmus tests below. Kill any that fail.
-4. **Output 1-2 surviving specs** as files in `leetcode/specs/<game-name>.md`.
+2. **Check the Portfolio Critique** (`memory/portfolio_review.md`). Identify the dominant mechanic family and which families appear in the last 2 keeps. You are subject to the **Diversity Constraint**: if your first brainstorm pick uses a mechanic family that dominates the last 2 keeps, either pick a different family or justify in the spec why repeating teaches a genuinely different insight.
+3. **For each topic, brainstorm 3-5 game concepts.** For each, write a 2-sentence description of the core mechanic and HOW it maps to the algorithm.
+4. **Filter each concept** through the five litmus tests below. Kill any that fail.
+5. **For each survivor, declare the Mechanic Family and the Solver Strategies** — the spec must include both sections before handoff. Run `node tools/memory-cli.js check-solver-diff --spec leetcode/specs/<game>.md` and iterate until it passes. The engineer will not build until the gate passes.
+6. **Output 1-2 surviving specs** as files in `leetcode/specs/<game-name>.md`.
 
 ### Phase 2: Decide (after engineer + playtester)
 
@@ -130,6 +134,8 @@ For algorithm games: the player must not be able to evaluate moves in isolation.
 ## What You Read
 
 - `memory/designer_brief.md` — retrieval brief (read FIRST)
+- `memory/portfolio_review.md` — Portfolio Critique (mechanic family distribution across keeps)
+- `memory/contradictions.md` — principles with contradicting evidence
 - `leetcode/specs/game-feel.md` — fun/polish spec, evaluation gates, juice checklist
 - `leetcode/curriculum.md` — topic map and progression
 - `leetcode/learnings.md` — algorithm game design learnings
@@ -141,3 +147,32 @@ For algorithm games: the player must not be able to evaluate moves in isolation.
 - Source code (`src/` directory)
 - Solver implementations
 - Implementation details of any kind
+
+---
+
+## Diversity Constraint (new)
+
+Before adopting a concept as a spec, check `memory/portfolio_review.md`:
+
+- If the dominant mechanic family's share is ≥ 60% of kept games AND your concept uses that same family, you must either switch to a different family or document a **clear insight-level reason** why repeating teaches something the prior games didn't. "It's a proven template" is not enough — that reasoning is what produced the homogeneity.
+- If the last 2 keeps both use mechanic X, this cycle may not output a spec that also uses X without an override note in the spec's `## Mechanic Family` section.
+
+This is a hard constraint on the designer's output, not a soft suggestion. The orchestrator should reject specs that violate it without justification.
+
+---
+
+## Solver Strategies Gate (new)
+
+Every spec must include a `## Solver Strategies` section declaring L2 (wrong strategy) and L5 (optimal strategy) as structurally different. Run the check before handoff:
+
+```bash
+node tools/memory-cli.js check-solver-diff --spec leetcode/specs/<game>.md
+```
+
+If it fails, iterate until it passes. Common failure modes:
+
+- L2 and L5 share the same Approach / Information access / Termination — L2 is just L5 with worse constants
+- L2 approach description leaks L5 algorithm keywords (Equilibrium-style trap)
+- Fewer than 2 concrete structural differences declared
+
+This gate blocks build. The engineer will not start until the gate is green.

@@ -7,6 +7,11 @@
 ## Rules
 <2 sentences max.>
 
+## Mechanic Family
+<One of: hidden-reveal | visible-sort | route-trace | match-pair | constraint-satisfy | stack-match | classify-sequence | window-scan | graph-explore. This becomes the `mechanic:<family>` tag.>
+
+<If the same family is in the last 2 keeps (check `memory/portfolio_review.md`), explain why repeating it teaches a genuinely different insight — otherwise pick a different family.>
+
 ## Mechanic Type
 <Constraint Satisfaction | Optimization | Hybrid>
 
@@ -32,6 +37,29 @@
 ### Not a Quiz Test
 <Why this feels like a puzzle, not a coding exercise.>
 
+## Solver Strategies
+
+_Engineer runs `node tools/memory-cli.js check-solver-diff --spec <this-file>` before building._
+_This section MUST declare L2 and L5 as structurally different strategies — not the same algorithm with different heuristics._
+
+### L2 (Wrong Strategy)
+- Name: <slug — distinct from L5>
+- Approach: <one-line description>
+- Information access: <how it reads the board>
+- Termination: <when it stops>
+
+### L5 (Optimal Strategy)
+- Name: <slug — distinct from L2>
+- Approach: <one-line description>
+- Information access: <how it reads the board>
+- Termination: <when it stops>
+- Algorithm keyword: <comma-separated, e.g. "two-pointer, early-exit, convergence">
+
+### Structural Differences
+- <diff 1 — behavioral, not tuning>
+- <diff 2>
+- <diff 3>
+
 ## Predicted Failure Mode
 <Most likely death. Which anti-pattern.>
 
@@ -45,6 +73,7 @@
 | Efficiency Gap (L5 vs L2) | | |
 | Wasted Work Ratio (L2 extra moves at D3) | | |
 | Difficulty Scaling (L2 monotonic decline) | | |
+| Algorithm Alignment (L5 moves match target, ≥ 90%) | | |
 
 ### Fun Gate
 | Gate | Prediction | Reasoning |
@@ -83,5 +112,13 @@ What triggers it, what the player sees, why it feels good.>
 ## Solver Metrics
 
 ## Play Report
+
+## Transfer Probe
+
+_Filled after KEEP decision. Playtester is given a fresh LeetCode problem in the same family and reports whether the game's intuition transferred._
+
+- LeetCode problem:
+- Outcome: transfer | partial | no_transfer
+- Notes:
 
 ## Decision

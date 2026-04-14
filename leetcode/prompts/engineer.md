@@ -15,23 +15,35 @@ After your work, record outputs to the memory system:
 
 ```bash
 # Record artifacts
-node tools/memory-cli.mjs write-artifact --json '{...}'
+node tools/memory-cli.js write-artifact --json '{...}'
 # Record actual scorecard
-node tools/memory-cli.mjs write-scorecard --json '{...}'
+node tools/memory-cli.js write-scorecard --json '{...}'
 ```
 
 ---
 
 ## Your Responsibilities
 
-### 1. Read the Spec
+### 1. Read the Spec + Pass Solver-Diff Gate
 
-Read the spec file from `leetcode/specs/<game-name>.md`. It contains:
+Read the spec file from `leetcode/specs/<game-name>.md`. It must contain:
 - Algorithm target and core insight
 - Rules (2 sentences)
+- Mechanic Family (e.g. `hidden-reveal`)
 - Algorithm-mechanic mapping
+- **Solver Strategies** (L2 + L5 structural declarations)
 - Expected metrics
 - Difficulty progression
+
+**Before writing any code**, run the solver-diff gate:
+
+```bash
+node tools/memory-cli.js check-solver-diff --spec leetcode/specs/<game-name>.md
+```
+
+If it exits non-zero, do not build. Send the spec back to the designer with the errors attached. Building against a failed gate is wasted work — the game's efficiency gap will collapse and the concept will auto-kill in the metrics pass.
+
+Your L2 and L5 solvers must implement exactly the strategies declared in the spec's Solver Strategies section. If during implementation you discover the declared strategies don't actually differ in code behavior (not just in description), stop and escalate — this is an Equilibrium-style failure and it needs a spec revision, not a build-through.
 
 ### 2. Build Prototype + Solver
 
@@ -80,6 +92,7 @@ Run the solver against 5 generated puzzles at all 5 difficulty levels x all 5 sk
 | A3 | **Efficiency Gap** | `(L2_moves - L5_moves) / L2_moves` averaged across puzzles at D3 | ≥ 0.20 |
 | A4 | **Wasted Work Ratio** | `(L2_moves - L5_moves) / L5_moves` averaged across puzzles at D3 | ≥ 0.30 |
 | A5 | **Difficulty Scaling** | L2 win rate at each difficulty level D1→D5 | Monotonic decrease |
+| A6 | **Algorithm Alignment** | `% of L5 moves matching target algorithm pattern` across puzzles at D3 | ≥ 0.90 |
 
 #### Fun Gate Metrics (solver-computable, all must pass)
 
@@ -93,7 +106,6 @@ The remaining Fun Gate metrics (F1-F6, F8) come from the playtester and the juic
 
 | Metric | How to Compute | Notes |
 |---|---|---|
-| **Algorithm Alignment** | % of L5 moves matching target algorithm pattern | Useful for debugging strategy drift |
 | **Counterintuitive Moves** | Steps where `heuristic(next) > heuristic(current)` in optimal path | Useful for non-greedy topics |
 | **Solvability** | solved_count / total at L5 | Sanity check, must be 100% |
 
@@ -126,17 +138,28 @@ The remaining Fun Gate metrics (F1-F6, F8) come from the playtester and the juic
 | Breakpoint at D1 | Too hard from the start |
 | Breakpoint at D5 or never | Target approach never becomes necessary |
 | Decision Density < 40% | Game plays itself — not enough real choices |
+| Algorithm Alignment < 0.90 | L5 move pattern doesn't match target algorithm |
 
 **Warnings** (flag to designer, don't auto-kill):
 
 | Condition | Meaning |
 |---|---|
-| Algorithm Alignment < 50% | L5 move pattern drifting from target |
 | Counterintuitive Moves = 0 (non-greedy topics) | Wrong strategy may not fail visibly |
 
 ### 5. Report Metrics
 
-Append a `## Solver Metrics` section to the spec. Commit the prototype:
+Append a `## Solver Metrics` section to the spec. When creating the concept version record, **include the declared mechanic family as a tag** so the Portfolio Critic can classify this version:
+
+```bash
+node tools/memory-cli.js create-version --json '{
+  "conceptId": "...",
+  "runId": "...",
+  "hypothesis": "...",
+  "tags": ["mechanic:<family-from-spec>", "<algorithm-family>"]
+}'
+```
+
+Commit the prototype:
 
 ```bash
 git add -A && git commit -m "prototype: <GameName> — <algorithm topic> — <one-line mechanic>"
