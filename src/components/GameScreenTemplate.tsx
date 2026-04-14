@@ -28,6 +28,7 @@ export type GameTemplateLink = {
   id: string | number;
   title: string;
   url: string;
+  description?: string;
 };
 
 export type GameTemplateConceptBridge = {
@@ -193,9 +194,16 @@ export default function GameScreenTemplate({
                     onPress={() => void Linking.openURL(link.url)}
                     style={styles.linkRow}
                   >
-                    <Text style={styles.linkId}>#{link.id}</Text>
-                    <Text style={styles.linkTitle}>{link.title}</Text>
-                    <Text style={styles.linkArrow}>{'\u203a'}</Text>
+                    <View style={styles.linkContent}>
+                      <View style={styles.linkHeader}>
+                        <Text style={styles.linkId}>#{link.id}</Text>
+                        <Text style={styles.linkTitle}>{link.title}</Text>
+                        <Text style={styles.linkArrow}>{'\u203a'}</Text>
+                      </View>
+                      {link.description ? (
+                        <Text style={styles.linkDescription}>{link.description}</Text>
+                      ) : null}
+                    </View>
                   </Pressable>
                 ))}
               </View>
@@ -411,15 +419,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   linkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#1e1e22',
     backgroundColor: '#0a0a0b',
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  linkContent: {
+    gap: 6,
+  },
+  linkHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   linkId: {
     color: '#60a5fa',
@@ -438,5 +451,10 @@ const styles = StyleSheet.create({
     color: '#4b5563',
     fontSize: 22,
     lineHeight: 22,
+  },
+  linkDescription: {
+    color: '#9aa0a6',
+    fontSize: 12,
+    lineHeight: 17,
   },
 });

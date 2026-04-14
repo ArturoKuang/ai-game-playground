@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import CelebrationBurst from './CelebrationBurst';
 import { THEME } from '../utils/colors';
 
@@ -14,6 +14,8 @@ type Props = {
   detail?: string;
   /** Accent color for the score text */
   accentColor?: string;
+  /** Called when the user dismisses the overlay */
+  onDismiss?: () => void;
   /** Extra content below the score card (buttons, etc.) */
   children?: React.ReactNode;
 };
@@ -28,6 +30,7 @@ export default function WinOverlay({
   score,
   detail,
   accentColor = '#4ade80',
+  onDismiss,
   children,
 }: Props) {
   const backdropOpacity = useRef(new Animated.Value(0)).current;
@@ -73,22 +76,27 @@ export default function WinOverlay({
       pointerEvents="box-only"
     >
       <CelebrationBurst show={show} />
-      <Animated.View
-        style={[
-          styles.card,
-          {
-            opacity: cardOpacity,
-            transform: [{ scale: cardScale }],
-          },
-        ]}
-      >
-        <Text style={styles.title}>{title}</Text>
-        {score ? (
-          <Text style={[styles.score, { color: accentColor }]}>{score}</Text>
-        ) : null}
-        {detail ? <Text style={styles.detail}>{detail}</Text> : null}
-        {children}
-      </Animated.View>
+      <Pressable onPress={onDismiss} style={styles.dismissArea}>
+        <Animated.View
+          style={[
+            styles.card,
+            {
+              opacity: cardOpacity,
+              transform: [{ scale: cardScale }],
+            },
+          ]}
+        >
+          <Text style={styles.title}>{title}</Text>
+          {score ? (
+            <Text style={[styles.score, { color: accentColor }]}>{score}</Text>
+          ) : null}
+          {detail ? <Text style={styles.detail}>{detail}</Text> : null}
+          {children}
+          {onDismiss ? (
+            <Text style={styles.dismissHint}>Tap to continue</Text>
+          ) : null}
+        </Animated.View>
+      </Pressable>
     </Animated.View>
   );
 }
@@ -125,5 +133,14 @@ const styles = StyleSheet.create({
     color: THEME.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  dismissArea: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dismissHint: {
+    fontSize: 13,
+    color: THEME.textMuted,
+    marginTop: 6,
   },
 });
