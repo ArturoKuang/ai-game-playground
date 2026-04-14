@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable, FlatList, SectionList } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
@@ -41,19 +41,88 @@ const CURRICULUM_TOPICS = [
 
 /* ── Home Screen ── */
 
-type Section = {
+type TopicData = { topic: string; games: GameMeta[] };
+
+type TierData = {
   tier: number;
   title: string;
   color: string;
   bg: string;
-  data: { topic: string; game: GameMeta | null }[];
+  topics: TopicData[];
 };
 
+function TopicAccordion({
+  item,
+  navigation,
+}: {
+  item: TopicData;
+  navigation: any;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const hasGames = item.games.length > 0;
+
+  if (!hasGames) {
+    return (
+      <View style={styles.lockedRow}>
+        <View style={[styles.statusDot, { backgroundColor: '#3a3a3c' }]} />
+        <Text style={styles.lockedTopic}>{item.topic}</Text>
+        <Text style={styles.lockedLabel}>todo</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View>
+      <Pressable
+        style={styles.topicRowExpandable}
+        onPress={() => setExpanded((v) => !v)}
+      >
+        <View style={[styles.statusDot, { backgroundColor: '#4ade80' }]} />
+        <Text style={styles.topicNameActive}>{item.topic}</Text>
+        <Text style={styles.topicGameCount}>{item.games.length}</Text>
+        <Text style={styles.chevron}>{expanded ? '\u25B4' : '\u25BE'}</Text>
+      </Pressable>
+      {expanded &&
+        item.games.map((game) => (
+          <Pressable
+            key={game.id}
+            style={styles.gameCard}
+            onPress={() => navigation.navigate('Game', { gameId: game.id })}
+          >
+            <View style={styles.gameCardLeft}>
+              <Text style={styles.gameEmoji}>{game.emoji}</Text>
+              <View style={styles.gameInfo}>
+                <Text style={styles.gameName}>{game.name}</Text>
+                <Text style={styles.gameDesc} numberOfLines={1}>
+                  {game.description}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.gameCardRight}>
+              {game.leetcodeProblems && game.leetcodeProblems.length > 0 && (
+                <View style={styles.lcBadge}>
+                  <Text style={styles.lcBadgeText}>
+                    {game.leetcodeProblems.length} LC
+                  </Text>
+                </View>
+              )}
+              <Text style={styles.cardArrow}>{'\u203a'}</Text>
+            </View>
+          </Pressable>
+        ))}
+    </View>
+  );
+}
+
 function HomeScreen({ navigation }: any) {
-  const sections: Section[] = useMemo(() => {
-    const gamesByAlgo = new Map<string, GameMeta>();
+  const tiers: TierData[] = useMemo(() => {
+    const gamesByAlgo = new Map<string, GameMeta[]>();
     for (const g of games) {
-      if (g.algorithm) gamesByAlgo.set(g.algorithm, g);
+      if (g.algorithm) {
+        const list = gamesByAlgo.get(g.algorithm) ?? [];
+        list.push(g);
+        gamesByAlgo.set(g.algorithm, list);
+      }
     }
 
     return CURRICULUM_TOPICS.map(({ tier, topics }) => {
@@ -63,16 +132,16 @@ function HomeScreen({ navigation }: any) {
         title: cfg.label,
         color: cfg.color,
         bg: cfg.bg,
-        data: topics.map((topic) => ({
+        topics: topics.map((topic) => ({
           topic,
-          game: gamesByAlgo.get(topic) ?? null,
+          games: gamesByAlgo.get(topic) ?? [],
         })),
       };
     });
   }, []);
 
   const totalTopics = CURRICULUM_TOPICS.reduce((s, t) => s + t.topics.length, 0);
-  const completedTopics = games.filter((g) => g.algorithm).length;
+  const completedTopics = new Set(games.filter((g) => g.algorithm).map((g) => g.algorithm)).size;
 
   return (
     <View style={styles.home}>
@@ -100,9 +169,8 @@ function HomeScreen({ navigation }: any) {
         </View>
       </View>
 
-      {games.length === 0 ? (
-        /* Empty state when no games exist yet */
-        <View style={styles.emptyContainer}>
+      <ScrollView contentContainerStyle={styles.listContent}>
+        {games.length === 0 && (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyIcon}>{'{ }'}</Text>
             <Text style={styles.emptyTitle}>No games yet</Text>
@@ -115,89 +183,29 @@ function HomeScreen({ navigation }: any) {
               </Text>
             </View>
           </View>
+        )}
 
-          {/* Show curriculum roadmap even when empty */}
-          <Text style={styles.roadmapTitle}>Curriculum Roadmap</Text>
-          <SectionList
-            sections={sections}
-            keyExtractor={(item) => item.topic}
-            stickySectionHeadersEnabled={false}
-            renderSectionHeader={({ section }) => (
-              <View style={[styles.sectionHeader, { backgroundColor: section.bg }]}>
-                <View style={[styles.tierDot, { backgroundColor: section.color }]} />
-                <Text style={[styles.sectionTitle, { color: section.color }]}>
-                  {section.title}
-                </Text>
-              </View>
-            )}
-            renderItem={({ item, section }) => (
-              <View style={styles.topicRow}>
-                <View style={[styles.statusDot, { backgroundColor: '#3a3a3c' }]} />
-                <Text style={styles.topicName}>{item.topic}</Text>
-                <Text style={styles.topicStatus}>todo</Text>
-              </View>
-            )}
-          />
-        </View>
-      ) : (
-        /* Game list organized by tier */
-        <SectionList
-          sections={sections}
-          keyExtractor={(item) => item.topic}
-          stickySectionHeadersEnabled={false}
-          contentContainerStyle={styles.listContent}
-          renderSectionHeader={({ section }) => (
-            <View style={[styles.sectionHeader, { backgroundColor: section.bg }]}>
-              <View style={[styles.tierDot, { backgroundColor: section.color }]} />
-              <Text style={[styles.sectionTitle, { color: section.color }]}>
-                {section.title}
+        {tiers.map((tier) => (
+          <View key={tier.tier}>
+            <View style={[styles.sectionHeader, { backgroundColor: tier.bg }]}>
+              <View style={[styles.tierDot, { backgroundColor: tier.color }]} />
+              <Text style={[styles.sectionTitle, { color: tier.color }]}>
+                {tier.title}
               </Text>
               <Text style={styles.sectionCount}>
-                {section.data.filter((d) => d.game).length}/{section.data.length}
+                {tier.topics.filter((t) => t.games.length > 0).length}/{tier.topics.length}
               </Text>
             </View>
-          )}
-          renderItem={({ item, section }) => {
-            if (item.game) {
-              return (
-                <Pressable
-                  style={styles.gameCard}
-                  onPress={() => navigation.navigate('Game', { gameId: item.game!.id })}
-                >
-                  <View style={styles.gameCardLeft}>
-                    <Text style={styles.gameEmoji}>{item.game.emoji}</Text>
-                    <View style={styles.gameInfo}>
-                      <Text style={styles.gameName}>{item.game.name}</Text>
-                      <Text style={styles.gameAlgo}>{item.topic}</Text>
-                      <Text style={styles.gameDesc} numberOfLines={1}>
-                        {item.game.description}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.gameCardRight}>
-                    {item.game.leetcodeProblems && item.game.leetcodeProblems.length > 0 && (
-                      <View style={styles.lcBadge}>
-                        <Text style={styles.lcBadgeText}>
-                          {item.game.leetcodeProblems.length} LC
-                        </Text>
-                      </View>
-                    )}
-                    <Text style={styles.cardArrow}>{'\u203a'}</Text>
-                  </View>
-                </Pressable>
-              );
-            }
-
-            return (
-              <View style={styles.lockedRow}>
-                <View style={[styles.statusDot, { backgroundColor: '#3a3a3c' }]} />
-                <Text style={styles.lockedTopic}>{item.topic}</Text>
-                <Text style={styles.lockedLabel}>todo</Text>
-              </View>
-            );
-          }}
-        />
-      )}
+            {tier.topics.map((item) => (
+              <TopicAccordion
+                key={item.topic}
+                item={item}
+                navigation={navigation}
+              />
+            ))}
+          </View>
+        ))}
+      </ScrollView>
       <StatusBar style="light" />
     </View>
   );
@@ -301,10 +309,6 @@ const styles = StyleSheet.create({
   },
 
   /* ── Empty state ── */
-  emptyContainer: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
   emptyCard: {
     backgroundColor: '#141416',
     borderRadius: 18,
@@ -313,6 +317,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#1e1e22',
     marginBottom: 28,
+    marginHorizontal: 20,
   },
   emptyIcon: {
     fontSize: 36,
@@ -346,13 +351,6 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     color: '#4ade80',
   },
-  roadmapTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#ffffff',
-    marginBottom: 14,
-  },
-
   /* ── Section headers ── */
   sectionHeader: {
     flexDirection: 'row',
@@ -382,8 +380,8 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
 
-  /* ── Topic rows (locked / todo) ── */
-  topicRow: {
+  /* ── Topic rows ── */
+  topicRowExpandable: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
@@ -398,18 +396,21 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginRight: 12,
   },
-  topicName: {
+  topicNameActive: {
     flex: 1,
-    color: '#6b7280',
+    color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
   },
-  topicStatus: {
-    color: '#3a3a3c',
+  topicGameCount: {
+    color: '#6b7280',
     fontSize: 12,
     fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    marginRight: 8,
+  },
+  chevron: {
+    color: '#6b7280',
+    fontSize: 14,
   },
   lockedRow: {
     flexDirection: 'row',
@@ -468,12 +469,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     color: '#ffffff',
-  },
-  gameAlgo: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#4ade80',
-    marginTop: 1,
   },
   gameDesc: {
     fontSize: 12,
