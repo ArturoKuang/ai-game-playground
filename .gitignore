@@ -46,3 +46,9 @@ memory/*.sqlite*
 # loop runner artifacts
 ralph-loop.log
 ralph-loop.pid
+
+# agent worktrees
+.claude/worktrees/
+
+# playtest screenshots
+playtest-*.png
