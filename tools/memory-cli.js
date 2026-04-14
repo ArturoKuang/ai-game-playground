@@ -2,8 +2,9 @@
 
 import fs from 'node:fs';
 
-import { DEFAULT_DB_PATH } from './memory/config.mjs';
-import { renderMarkdownSurfaces } from './memory/render.mjs';
+import { DEFAULT_DB_PATH } from './memory/config.js';
+import { renderMarkdownSurfaces } from './memory/render.js';
+import { checkSolverDiff } from './memory/solver_diff.js';
 import {
   addPrincipleEvidence,
   auditRetrievalBrief,
@@ -13,45 +14,58 @@ import {
   createRetrievalBrief,
   createRun,
   createScorecard,
+  detectContradictions,
+  distillRun,
   finishRun,
   getBugDetails,
   getBriefDetails,
   initializeMemorySystem,
   listBugs,
+  portfolioReview,
+  recentMechanicFamilies,
   recordCycle,
   recordBugfix,
   recordDecision,
   recordQaRetest,
+  recordTransferTest,
   reportBug,
   recomputeBeliefs,
   upsertConcept,
   upsertPrinciple,
+  validateRun,
   withDatabase,
-} from './memory/service.mjs';
+} from './memory/service.js';
 
 function usage() {
   console.error(`Usage:
-  node tools/memory-cli.mjs init [--db path]
-  node tools/memory-cli.mjs create-run --json '{...}'
-  node tools/memory-cli.mjs finish-run --json '{...}'
-  node tools/memory-cli.mjs upsert-concept --json '{...}'
-  node tools/memory-cli.mjs create-version --json '{...}'
-  node tools/memory-cli.mjs record-decision --json '{...}'
-  node tools/memory-cli.mjs write-scorecard --json '{...}'
-  node tools/memory-cli.mjs write-playtest --json '{...}'
-  node tools/memory-cli.mjs report-bug --json '{...}'
-  node tools/memory-cli.mjs record-bugfix --json '{...}'
-  node tools/memory-cli.mjs record-qa-retest --json '{...}'
-  node tools/memory-cli.mjs list-bugs [--json '{...}']
-  node tools/memory-cli.mjs show-bug --json '{"bugId":"..."}'
-  node tools/memory-cli.mjs write-artifact --json '{...}'
-  node tools/memory-cli.mjs upsert-principle --json '{...}'
-  node tools/memory-cli.mjs add-evidence --json '{...}'
-  node tools/memory-cli.mjs recompute-beliefs [--json '{"namespace":"..."}']
-  node tools/memory-cli.mjs create-brief --json '{...}'
-  node tools/memory-cli.mjs audit-brief --json '{...}'
-  node tools/memory-cli.mjs render [--json '{"runId":"..."}']
-  node tools/memory-cli.mjs record-cycle --json '{...}'
+  node tools/memory-cli.js init [--db path]
+  node tools/memory-cli.js create-run --json '{...}'
+  node tools/memory-cli.js finish-run --json '{...}'
+  node tools/memory-cli.js upsert-concept --json '{...}'
+  node tools/memory-cli.js create-version --json '{...}'
+  node tools/memory-cli.js record-decision --json '{...}'
+  node tools/memory-cli.js write-scorecard --json '{...}'
+  node tools/memory-cli.js write-playtest --json '{...}'
+  node tools/memory-cli.js report-bug --json '{...}'
+  node tools/memory-cli.js record-bugfix --json '{...}'
+  node tools/memory-cli.js record-qa-retest --json '{...}'
+  node tools/memory-cli.js list-bugs [--json '{...}']
+  node tools/memory-cli.js show-bug --json '{"bugId":"..."}'
+  node tools/memory-cli.js write-artifact --json '{...}'
+  node tools/memory-cli.js upsert-principle --json '{...}'
+  node tools/memory-cli.js add-evidence --json '{...}'
+  node tools/memory-cli.js recompute-beliefs [--json '{"namespace":"..."}']
+  node tools/memory-cli.js create-brief --json '{...}'
+  node tools/memory-cli.js audit-brief --json '{...}'
+  node tools/memory-cli.js render [--json '{"runId":"..."}']
+  node tools/memory-cli.js validate-run --json '{"runId":"..."}'
+  node tools/memory-cli.js distill --json '{"runId":"..."}'
+  node tools/memory-cli.js record-cycle --json '{...}'
+  node tools/memory-cli.js portfolio-review [--json '{"namespace":"..."}']
+  node tools/memory-cli.js recent-mechanics [--json '{"namespace":"...","limit":2}']
+  node tools/memory-cli.js detect-contradictions [--json '{"namespace":"..."}']
+  node tools/memory-cli.js record-transfer-test --json '{"versionId":"...","leetcodeProblem":"LC #125 Valid Palindrome","outcome":"transfer|partial|no_transfer","reportSummary":"..."}'
+  node tools/memory-cli.js check-solver-diff --spec leetcode/specs/<game>.md
 `);
 }
 
@@ -104,6 +118,18 @@ try {
     process.exit(0);
   }
 
+  // check-solver-diff is a pure file parser — no DB access needed.
+  if (command === 'check-solver-diff') {
+    const specPath = options.spec;
+    if (!specPath && !options.text) {
+      console.error('check-solver-diff: pass --spec <path> or --text <inline>.');
+      process.exit(2);
+    }
+    const result = checkSolverDiff({ specPath, specText: options.text });
+    print(result);
+    process.exit(result.valid ? 0 : 1);
+  }
+
   const payload = loadPayload(options);
 
   const result = withDatabase(dbPath, (db) => {
@@ -125,9 +151,15 @@ try {
     if (command === 'create-brief') return createRetrievalBrief(db, payload);
     if (command === 'audit-brief') return auditRetrievalBrief(db, payload);
     if (command === 'render') return renderMarkdownSurfaces(db, payload);
+    if (command === 'validate-run') return validateRun(db, payload);
+    if (command === 'distill') return distillRun(db, payload);
     if (command === 'record-cycle') return recordCycle(db, payload);
     if (command === 'show-brief') return getBriefDetails(db, payload.briefId);
     if (command === 'show-bug') return getBugDetails(db, payload.bugId);
+    if (command === 'portfolio-review') return portfolioReview(db, payload);
+    if (command === 'recent-mechanics') return recentMechanicFamilies(db, payload);
+    if (command === 'detect-contradictions') return detectContradictions(db, payload);
+    if (command === 'record-transfer-test') return recordTransferTest(db, payload);
     throw new Error(`Unknown command: ${command}`);
   });
 

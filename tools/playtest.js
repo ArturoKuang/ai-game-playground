@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * playtest.mjs — Session-based Puppeteer CLI for playtesting Puzzle Lab games.
+ * playtest.js — Session-based Puppeteer CLI for playtesting Puzzle Lab games.
  *
  * Usage:
- *   node tools/playtest.mjs start <game_id>   Launch browser, navigate to game
- *   node tools/playtest.mjs screenshot         Save screenshot, print path
- *   node tools/playtest.mjs click <x> <y>     Click at viewport coordinates
- *   node tools/playtest.mjs text               Get all visible text
- *   node tools/playtest.mjs elements           Get interactive elements + bounding boxes
- *   node tools/playtest.mjs console            Get captured console logs
- *   node tools/playtest.mjs close              Kill browser session
+ *   node tools/playtest.js start <game_id>   Launch browser, navigate to game
+ *   node tools/playtest.js screenshot         Save screenshot, print path
+ *   node tools/playtest.js click <x> <y>     Click at viewport coordinates
+ *   node tools/playtest.js text               Get all visible text
+ *   node tools/playtest.js elements           Get interactive elements + bounding boxes
+ *   node tools/playtest.js console            Get captured console logs
+ *   node tools/playtest.js close              Kill browser session
  *
  * Session state is stored via the browser's WebSocket endpoint in $TMPDIR/playtest-ws.txt.
  * The `start` command launches a browser; subsequent commands reconnect to it.
@@ -304,7 +304,7 @@ switch (command) {
     await cmdClose();
     break;
   default:
-    console.log(`Usage: playtest.mjs <command> [args]
+    console.log(`Usage: playtest.js <command> [args]
 
 Commands:
   start <game_id>   Launch browser, navigate to game (e.g., "floodfill")

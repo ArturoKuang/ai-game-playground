@@ -69,7 +69,7 @@ For **each** game that passed auto-kill, spawn a **Playtester agent** (`subagent
 > You are an independent playtester. Read and internalize `tools/review-prompt.md` — that is your identity and process.
 >
 > Play the game `<GameName>`. Follow the workflow in your prompt exactly:
-> 1. Start the game with `node tools/playtest.mjs start <game_id>`
+> 1. Start the game with `node tools/playtest.js start <game_id>`
 > 2. Play 3 sessions (intuitive, strategic, exploratory)
 > 3. Run the bug check
 > 4. Return the full BLIND PLAY REPORT

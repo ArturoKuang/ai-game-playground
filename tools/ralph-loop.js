@@ -7,23 +7,24 @@
  * per outer-loop pass. Each pass picks the next unchecked problem and runs
  * one full design cycle.
  *
- * Defaults: Opus 4.6, effort high. Override with flags.
+ * Defaults: Opus 4.6, effort max. Runs forever by default — keeps looping
+ * past Blind 75 completion and through failed passes. Stop with Ctrl-C.
  *
  * Usage:
- *   node tools/ralph-loop.mjs [options]
+ *   node tools/ralph-loop.js [options]
  *
  * Options:
  *   --delay-ms <n>         Pause between passes (ms). Default: 3000
- *   --max-iterations <n>   Stop after n passes. Default: unlimited
+ *   --max-iterations <n>   Stop after n passes. Default: infinite
  *   --model <name>         Model. Default: opus
- *   --effort <level>       Effort level (low|medium|high|max). Default: high
+ *   --effort <level>       Effort level (low|medium|high|max). Default: max
  *   --allowedTools <list>  Comma-separated tool allow list. Default: all
  *   -h, --help             Show help
  *
  * Examples:
- *   node tools/ralph-loop.mjs
- *   node tools/ralph-loop.mjs --max-iterations 5
- *   node tools/ralph-loop.mjs --effort max --delay-ms 5000
+ *   node tools/ralph-loop.js
+ *   node tools/ralph-loop.js --max-iterations 5
+ *   node tools/ralph-loop.js --effort max --delay-ms 5000
  */
 
 import { readFile, appendFile } from 'node:fs/promises';
@@ -41,7 +42,7 @@ function parseArgs(argv) {
     delayMs: 3000,
     maxIterations: Infinity,
     model: 'opus',
-    effort: 'high',
+    effort: 'max',
     allowedTools: null,
     extraArgs: [],
   };
@@ -70,23 +71,25 @@ function parseArgs(argv) {
 function printHelp() {
   console.log(`Ralph loop runner for Claude Code.
 
-Defaults: model=opus, effort=high (Opus 4.6 with extended thinking).
+Defaults: model=opus, effort=max (Opus 4.6 with extended thinking).
+Runs forever by default — keeps looping past Blind 75 completion and
+through failed passes. Stop with Ctrl-C.
 
 Usage:
-  node tools/ralph-loop.mjs [options]
+  node tools/ralph-loop.js [options]
 
 Options:
   --delay-ms <n>         Pause between passes (ms). Default: 3000
-  --max-iterations <n>   Stop after n passes. Default: unlimited
+  --max-iterations <n>   Stop after n passes. Default: infinite
   --model <name>         Model. Default: opus (claude-opus-4-6)
-  --effort <level>       Effort level (low|medium|high|max). Default: high
+  --effort <level>       Effort level (low|medium|high|max). Default: max
   --allowedTools <list>  Comma-separated tool allow list
   -h, --help             Show help
 
 Examples:
-  node tools/ralph-loop.mjs
-  node tools/ralph-loop.mjs --max-iterations 10
-  node tools/ralph-loop.mjs --effort max
+  node tools/ralph-loop.js
+  node tools/ralph-loop.js --max-iterations 10
+  node tools/ralph-loop.js --effort max
 `);
 }
 
@@ -140,6 +143,7 @@ function runClaude(prompt, options) {
   return new Promise((resolve) => {
     const args = [
       '--print',
+      '--dangerously-skip-permissions',
       '--model', options.model,
       '--effort', options.effort,
     ];
@@ -200,43 +204,23 @@ async function main() {
       throw new Error(`No Blind 75 tracker entries found in ${runProgramPath}`);
     }
 
-    if (tracker.done === tracker.total) {
-      await log(`All Blind 75 problems complete (${tracker.done}/${tracker.total}). Stopping.`);
-      return;
-    }
-
     iteration += 1;
     await log(`=== Pass ${iteration} === (${tracker.done}/${tracker.total} done, ${tracker.open} remaining)`);
 
     const result = await runClaude(createPrompt(iteration), options);
 
     if (result.error) {
-      await log(`Claude failed to start: ${result.error.message}`);
-      process.exitCode = 1;
-      return;
-    }
-
-    if (result.signal) {
-      await log(`Claude killed by signal: ${result.signal}`);
-      process.exitCode = 1;
-      return;
-    }
-
-    if (result.code !== 0) {
-      await log(`Claude exited with code ${result.code}. Stopping.`);
-      process.exitCode = result.code;
-      return;
+      await log(`Claude failed to start: ${result.error.message}. Retrying next pass.`);
+    } else if (result.signal) {
+      await log(`Claude killed by signal: ${result.signal}. Retrying next pass.`);
+    } else if (result.code !== 0) {
+      await log(`Claude exited with code ${result.code}. Retrying next pass.`);
     }
 
     // Check progress after the pass
     const updated = await readFile(runProgramPath, 'utf8');
     const updatedTracker = countTracker(updated);
     await log(`After pass: ${updatedTracker.done}/${updatedTracker.total} done, ${updatedTracker.open} remaining`);
-
-    if (updatedTracker.done === updatedTracker.total) {
-      await log('All problems complete. Stopping.');
-      return;
-    }
 
     if (!stopRequested && iteration < options.maxIterations) {
       await sleep(options.delayMs);

@@ -8,8 +8,8 @@ import {
   DEFAULT_METRIC_DEFINITIONS,
   ENGINEER_THRESHOLD_LINES,
   ROLE_BUDGETS,
-} from './config.mjs';
-import { SCHEMA_SQL } from './schema.mjs';
+} from './config.js';
+import { SCHEMA_SQL } from './schema.js';
 
 function nowIso() {
   return new Date().toISOString();
@@ -730,21 +730,91 @@ export function createConceptVersion(db, input) {
 
 export function recordDecision(db, input) {
   requireFields(input, ['versionId', 'decision']);
-  execute(
-    db,
-    `
-      UPDATE concept_versions
-      SET decision = $decision, notes = COALESCE($notes, notes)
-      WHERE version_id = $versionId
-    `,
-    {
+  const decision = String(input.decision).toLowerCase();
+
+  // keep and kill decisions MUST include learnings
+  if (['keep', 'kill'].includes(decision)) {
+    const learnings = toArray(input.learnings);
+    if (learnings.length === 0) {
+      throw new Error(
+        `record-decision: "${decision}" decisions require a non-empty "learnings" array. ` +
+          'Each learning needs: { title, principleType, statement, tags, whyItMatters, evidence: [{ relationType, weight, effectSize, scopeMatch }] }',
+      );
+    }
+  }
+
+  return withTransaction(db, () => {
+    execute(
+      db,
+      `
+        UPDATE concept_versions
+        SET decision = $decision, notes = COALESCE($notes, notes)
+        WHERE version_id = $versionId
+      `,
+      {
+        versionId: input.versionId,
+        decision,
+        notes: input.notes || null,
+      },
+    );
+    syncConceptFromDecision(db, input.versionId, decision);
+
+    // look up the run namespace for principle creation
+    const version = queryGet(
+      db,
+      'SELECT cv.run_id, r.namespace FROM concept_versions cv JOIN runs r ON r.run_id = cv.run_id WHERE cv.version_id = $versionId',
+      { versionId: input.versionId },
+    );
+    const namespace = version?.namespace || 'leetcode';
+    const runId = version?.run_id || null;
+
+    // auto-create principles + evidence from learnings
+    const createdPrinciples = [];
+    for (const learning of toArray(input.learnings)) {
+      requireFields(learning, ['title', 'principleType', 'statement', 'tags']);
+      const principle = upsertPrinciple(db, {
+        namespace,
+        createdRunId: runId,
+        createdVersionId: input.versionId,
+        title: learning.title,
+        principleType: learning.principleType,
+        statement: learning.statement,
+        tags: learning.tags,
+        whyItMatters: learning.whyItMatters || null,
+        status: learning.status || 'candidate',
+        confidence: learning.confidence ?? 0.3,
+        notes: learning.notes || null,
+      });
+
+      // auto-link evidence from this version
+      for (const evidence of toArray(learning.evidence)) {
+        addPrincipleEvidence(db, {
+          principleId: principle.principle_id,
+          versionId: evidence.versionId || input.versionId,
+          relationType: evidence.relationType || 'support',
+          weight: evidence.weight ?? 1.0,
+          effectSize: evidence.effectSize ?? 0.5,
+          scopeMatch: evidence.scopeMatch ?? 1.0,
+          note: evidence.note || null,
+        });
+      }
+
+      createdPrinciples.push(principle);
+    }
+
+    // auto-recompute beliefs after recording learnings
+    const beliefUpdates = createdPrinciples.length > 0 ? recomputeBeliefs(db, { namespace }) : [];
+
+    const updatedVersion = queryGet(db, 'SELECT * FROM concept_versions WHERE version_id = $versionId', {
       versionId: input.versionId,
-      decision: String(input.decision).toLowerCase(),
-      notes: input.notes || null,
-    },
-  );
-  syncConceptFromDecision(db, input.versionId, input.decision);
-  return queryGet(db, 'SELECT * FROM concept_versions WHERE version_id = $versionId', { versionId: input.versionId });
+    });
+
+    return {
+      ...updatedVersion,
+      createdPrinciples,
+      beliefUpdates,
+    };
+  });
 }
 
 export function createScorecard(db, input) {
@@ -1835,6 +1905,26 @@ export function listPrinciples(db, filter = {}) {
   }));
 }
 
+export function listPrinciplesWithEvidence(db, filter = {}) {
+  const principles = listPrinciples(db, filter);
+  return principles.map((principle) => {
+    const evidence = queryAll(
+      db,
+      `
+        SELECT pe.relation_type, pe.weight, pe.effect_size, pe.scope_match, pe.note,
+               c.canonical_name, cv.version_no, cv.decision
+        FROM principle_evidence pe
+        JOIN concept_versions cv ON cv.version_id = pe.version_id
+        JOIN concepts c ON c.concept_id = cv.concept_id
+        WHERE pe.principle_id = $principleId
+        ORDER BY pe.created_at DESC
+      `,
+      { principleId: principle.principle_id },
+    );
+    return { ...principle, evidence };
+  });
+}
+
 export function listOpenQuestionsAndWarnings(db) {
   return {
     openQuestions: listPrinciples(db, { principleType: 'open_question', excludeDeprecated: true }),
@@ -1957,6 +2047,544 @@ export function recordCycle(db, payload) {
       beliefUpdates,
     };
   });
+}
+
+export function validateRun(db, input) {
+  requireFields(input, ['runId']);
+  const run = queryGet(db, 'SELECT * FROM runs WHERE run_id = $runId', { runId: input.runId });
+  if (!run) throw new Error(`Unknown runId: ${input.runId}`);
+
+  const errors = [];
+  const warnings = [];
+
+  // Check: every keep/kill version must have at least one linked principle
+  const decidedVersions = queryAll(
+    db,
+    `
+      SELECT cv.version_id, cv.decision, c.canonical_name, cv.version_no
+      FROM concept_versions cv
+      JOIN concepts c ON c.concept_id = cv.concept_id
+      WHERE cv.run_id = $runId AND LOWER(cv.decision) IN ('keep', 'kill')
+    `,
+    { runId: input.runId },
+  );
+
+  for (const version of decidedVersions) {
+    const evidenceCount = queryGet(
+      db,
+      'SELECT COUNT(*) AS count FROM principle_evidence WHERE version_id = $versionId',
+      { versionId: version.version_id },
+    ).count;
+    if (evidenceCount === 0) {
+      errors.push(
+        `${version.canonical_name} v${version.version_no} (${version.decision}) has no linked principles. ` +
+          'Use record-decision with learnings to fix this.',
+      );
+    }
+  }
+
+  // Check: principles created in this run should have evidence
+  const runPrinciples = queryAll(
+    db,
+    'SELECT principle_id, title FROM principles WHERE created_run_id = $runId',
+    { runId: input.runId },
+  );
+  for (const principle of runPrinciples) {
+    const evidenceCount = queryGet(
+      db,
+      'SELECT COUNT(*) AS count FROM principle_evidence WHERE principle_id = $principleId',
+      { principleId: principle.principle_id },
+    ).count;
+    if (evidenceCount === 0) {
+      warnings.push(`Principle "${principle.title}" has no evidence rows.`);
+    }
+  }
+
+  // Check: beliefs were recomputed (principles should have non-zero support/contradict counts if evidence exists)
+  const staleBeliefs = queryAll(
+    db,
+    `
+      SELECT p.principle_id, p.title, p.support_count, p.contradict_count
+      FROM principles p
+      WHERE p.created_run_id = $runId
+        AND p.support_count = 0 AND p.contradict_count = 0
+        AND EXISTS (SELECT 1 FROM principle_evidence pe WHERE pe.principle_id = p.principle_id)
+    `,
+    { runId: input.runId },
+  );
+  for (const stale of staleBeliefs) {
+    errors.push(
+      `Principle "${stale.title}" has evidence but support_count=0 and contradict_count=0. ` +
+        'Run recompute-beliefs.',
+    );
+  }
+
+  // Check: if there are keep/kill decisions, there should be at least one principle
+  if (decidedVersions.length > 0 && runPrinciples.length === 0) {
+    errors.push(
+      `Run has ${decidedVersions.length} keep/kill decision(s) but created 0 principles.`,
+    );
+  }
+
+  // Check: every keep should have a transfer test recorded (Phase 8 probe)
+  const keepVersions = decidedVersions.filter((v) => String(v.decision).toLowerCase() === 'keep');
+  for (const version of keepVersions) {
+    if (!hasTransferTest(db, version.version_id)) {
+      warnings.push(
+        `${version.canonical_name} v${version.version_no} (keep) has no transfer test. ` +
+          'Run `record-transfer-test` to validate the algorithm actually transferred to a fresh LeetCode problem.',
+      );
+    }
+  }
+
+  // Check: every keep version should have a mechanic:* tag for portfolio tracking
+  for (const version of keepVersions) {
+    const versionTags = getEntityTags(db, 'version', version.version_id);
+    const conceptRow = queryGet(
+      db,
+      'SELECT concept_id FROM concept_versions WHERE version_id = $versionId',
+      { versionId: version.version_id },
+    );
+    const conceptTags = conceptRow
+      ? getEntityTags(db, 'concept', conceptRow.concept_id)
+      : [];
+    const mechanic = extractMechanicFamily([...versionTags, ...conceptTags]);
+    if (!mechanic) {
+      warnings.push(
+        `${version.canonical_name} v${version.version_no} (keep) has no mechanic:* tag. ` +
+          'Portfolio Critic cannot classify it. Add a `mechanic:<family>` tag via create-version or upsert-concept.',
+      );
+    }
+  }
+
+  const valid = errors.length === 0;
+  return { valid, errors, warnings, summary: { decidedVersions: decidedVersions.length, principles: runPrinciples.length } };
+}
+
+export function distillRun(db, input) {
+  requireFields(input, ['runId']);
+  const run = queryGet(db, 'SELECT * FROM runs WHERE run_id = $runId', { runId: input.runId });
+  if (!run) throw new Error(`Unknown runId: ${input.runId}`);
+
+  // Gather all decided versions with their scorecards and playtests
+  const versions = queryAll(
+    db,
+    `
+      SELECT
+        cv.version_id, cv.version_no, cv.hypothesis, cv.decision, cv.notes,
+        c.canonical_name, c.current_status
+      FROM concept_versions cv
+      JOIN concepts c ON c.concept_id = cv.concept_id
+      WHERE cv.run_id = $runId AND cv.decision IS NOT NULL
+      ORDER BY c.canonical_name, cv.version_no
+    `,
+    { runId: input.runId },
+  );
+
+  const prompts = [];
+
+  for (const version of versions) {
+    // Get metrics
+    const metrics = queryAll(
+      db,
+      `
+        SELECT mv.metric_key, mv.value, mv.rationale, sc.kind
+        FROM metric_values mv
+        JOIN scorecards sc ON sc.scorecard_id = mv.scorecard_id
+        WHERE sc.version_id = $versionId
+        ORDER BY sc.kind, mv.metric_key
+      `,
+      { versionId: version.version_id },
+    );
+
+    // Get playtests
+    const playtests = queryAll(
+      db,
+      `
+        SELECT strategy_mode, blind_pattern, verdict, report_summary
+        FROM playtests
+        WHERE version_id = $versionId
+        ORDER BY created_at
+      `,
+      { versionId: version.version_id },
+    );
+
+    // Check for existing evidence
+    const existingEvidence = queryAll(
+      db,
+      `
+        SELECT p.title, p.principle_type, pe.relation_type
+        FROM principle_evidence pe
+        JOIN principles p ON p.principle_id = pe.principle_id
+        WHERE pe.version_id = $versionId
+      `,
+      { versionId: version.version_id },
+    );
+
+    const actualMetrics = metrics.filter((m) => m.kind === 'actual');
+    const predictedMetrics = metrics.filter((m) => m.kind === 'predicted');
+
+    // Find prediction misses
+    const predictionMisses = [];
+    for (const actual of actualMetrics) {
+      const predicted = predictedMetrics.find((p) => p.metric_key === actual.metric_key);
+      if (predicted && Math.abs(predicted.value - actual.value) > 0.15) {
+        predictionMisses.push({
+          metric: actual.metric_key,
+          predicted: predicted.value,
+          actual: actual.value,
+          gap: actual.value - predicted.value,
+        });
+      }
+    }
+
+    prompts.push({
+      conceptName: version.canonical_name,
+      versionNo: version.version_no,
+      versionId: version.version_id,
+      decision: version.decision,
+      hypothesis: version.hypothesis,
+      notes: version.notes,
+      actualMetrics: actualMetrics.map((m) => ({ key: m.metric_key, value: m.value, rationale: m.rationale })),
+      playtestSummaries: playtests.map((p) => ({
+        strategy: p.strategy_mode,
+        blindPattern: p.blind_pattern,
+        verdict: p.verdict,
+        summary: p.report_summary,
+      })),
+      predictionMisses,
+      existingPrinciples: existingEvidence.map((e) => e.title),
+      questions: [
+        `What mechanic or design choice made ${version.canonical_name} ${version.decision === 'keep' ? 'succeed' : 'fail'}?`,
+        `What reusable principle does this suggest for future designs?`,
+        ...(predictionMisses.length > 0
+          ? [`Prediction missed on ${predictionMisses.map((m) => m.metric).join(', ')} — why?`]
+          : []),
+        ...(playtests.length > 0
+          ? [`The playtester's strategy was "${playtests[0]?.strategy_mode}" — does this confirm or contradict the intended algorithm emergence?`]
+          : []),
+      ],
+    });
+  }
+
+  return {
+    runId: input.runId,
+    namespace: run.namespace,
+    versionCount: versions.length,
+    prompts,
+    instructions:
+      'For each prompt, create a learning object: { title, principleType (principle|anti_pattern|procedure|open_question), ' +
+      'statement, tags: [...], whyItMatters, evidence: [{ relationType: "support"|"contradict", weight: 0-1, effectSize: 0-1, scopeMatch: 0-1 }] }. ' +
+      'Pass these as the learnings array in record-decision, or use upsert-principle + add-evidence directly.',
+  };
+}
+
+// -----------------------------------------------------------------------------
+// Portfolio / mechanic-family queries
+// -----------------------------------------------------------------------------
+// Mechanic family is expressed as a tag with prefix `mechanic:` (e.g.
+// `mechanic:hidden-reveal`). Attach to the concept_version via version tags.
+// This lets the designer and portfolio critic reason about homogeneity without
+// adding a new column.
+
+const MECHANIC_TAG_PREFIX = 'mechanic:';
+
+function extractMechanicFamily(tags) {
+  for (const tag of tags || []) {
+    if (String(tag).startsWith(MECHANIC_TAG_PREFIX)) {
+      return String(tag).slice(MECHANIC_TAG_PREFIX.length);
+    }
+  }
+  return null;
+}
+
+export function listKeptVersionsWithMechanics(db, filter = {}) {
+  const params = {};
+  const clauses = ["LOWER(cv.decision) = 'keep'"];
+  if (filter.namespace) {
+    clauses.push('r.namespace = $namespace');
+    params.namespace = filter.namespace;
+  }
+
+  const rows = queryAll(
+    db,
+    `
+      SELECT
+        cv.version_id,
+        cv.version_no,
+        cv.decision,
+        cv.created_at,
+        c.concept_id,
+        c.canonical_name,
+        r.namespace,
+        r.run_id
+      FROM concept_versions cv
+      JOIN concepts c ON c.concept_id = cv.concept_id
+      JOIN runs r ON r.run_id = cv.run_id
+      WHERE ${clauses.join(' AND ')}
+      ORDER BY cv.created_at DESC
+    `,
+    params,
+  );
+
+  return rows.map((row) => {
+    const versionTags = getEntityTags(db, 'version', row.version_id);
+    const conceptTags = getEntityTags(db, 'concept', row.concept_id);
+    const allTags = unique([...versionTags, ...conceptTags]);
+    return {
+      ...row,
+      tags: allTags,
+      mechanicFamily: extractMechanicFamily(allTags),
+    };
+  });
+}
+
+export function portfolioReview(db, { namespace } = {}) {
+  const kept = listKeptVersionsWithMechanics(db, { namespace });
+
+  const familyCounts = new Map();
+  const familyExamples = new Map();
+  const unknownFamilyVersions = [];
+
+  for (const row of kept) {
+    const family = row.mechanicFamily || null;
+    if (!family) {
+      unknownFamilyVersions.push(row);
+      continue;
+    }
+    familyCounts.set(family, (familyCounts.get(family) || 0) + 1);
+    if (!familyExamples.has(family)) familyExamples.set(family, []);
+    familyExamples.get(family).push({
+      conceptName: row.canonical_name,
+      versionNo: row.version_no,
+      createdAt: row.created_at,
+    });
+  }
+
+  const families = [...familyCounts.entries()]
+    .map(([family, count]) => ({
+      family,
+      count,
+      share: kept.length ? count / kept.length : 0,
+      examples: familyExamples.get(family) || [],
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  const dominant = families[0] || null;
+  const concentrationRatio = dominant && kept.length ? dominant.count / kept.length : 0;
+
+  const warnings = [];
+  if (kept.length >= 3 && concentrationRatio >= 0.6) {
+    warnings.push(
+      `Mechanic homogeneity: ${Math.round(concentrationRatio * 100)}% of kept games ` +
+        `use "${dominant.family}". Consider pushing for a different mechanic family.`,
+    );
+  }
+  if (unknownFamilyVersions.length > 0) {
+    warnings.push(
+      `${unknownFamilyVersions.length} kept version(s) are missing a mechanic:* tag. ` +
+        'Backfill with `upsert-concept` or `create-version` tags: ["mechanic:<family>"].',
+    );
+  }
+
+  return {
+    namespace: namespace || null,
+    totalKept: kept.length,
+    families,
+    concentrationRatio,
+    dominantFamily: dominant?.family || null,
+    unknownFamilyVersions: unknownFamilyVersions.map((row) => ({
+      conceptName: row.canonical_name,
+      versionNo: row.version_no,
+    })),
+    warnings,
+  };
+}
+
+export function recentMechanicFamilies(db, { namespace, limit = 2 } = {}) {
+  const kept = listKeptVersionsWithMechanics(db, { namespace });
+  const recent = kept.slice(0, Math.max(1, Number(limit) || 2));
+  return {
+    limit: recent.length,
+    mechanics: recent.map((row) => ({
+      conceptName: row.canonical_name,
+      versionNo: row.version_no,
+      mechanicFamily: row.mechanicFamily,
+      createdAt: row.created_at,
+    })),
+  };
+}
+
+// -----------------------------------------------------------------------------
+// Contradiction detection
+// -----------------------------------------------------------------------------
+
+export function detectContradictions(db, { namespace } = {}) {
+  const params = {};
+  const clauses = ['1 = 1'];
+  if (namespace) {
+    clauses.push('p.namespace = $namespace');
+    params.namespace = namespace;
+  }
+
+  const contestedPrinciples = queryAll(
+    db,
+    `
+      SELECT p.*
+      FROM principles p
+      WHERE ${clauses.join(' AND ')}
+        AND p.status IN ('contested', 'deprecated')
+      ORDER BY p.last_contradicted_at DESC NULLS LAST, p.confidence DESC
+    `,
+    params,
+  );
+
+  const contradictingEvidence = queryAll(
+    db,
+    `
+      SELECT
+        p.principle_id,
+        p.title,
+        p.status,
+        p.confidence,
+        pe.relation_type,
+        pe.weight,
+        pe.effect_size,
+        pe.scope_match,
+        pe.created_at AS evidence_created_at,
+        pe.note,
+        c.canonical_name,
+        cv.version_no,
+        cv.decision,
+        cv.version_id
+      FROM principle_evidence pe
+      JOIN principles p ON p.principle_id = pe.principle_id
+      JOIN concept_versions cv ON cv.version_id = pe.version_id
+      JOIN concepts c ON c.concept_id = cv.concept_id
+      WHERE pe.relation_type = 'contradict'
+        ${namespace ? "AND p.namespace = $namespace" : ''}
+      ORDER BY pe.created_at DESC
+    `,
+    params,
+  );
+
+  // group contradicting evidence by principle
+  const evidenceByPrinciple = new Map();
+  for (const row of contradictingEvidence) {
+    if (!evidenceByPrinciple.has(row.principle_id)) {
+      evidenceByPrinciple.set(row.principle_id, {
+        principleId: row.principle_id,
+        title: row.title,
+        status: row.status,
+        confidence: row.confidence,
+        contradictions: [],
+      });
+    }
+    evidenceByPrinciple.get(row.principle_id).contradictions.push({
+      conceptName: row.canonical_name,
+      versionNo: row.version_no,
+      decision: row.decision,
+      weight: row.weight,
+      effectSize: row.effect_size,
+      scopeMatch: row.scope_match,
+      note: row.note,
+      createdAt: row.evidence_created_at,
+    });
+  }
+
+  // stale principles: validated/emerging but no support in last 3 runs
+  const namespaceFilter = namespace ? "AND namespace = $namespace" : '';
+  const staleValidated = queryAll(
+    db,
+    `
+      SELECT *
+      FROM principles
+      WHERE status IN ('validated', 'emerging')
+        ${namespaceFilter}
+        AND last_supported_at IS NOT NULL
+        AND datetime(last_supported_at) < datetime('now', '-90 days')
+      ORDER BY last_supported_at ASC
+    `,
+    params,
+  );
+
+  return {
+    namespace: namespace || null,
+    contested: contestedPrinciples,
+    contradictedPrinciples: [...evidenceByPrinciple.values()],
+    staleValidated,
+    summary: {
+      contestedCount: contestedPrinciples.length,
+      contradictedCount: evidenceByPrinciple.size,
+      staleCount: staleValidated.length,
+    },
+  };
+}
+
+// -----------------------------------------------------------------------------
+// Transfer test (post-keep algorithm-alignment probe)
+// -----------------------------------------------------------------------------
+
+export function recordTransferTest(db, input) {
+  requireFields(input, ['versionId', 'leetcodeProblem', 'outcome']);
+  const outcome = String(input.outcome).toLowerCase();
+  if (!['transfer', 'partial', 'no_transfer'].includes(outcome)) {
+    throw new Error(
+      `record-transfer-test: outcome must be one of transfer | partial | no_transfer (got "${input.outcome}")`,
+    );
+  }
+
+  const strategyLabel = `transfer_probe:${outcome}`;
+  const playtest = createPlaytest(db, {
+    versionId: input.versionId,
+    testerRole: input.testerRole || 'transfer_tester',
+    strategyMode: strategyLabel,
+    blindPattern: input.leetcodeProblem,
+    verdict: outcome,
+    reportSummary: input.reportSummary || null,
+  });
+
+  // optionally attach a transfer_success metric to the latest actual scorecard
+  if (input.attachMetric !== false) {
+    const actualScorecard = queryGet(
+      db,
+      `
+        SELECT scorecard_id FROM scorecards
+        WHERE version_id = $versionId AND kind = 'actual'
+        ORDER BY created_at DESC LIMIT 1
+      `,
+      { versionId: input.versionId },
+    );
+    if (actualScorecard) {
+      const numericOutcome = outcome === 'transfer' ? 1 : outcome === 'partial' ? 0.5 : 0;
+      execute(
+        db,
+        `
+          INSERT OR REPLACE INTO metric_values (scorecard_id, metric_key, value, rationale)
+          VALUES ($scorecardId, 'transfer_success', $value, $rationale)
+        `,
+        {
+          scorecardId: actualScorecard.scorecard_id,
+          value: numericOutcome,
+          rationale: `Transfer probe on ${input.leetcodeProblem}: ${outcome}`,
+        },
+      );
+    }
+  }
+
+  return playtest;
+}
+
+export function hasTransferTest(db, versionId) {
+  const row = queryGet(
+    db,
+    `
+      SELECT COUNT(*) AS count FROM playtests
+      WHERE version_id = $versionId AND strategy_mode LIKE 'transfer_probe:%'
+    `,
+    { versionId },
+  );
+  return Number(row?.count || 0) > 0;
 }
 
 export function withDatabase(dbPath, work) {

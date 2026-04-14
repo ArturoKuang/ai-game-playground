@@ -3,7 +3,7 @@
  * Single-session playtest: launches browser, takes screenshots, clicks, gets text.
  * All operations happen in one process to avoid Puppeteer reconnect issues.
  *
- * Usage: node tools/playtest-session.mjs <game_id> <script>
+ * Usage: node tools/playtest-session.js <game_id> <script>
  * Script is a comma-separated list of commands:
  *   ss          - screenshot
  *   text        - get visible text
@@ -27,7 +27,7 @@ const [,, gameId, ...scriptParts] = process.argv;
 const script = scriptParts.join(' ');
 
 if (!gameId) {
-  console.log('Usage: node tools/playtest-session.mjs <game_id> <commands>');
+  console.log('Usage: node tools/playtest-session.js <game_id> <commands>');
   process.exit(1);
 }
 

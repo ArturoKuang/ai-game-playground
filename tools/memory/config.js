@@ -3,6 +3,8 @@ import path from 'node:path';
 export const MEMORY_DIR = path.resolve(process.cwd(), 'memory');
 export const DEFAULT_DB_PATH = path.join(MEMORY_DIR, 'system.sqlite');
 
+export const LEETCODE_DIR = path.resolve(process.cwd(), 'leetcode');
+
 export const MARKDOWN_OUTPUTS = {
   currentPrinciples: path.join(MEMORY_DIR, 'current_principles.md'),
   currentAntiPatterns: path.join(MEMORY_DIR, 'current_anti_patterns.md'),
@@ -11,7 +13,24 @@ export const MARKDOWN_OUTPUTS = {
   engineerBrief: path.join(MEMORY_DIR, 'engineer_brief.md'),
   playtesterPacket: path.join(MEMORY_DIR, 'playtester_packet.md'),
   runSummary: path.join(MEMORY_DIR, 'run_summary.md'),
+  portfolioReview: path.join(MEMORY_DIR, 'portfolio_review.md'),
+  contradictions: path.join(MEMORY_DIR, 'contradictions.md'),
+  learnings: path.join(LEETCODE_DIR, 'learnings.md'),
 };
+
+// Known mechanic families. Not exhaustive — tag convention is `mechanic:<slug>`.
+// This list just documents what's been seen so far.
+export const KNOWN_MECHANIC_FAMILIES = [
+  'hidden-reveal', // Pair Up, Tally, Top Pick, Power Line, Spot Check, Reflect
+  'visible-sort',
+  'route-trace',
+  'match-pair',
+  'constraint-satisfy', // Grid Lock (killed)
+  'stack-match',
+  'classify-sequence',
+  'window-scan',
+  'graph-explore',
+];
 
 export const ROLE_BUDGETS = {
   designer: { min: 8, max: 12 },
@@ -149,6 +168,14 @@ export const DEFAULT_METRIC_DEFINITIONS = [
     label: 'Algorithm Alignment',
     scaleType: 'ratio',
     description: 'Diagnostic: % of L5 moves matching target algorithm pattern.',
+  },
+  {
+    metricKey: 'transfer_success',
+    namespace: 'leetcode',
+    label: 'Transfer Success',
+    scaleType: 'ratio',
+    description:
+      'Post-win probe: did intuition transfer to a fresh LeetCode problem in the same family? 1=yes, 0.5=partial, 0=no.',
   },
   {
     metricKey: 'counterintuitive_moves',

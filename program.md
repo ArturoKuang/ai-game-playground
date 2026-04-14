@@ -165,7 +165,7 @@ prompts/
   engineer.md     ← engineer agent prompt
 tools/
   review-prompt.md ← playtester agent prompt
-  playtest.mjs     ← browser automation harness for playtester
+  playtest.js     ← browser automation harness for playtester
 specs/            ← one spec per concept (lifecycle document)
 learnings.md      ← design patterns and quality metric heuristics (designer reads this)
 results.tsv       ← experiment log
