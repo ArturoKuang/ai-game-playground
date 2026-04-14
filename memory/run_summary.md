@@ -1,20 +1,17 @@
 # Run Summary
 
-- Run ID: 3eeb0b7d-18e2-491e-a598-cde336eda2dc
+- Run ID: 8e5b1844-e64c-48ab-a6f9-4a6eef3b31d0
 - Namespace: leetcode
 - Loop type: algorithm_arcade
-- Status: completed
-- Started: 2026-04-13T19:29:08.225Z
-- Ended: 2026-04-13T20:06:38.605Z
-- Summary: Spot Check v2 — hash set membership game teaching Valid Sudoku (#36) and Longest Consecutive Sequence (#128). Sector-blind L2 mechanic creates 62% win-rate gap at D3. Priority-based L5 achieves 100% solvability. Algorithm alignment 100%.
+- Status: active
+- Started: 2026-04-14T04:18:21.129Z
+- Ended: still active
+- Summary: Algorithm Arcade cycle — targeting Sliding Window (#121 Best Time to Buy and Sell Stock)
 - Scorecards in run: 0
 - Playtests in run: 0
-- Principles created in run: 4
+- Principles created in run: 0
 
 - Bugs in run: 0
 - Open bugs: 0
 - Blocking open bugs: 0
-
-## Versions
-- Spot Check v1: keep
 
